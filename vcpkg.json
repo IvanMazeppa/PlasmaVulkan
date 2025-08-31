@@ -10,7 +10,10 @@
     "vk-bootstrap",
     "spdlog",
     "stb",
-    "imgui[glfw-binding,vulkan-binding]"
+    {
+      "name": "imgui",
+      "features": ["glfw-binding", "vulkan-binding"]
+    }
   ],
   "builtin-baseline": "6ecbbbdf31cba47aafa7cf6189b1e73e10ac61f8",
   "overrides": [

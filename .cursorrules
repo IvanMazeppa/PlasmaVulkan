@@ -1,0 +1,39 @@
+# Cursor AI Rules for PlasmaVulkan Project
+
+## Project Context
+This is a Vulkan 1.4 volumetric particle rendering project using modern C++20.
+
+## Code Style
+- Use modern C++20 features
+- Prefer RAII for resource management
+- Use descriptive variable names
+- Follow existing code patterns in the project
+
+## Vulkan Specifics
+- Always check VkResult return values
+- Use VMA for memory allocation
+- Prefer dynamic rendering over render passes
+- Use compute shaders for particle physics
+
+## Key Files
+- src/renderer/VulkanContext.cpp - Core Vulkan setup
+- src/core/Application.cpp - Main application loop
+- shaders/*.comp - Compute shaders for particle simulation
+- shaders/*.vert/frag - Rendering shaders
+
+## Build System
+- CMake with vcpkg for dependencies
+- Visual Studio 2022 compiler on Windows
+- Build directory: cmake-build-debug-visual-studio
+
+## Common Commands
+- Build: cmake --build cmake-build-debug-visual-studio --target PlasmaVulkan
+- Run: ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe
+- Compile shaders: cmake --build cmake-build-debug-visual-studio --target shaders
+
+## Dependencies
+- Vulkan 1.4
+- GLFW for windowing
+- GLM for math
+- VMA for memory management
+- volk for function loading

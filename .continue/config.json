@@ -1,0 +1,31 @@
+{
+  "models": [
+    {
+      "title": "Claude 3.5 Sonnet",
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022",
+      "apiKey": "YOUR_ANTHROPIC_API_KEY_HERE"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "Starcoder2 3b",
+    "provider": "ollama",
+    "model": "starcoder2:3b"
+  },
+  "customCommands": [
+    {
+      "name": "vulkan",
+      "prompt": "You are helping with a Vulkan 1.4 graphics application. Use modern C++20, RAII patterns, and follow Vulkan best practices.",
+      "description": "Vulkan-specific assistance"
+    },
+    {
+      "name": "shader",
+      "prompt": "You are helping write GLSL shaders for Vulkan. The project uses compute shaders for particle physics and vertex/fragment shaders for rendering.",
+      "description": "GLSL shader assistance"
+    }
+  ],
+  "allowAnonymousTelemetry": false,
+  "embeddingsProvider": {
+    "provider": "transformers.js"
+  }
+}
