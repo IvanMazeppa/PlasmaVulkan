@@ -22,7 +22,6 @@ find_package(volk CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(vk-bootstrap CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
 
 if(ENABLE_PROFILING)
     find_package(Tracy CONFIG REQUIRED)
@@ -75,7 +74,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     GPUOpen::VulkanMemoryAllocator
     vk-bootstrap::vk-bootstrap
     spdlog::spdlog
-    imgui::imgui
     $<$<BOOL:${ENABLE_PROFILING}>:Tracy::TracyClient>
 )
 
