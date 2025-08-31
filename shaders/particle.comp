@@ -34,9 +34,9 @@ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 void applyConstraints(inout vec3 position, inout vec3 velocity) {
     if (push.constraintShape == 1u) { // SPHERE
         float distance = length(position);
-        if (distance > push.constraintRadius) {
+        if (distance > push.constraintRadius && distance > 0.001) {
             // Project particle back onto sphere surface
-            vec3 normal = normalize(position);
+            vec3 normal = position / distance; // Safe normalize
             position = normal * push.constraintRadius * 0.99; // Slightly inside
             // Reflect velocity
             velocity = reflect(velocity, -normal) * 0.8; // Some energy loss
@@ -47,8 +47,8 @@ void applyConstraints(inout vec3 position, inout vec3 velocity) {
         float thickness = push.constraintThickness * 0.5; // Half thickness above/below center
         
         // Radial constraint
-        if (radiusXZ > push.constraintRadius) {
-            vec2 normalXZ = normalize(position.xz);
+        if (radiusXZ > push.constraintRadius && radiusXZ > 0.001) {
+            vec2 normalXZ = position.xz / radiusXZ; // Safe normalize
             position.xz = normalXZ * push.constraintRadius * 0.99;
             vec2 velXZ = velocity.xz;
             velXZ = reflect(velXZ, -normalXZ) * 0.8;
@@ -67,24 +67,30 @@ void applyConstraints(inout vec3 position, inout vec3 velocity) {
         float majorRadius = push.constraintRadius;
         float minorRadius = push.constraintThickness;
         
+        // Handle case where particle is at center - push it out
+        if (radiusXZ < 0.001) {
+            position.xz = vec2(majorRadius, 0.0);
+            radiusXZ = majorRadius;
+        }
+        
         // Distance to torus center line in XZ plane
-        vec3 torusCenter = vec3(normalize(position.xz) * majorRadius, 0.0);
+        vec2 dirXZ = position.xz / radiusXZ; // Safe normalize
+        vec3 torusCenter = vec3(dirXZ * majorRadius, 0.0);
         vec3 toCenter = position - torusCenter;
         float distToTorus = length(toCenter);
         
-        if (distToTorus > minorRadius) {
+        if (distToTorus > minorRadius && distToTorus > 0.001) {
             // Project back onto torus surface
-            vec3 normal = normalize(toCenter);
+            vec3 normal = toCenter / distToTorus; // Safe normalize
             position = torusCenter + normal * minorRadius * 0.99;
             velocity = reflect(velocity, -normal) * 0.7;
         }
         
         // Handle case where particle is too close to center (inside donut hole)
         if (radiusXZ < majorRadius - minorRadius) {
-            vec2 normalXZ = normalize(position.xz);
-            position.xz = normalXZ * (majorRadius - minorRadius * 0.99);
+            position.xz = dirXZ * (majorRadius - minorRadius * 0.99);
             vec2 velXZ = velocity.xz;
-            velXZ = reflect(velXZ, -normalXZ) * 0.8;
+            velXZ = reflect(velXZ, -dirXZ) * 0.8;
             velocity.xz = velXZ;
         }
     }
