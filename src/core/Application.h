@@ -90,6 +90,12 @@ private:
     bool m_showOSD = true;
     float m_lastParamUpdate = 0.0f;
     
+    // Advanced physics parameters
+    float m_timeScale = 1.0f;
+    bool m_repulsiveGravity = false;
+    float m_energyInjection = 0.0f;
+    float m_energyTimer = 0.0f;
+    
     // Enhanced camera controls
     float m_cameraDistance = 20.0f;
     float m_cameraTheta = 0.0f;     // Horizontal rotation (azimuth)

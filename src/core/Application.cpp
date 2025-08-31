@@ -32,6 +32,9 @@ void Application::run() {
         // This ensures consistent behavior regardless of framerate
         const float maxDeltaTime = 1.0f / 30.0f; // 30 FPS minimum
         deltaTime = std::min(deltaTime, maxDeltaTime);
+        
+        // Apply time scale for slow motion / fast forward
+        deltaTime *= m_timeScale;
 
         glfwPollEvents();
 
@@ -168,6 +171,33 @@ void Application::createCommandBuffers() {
 void Application::update(float deltaTime) {
     // Update total time
     m_totalTime += deltaTime;
+    
+    // Apply repulsive gravity if enabled
+    if (m_particleSystem) {
+        float baseGravity = std::abs(m_particleSystem->getGravityStrength());
+        float effectiveGravity = m_repulsiveGravity ? -baseGravity : baseGravity;
+        if (effectiveGravity != m_particleSystem->getGravityStrength()) {
+            m_particleSystem->setGravityStrength(effectiveGravity);
+        }
+    }
+    
+    // Apply energy injection (periodic turbulence boost)
+    if (m_energyInjection > 0.0f && m_particleSystem) {
+        m_energyTimer += deltaTime;
+        if (m_energyTimer >= 1.0f) { // Inject energy every second
+            float baseTurbulence = m_particleSystem->getTurbulenceStrength();
+            float boostedTurbulence = std::min(1.0f, baseTurbulence + m_energyInjection);
+            m_particleSystem->setTurbulenceStrength(boostedTurbulence);
+            
+            // Reset turbulence after a short burst
+            if (m_energyTimer >= 1.2f) {
+                m_particleSystem->setTurbulenceStrength(baseTurbulence);
+                m_energyTimer = 0.0f;
+            }
+        }
+    } else {
+        m_energyTimer = 0.0f;
+    }
     
     // Update particle system physics would happen here if using CPU
     // But we're using compute shaders, so it happens in the render command buffer
@@ -399,6 +429,7 @@ void Application::updateWindowTitle() {
     if (m_particleSystem) {
         title += " | G:" + std::to_string(m_particleSystem->getGravityStrength()).substr(0, 4);
         title += " T:" + std::to_string(m_particleSystem->getTurbulenceStrength()).substr(0, 4);
+        title += " D:" + std::to_string(m_particleSystem->getDampingFactor()).substr(2, 3); // Show .999 as 999
         title += " P:" + std::to_string(m_particleSystem->getActiveParticleCount() / 1000) + "k";
         
         if (m_particleSystem->isSPHMode()) {
@@ -406,6 +437,15 @@ void Application::updateWindowTitle() {
         }
         if (m_volumetricMode) {
             title += " [VOL]";
+        }
+        if (m_repulsiveGravity) {
+            title += " [REP]";
+        }
+        if (m_timeScale != 1.0f) {
+            title += " TS:" + std::to_string(m_timeScale).substr(0, 3);
+        }
+        if (m_energyInjection > 0.0f) {
+            title += " EN:" + std::to_string(m_energyInjection).substr(0, 3);
         }
     }
     
@@ -427,6 +467,14 @@ void Application::printStatusUpdate() {
     std::cout << "Simulation Modes:" << std::endl;
     std::cout << "  SPH Fluid: " << (m_particleSystem->isSPHMode() ? "ENABLED" : "DISABLED") << std::endl;
     std::cout << "  Volumetric: " << (m_volumetricMode ? "ENABLED" : "DISABLED") << std::endl;
+    
+    std::cout << "Advanced Physics:" << std::endl;
+    std::cout << "  Time Scale: " << m_timeScale << std::endl;
+    std::cout << "  Repulsive Gravity: " << (m_repulsiveGravity ? "ENABLED" : "DISABLED") << std::endl;
+    std::cout << "  Energy Injection: " << m_energyInjection << std::endl;
+    
+    glm::vec3 gravCenter = m_particleSystem->getGravityCenter();
+    std::cout << "  Gravity Center: (" << gravCenter.x << ", " << gravCenter.y << ", " << gravCenter.z << ")" << std::endl;
     
     std::cout << "Camera: Distance=" << m_cameraDistance 
               << " Theta=" << m_cameraTheta << " Phi=" << m_cameraPhi << std::endl;
@@ -606,6 +654,12 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "Display Controls:" << std::endl;
         std::cout << "  H: Show this help" << std::endl;
         std::cout << "  F1: Toggle periodic status updates (OSD)" << std::endl;
+        std::cout << "Advanced Physics:" << std::endl;
+        std::cout << "  Arrow Keys: Move gravity center (Up/Down=Y, Left/Right=X)" << std::endl;
+        std::cout << "  Page Up/Down: Move gravity center Z" << std::endl;
+        std::cout << "  [ / ]: Decrease/Increase time scale (0.1x to 5.0x)" << std::endl;
+        std::cout << "  N: Toggle attraction/repulsion gravity" << std::endl;
+        std::cout << "  I/U: Increase/Decrease energy injection" << std::endl;
         std::cout << "Camera Controls:" << std::endl;
         std::cout << "  Mouse: Orbit camera" << std::endl;
         std::cout << "  Wheel: Zoom in/out (0.5-200 units)" << std::endl;
@@ -629,6 +683,75 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         if (app->m_showOSD) {
             app->printStatusUpdate(); // Show immediate status when enabled
         }
+    }
+    // Gravity center position controls
+    else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        glm::vec3 center = app->m_particleSystem->getGravityCenter();
+        center.y += 0.5f;
+        app->m_particleSystem->setGravityCenter(center);
+        app->printParameterChange("Gravity Center Y", center.y);
+    }
+    else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        glm::vec3 center = app->m_particleSystem->getGravityCenter();
+        center.y -= 0.5f;
+        app->m_particleSystem->setGravityCenter(center);
+        app->printParameterChange("Gravity Center Y", center.y);
+    }
+    else if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        glm::vec3 center = app->m_particleSystem->getGravityCenter();
+        center.x -= 0.5f;
+        app->m_particleSystem->setGravityCenter(center);
+        app->printParameterChange("Gravity Center X", center.x);
+    }
+    else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        glm::vec3 center = app->m_particleSystem->getGravityCenter();
+        center.x += 0.5f;
+        app->m_particleSystem->setGravityCenter(center);
+        app->printParameterChange("Gravity Center X", center.x);
+    }
+    else if (key == GLFW_KEY_PAGE_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        glm::vec3 center = app->m_particleSystem->getGravityCenter();
+        center.z += 0.5f;
+        app->m_particleSystem->setGravityCenter(center);
+        app->printParameterChange("Gravity Center Z", center.z);
+    }
+    else if (key == GLFW_KEY_PAGE_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        glm::vec3 center = app->m_particleSystem->getGravityCenter();
+        center.z -= 0.5f;
+        app->m_particleSystem->setGravityCenter(center);
+        app->printParameterChange("Gravity Center Z", center.z);
+    }
+    // Time scale controls
+    else if (key == GLFW_KEY_LEFT_BRACKET && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Decrease time scale (slow motion)
+        app->m_timeScale = std::max(0.1f, app->m_timeScale - 0.1f);
+        app->printParameterChange("Time Scale", app->m_timeScale);
+    }
+    else if (key == GLFW_KEY_RIGHT_BRACKET && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase time scale (fast forward)
+        app->m_timeScale = std::min(5.0f, app->m_timeScale + 0.1f);
+        app->printParameterChange("Time Scale", app->m_timeScale);
+    }
+    // Attraction/Repulsion toggle
+    else if (key == GLFW_KEY_N && action == GLFW_PRESS) {
+        app->m_repulsiveGravity = !app->m_repulsiveGravity;
+        if (app->m_repulsiveGravity) {
+            std::cout << "[MODE] Repulsive gravity ENABLED - Matter explosion!" << std::endl;
+        } else {
+            std::cout << "[MODE] Attractive gravity ENABLED - Back to normal" << std::endl;
+        }
+        app->updateWindowTitle();
+    }
+    // Energy injection controls  
+    else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase energy injection
+        app->m_energyInjection = std::min(2.0f, app->m_energyInjection + 0.1f);
+        app->printParameterChange("Energy Injection", app->m_energyInjection);
+    }
+    else if (key == GLFW_KEY_U && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Decrease energy injection
+        app->m_energyInjection = std::max(0.0f, app->m_energyInjection - 0.1f);
+        app->printParameterChange("Energy Injection", app->m_energyInjection);
     }
 }
 

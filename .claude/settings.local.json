@@ -29,7 +29,8 @@
       "mcp__vulkan_db__get_vulkan_entity",
       "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build build/windows-debug --target shaders --config Debug)",
       "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build build/windows-debug --target PlasmaVulkan --config Debug)",
-      "Bash(./build/windows-debug/Debug/PlasmaVulkan.exe)"
+      "Bash(./build/windows-debug/Debug/PlasmaVulkan.exe)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
