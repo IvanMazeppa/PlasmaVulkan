@@ -1,0 +1,147 @@
+#version 450
+
+// Spatial hashing for efficient neighbor search in SPH simulation
+
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// Grid cell structure for spatial hashing
+struct GridCell {
+    uint count;        // Number of particles in this cell
+    uint startIndex;   // Starting index in sorted particle array
+};
+
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+layout(binding = 1, std430) buffer GridBuffer {
+    GridCell cells[];
+} gridBuffer;
+
+layout(binding = 2, std430) buffer IndexBuffer {
+    uint particleIndices[];  // Sorted particle indices by grid cell
+    uint cellIndices[];      // Cell index for each particle
+} indexBuffer;
+
+layout(binding = 3, std430) buffer NeighborBuffer {
+    // Format: [count, idx1, idx2, ...] per particle
+    uint neighborData[];
+} neighborBuffer;
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    vec3 gridOrigin;       // Minimum bounds of grid
+    float cellSize;        // Size of each grid cell (usually 2 * smoothing radius)
+    uvec3 gridDimensions;  // Number of cells in each dimension
+    uint particleCount;
+    uint maxNeighbors;     // Maximum neighbors per particle
+    float smoothingRadius; // SPH kernel radius
+} push;
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Hash function to convert 3D grid position to 1D index
+uint hashGridPosition(ivec3 gridPos) {
+    // Clamp to grid bounds
+    gridPos = clamp(gridPos, ivec3(0), ivec3(push.gridDimensions - 1));
+    
+    // Morton encoding (Z-order curve) for better cache locality
+    uint morton = 0;
+    for (int i = 0; i < 10; i++) {
+        morton |= ((gridPos.x & (1 << i)) << (2 * i)) |
+                 ((gridPos.y & (1 << i)) << (2 * i + 1)) |
+                 ((gridPos.z & (1 << i)) << (2 * i + 2));
+    }
+    
+    // Fallback to linear indexing if Morton code exceeds grid size
+    uint linearIndex = gridPos.x + 
+                      gridPos.y * push.gridDimensions.x + 
+                      gridPos.z * push.gridDimensions.x * push.gridDimensions.y;
+    
+    uint totalCells = push.gridDimensions.x * push.gridDimensions.y * push.gridDimensions.z;
+    return morton < totalCells ? morton : linearIndex % totalCells;
+}
+
+// Convert world position to grid coordinates
+ivec3 worldToGrid(vec3 worldPos) {
+    vec3 localPos = worldPos - push.gridOrigin;
+    return ivec3(floor(localPos / push.cellSize));
+}
+
+// Check if grid position is valid
+bool isValidGridPos(ivec3 gridPos) {
+    return all(greaterThanEqual(gridPos, ivec3(0))) && 
+           all(lessThan(gridPos, ivec3(push.gridDimensions)));
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    
+    if (id >= push.particleCount) {
+        return;
+    }
+    
+    Particle p = particleBuffer.particles[id];
+    
+    // Find which grid cell this particle belongs to
+    ivec3 gridPos = worldToGrid(p.position);
+    uint cellIndex = hashGridPosition(gridPos);
+    
+    // Store cell index for this particle
+    indexBuffer.cellIndices[id] = cellIndex;
+    
+    // Now find all neighbors within smoothing radius
+    uint neighborCount = 0;
+    uint neighborOffset = id * (push.maxNeighbors + 1);
+    
+    // Search radius in grid cells (usually need to check 3x3x3 = 27 cells)
+    int searchRadius = int(ceil(push.smoothingRadius / push.cellSize));
+    
+    // Check all nearby grid cells
+    for (int dx = -searchRadius; dx <= searchRadius; dx++) {
+        for (int dy = -searchRadius; dy <= searchRadius; dy++) {
+            for (int dz = -searchRadius; dz <= searchRadius; dz++) {
+                ivec3 neighborGridPos = gridPos + ivec3(dx, dy, dz);
+                
+                if (!isValidGridPos(neighborGridPos)) {
+                    continue;
+                }
+                
+                uint neighborCellIndex = hashGridPosition(neighborGridPos);
+                GridCell neighborCell = gridBuffer.cells[neighborCellIndex];
+                
+                // Check all particles in this cell
+                for (uint i = 0; i < neighborCell.count; i++) {
+                    uint particleIdx = indexBuffer.particleIndices[neighborCell.startIndex + i];
+                    
+                    if (particleIdx == id || particleIdx >= push.particleCount) {
+                        continue;
+                    }
+                    
+                    // Check if within smoothing radius
+                    vec3 diff = p.position - particleBuffer.particles[particleIdx].position;
+                    float distSq = dot(diff, diff);
+                    
+                    if (distSq < push.smoothingRadius * push.smoothingRadius) {
+                        // Add to neighbor list
+                        if (neighborCount < push.maxNeighbors) {
+                            neighborBuffer.neighborData[neighborOffset + 1 + neighborCount] = particleIdx;
+                            neighborCount++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Store neighbor count
+    neighborBuffer.neighborData[neighborOffset] = neighborCount;
+    
+    // Memory barrier to ensure all writes are visible
+    memoryBarrierBuffer();
+}

@@ -1,0 +1,161 @@
+#version 450
+
+// Simplified SPH implementation with brute-force neighbor search
+// Good for up to ~10k particles, after that we'll need spatial hashing
+
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// SPH parameters (as push constants for now)
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+    float time;
+    uint particleCount;
+    float smoothingRadius;    // h
+    float restDensity;        // ρ₀  
+    float pressureConstant;   // k
+    float viscosity;          // μ
+    float mass;               // m
+} push;
+
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+const float PI = 3.14159265359;
+const float EPSILON = 0.0001;
+
+// SPH Kernel Functions
+
+// Poly6 kernel for density
+float Wpoly6(float r, float h) {
+    if (r > h || r < EPSILON) return 0.0;
+    float h2 = h * h;
+    float r2 = r * r;
+    float diff = h2 - r2;
+    return (315.0 / (64.0 * PI * pow(h, 9.0))) * diff * diff * diff;
+}
+
+// Spiky kernel gradient for pressure (returns magnitude, multiply by normalized r)
+float gradWspikyMag(float r, float h) {
+    if (r > h || r < EPSILON) return 0.0;
+    float diff = h - r;
+    return (-45.0 / (PI * pow(h, 6.0))) * diff * diff;
+}
+
+// Viscosity kernel laplacian
+float laplacianWviscosity(float r, float h) {
+    if (r > h) return 0.0;
+    return (45.0 / (PI * pow(h, 6.0))) * (h - r);
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    
+    if (id >= push.particleCount) {
+        return;
+    }
+    
+    Particle p = particleBuffer.particles[id];
+    
+    // Phase 1: Calculate density
+    float density = 0.0;
+    
+    // Include all particles (brute force)
+    for (uint j = 0; j < push.particleCount; j++) {
+        if (j == id) {
+            // Self-contribution
+            density += push.mass * Wpoly6(0.0, push.smoothingRadius);
+            continue;
+        }
+        
+        vec3 diff = p.position - particleBuffer.particles[j].position;
+        float dist = length(diff);
+        
+        if (dist < push.smoothingRadius) {
+            density += push.mass * Wpoly6(dist, push.smoothingRadius);
+        }
+    }
+    
+    // Prevent too low density
+    density = max(density, push.restDensity * 0.1);
+    
+    // Phase 2: Calculate pressure
+    float pressure = push.pressureConstant * (density - push.restDensity);
+    
+    // Phase 3: Calculate forces
+    vec3 pressureForce = vec3(0.0);
+    vec3 viscosityForce = vec3(0.0);
+    
+    for (uint j = 0; j < push.particleCount; j++) {
+        if (j == id) continue;
+        
+        Particle neighbor = particleBuffer.particles[j];
+        vec3 diff = p.position - neighbor.position;
+        float dist = length(diff);
+        
+        if (dist < push.smoothingRadius && dist > EPSILON) {
+            // Calculate neighbor density (we don't have previous values, so approximate)
+            float neighborDensity = density; // Simplified: assume similar density
+            float neighborPressure = push.pressureConstant * (neighborDensity - push.restDensity);
+            
+            vec3 direction = normalize(diff);
+            
+            // Pressure force (symmetric)
+            float pressureTerm = (pressure + neighborPressure) / (2.0 * density * neighborDensity);
+            float gradMag = gradWspikyMag(dist, push.smoothingRadius);
+            pressureForce -= push.mass * pressureTerm * gradMag * direction;
+            
+            // Viscosity force
+            vec3 velocityDiff = neighbor.velocity - p.velocity;
+            float laplacian = laplacianWviscosity(dist, push.smoothingRadius);
+            viscosityForce += push.mass * (velocityDiff / neighborDensity) * laplacian;
+        }
+    }
+    
+    // Apply viscosity coefficient
+    viscosityForce *= push.viscosity;
+    
+    // Total SPH acceleration
+    vec3 sphAcceleration = (pressureForce + viscosityForce) / density;
+    
+    // Limit acceleration to prevent instabilities
+    float maxAccel = 50.0;
+    float accelMag = length(sphAcceleration);
+    if (accelMag > maxAccel) {
+        sphAcceleration = normalize(sphAcceleration) * maxAccel;
+    }
+    
+    // Apply SPH forces with smaller timestep for stability
+    float sphDeltaTime = push.deltaTime * 0.5; // Half timestep for SPH
+    p.velocity += sphAcceleration * sphDeltaTime;
+    
+    // Add damping to prevent explosive behavior
+    p.velocity *= 0.99;
+    
+    // Limit velocity magnitude
+    float maxVel = 10.0;
+    float velMag = length(p.velocity);
+    if (velMag > maxVel) {
+        p.velocity = normalize(p.velocity) * maxVel;
+    }
+    
+    // Update position
+    p.position += p.velocity * sphDeltaTime;
+    
+    // Store normalized density for visualization
+    p.density = density / push.restDensity;
+    
+    // Update temperature based on compression
+    float compression = density / push.restDensity;
+    p.temperature = mix(p.temperature, compression * 2.0, 0.1);
+    
+    // Write back
+    particleBuffer.particles[id] = p;
+}

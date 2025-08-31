@@ -1,0 +1,89 @@
+#version 450
+
+// Density splatting compute shader - converts particles to 3D density grid
+// Each particle contributes to nearby voxels with Gaussian falloff
+
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    vec3 gridOrigin;       // World space origin of volume grid
+    float voxelSize;       // Size of each voxel in world units
+    uvec3 gridDimensions;  // Grid resolution (e.g., 64x64x64)
+    uint particleCount;    // Number of active particles to process
+    float splatRadius;     // Radius of influence for each particle
+    float _padding1;
+    float _padding2;
+    float _padding3;
+} push;
+
+// Input: Particle data
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+// Output: 3D density grid (flattened)
+layout(binding = 1, r32f) uniform image3D densityGrid;
+
+// Local workgroup size - process voxels in 4x4x4 blocks
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+// Convert 3D grid coordinates to world position
+vec3 gridToWorld(ivec3 gridPos) {
+    return push.gridOrigin + vec3(gridPos) * push.voxelSize;
+}
+
+// Gaussian falloff function for particle influence
+float gaussianFalloff(float distance, float radius) {
+    if (distance > radius) return 0.0;
+    float normalized = distance / radius;
+    return exp(-3.0 * normalized * normalized) * 0.25; // Sharper falloff, moderate intensity
+}
+
+void main() {
+    // Get current voxel coordinates
+    ivec3 voxelPos = ivec3(gl_GlobalInvocationID.xyz);
+    
+    // Bounds check
+    if (any(greaterThanEqual(voxelPos, ivec3(push.gridDimensions)))) {
+        return;
+    }
+    
+    // Convert voxel to world position
+    vec3 voxelWorldPos = gridToWorld(voxelPos);
+    
+    // Accumulate density from all particles
+    float totalDensity = 0.0;
+    float totalTemperature = 0.0;
+    float totalWeight = 0.0;
+    
+    // Check all particles for influence on this voxel
+    for (uint i = 0; i < push.particleCount; i++) {
+        Particle p = particleBuffer.particles[i];
+        
+        // Calculate distance from particle to voxel center
+        vec3 diff = voxelWorldPos - p.position;
+        float distance = length(diff);
+        
+        // Apply Gaussian influence if within radius
+        float weight = gaussianFalloff(distance, push.splatRadius);
+        if (weight > 0.001) { // Skip negligible contributions
+            // Use particle density and temperature
+            totalDensity += p.density * weight;
+            totalTemperature += p.temperature * weight;
+            totalWeight += weight;
+        }
+    }
+    
+    // Normalize and store density
+    float finalDensity = totalWeight > 0.0 ? totalDensity / totalWeight : 0.0;
+    
+    // Store density in the 3D texture
+    // Note: We're only storing density for now, temperature can be added later
+    imageStore(densityGrid, voxelPos, vec4(finalDensity));
+}

@@ -1,0 +1,115 @@
+#version 450
+
+// Particle structure
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// Shader storage buffer for particles
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+    float time;
+    uint particleCount;
+    float gravityStrength;
+    vec3 gravityCenter;
+    float turbulenceStrength;
+    float dampingFactor;
+    float _padding[2];
+} push;
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Default values (now overridden by push constants)
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    // Bounds check
+    if (id >= push.particleCount) {
+        return;
+    }
+
+    Particle p = particleBuffer.particles[id];
+
+    // Calculate force towards center (gravity/attraction)
+    vec3 toCenter = push.gravityCenter - p.position;
+    float distance = length(toCenter);
+
+    // Prevent division by zero and singularity
+    distance = max(distance, 0.1);
+
+    // Gravity force (inverse square law with softening)
+    float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0); // More softening
+    vec3 gravityForce = normalize(toCenter) * gravityMagnitude;
+    
+    // Add repulsion when too close to center (prevents singularity/slingshot)
+    if (distance < 1.0) {
+        float repulsionStrength = 2.0 * (1.0 - distance); // Stronger when closer
+        gravityForce -= normalize(toCenter) * repulsionStrength;
+    }
+
+    // Calculate proper orbital velocity (perpendicular to radius)
+    vec3 tangent = cross(normalize(toCenter), vec3(0.0, 1.0, 0.0));
+    if (length(tangent) < 0.1) {
+        tangent = cross(normalize(toCenter), vec3(1.0, 0.0, 0.0));
+    }
+    tangent = normalize(tangent);
+
+    // Maintain angular momentum - less aggressive orbital correction
+    float currentSpeed = length(p.velocity);
+    float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
+    vec3 orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02; // Gentle correction
+
+    // Apply forces
+    vec3 acceleration = gravityForce + orbitalCorrection;
+
+    // Add turbulence for plasma-like motion (scaled down)
+    float turbulence = sin(p.position.x * 1.5 + push.time * 0.5) *
+                      cos(p.position.y * 1.5 - push.time * 0.3) *
+                      sin(p.position.z * 1.5 + push.time * 0.7);
+    acceleration += vec3(turbulence, -turbulence * 0.5, turbulence * 0.3) * push.turbulenceStrength;
+
+    // Update velocity with damping
+    p.velocity += acceleration * push.deltaTime;
+    p.velocity *= push.dampingFactor;
+    
+    // Clamp velocity to prevent extreme speeds
+    float maxSpeed = 5.0;
+    float velMagnitude = length(p.velocity);
+    if (velMagnitude > maxSpeed) {
+        p.velocity = normalize(p.velocity) * maxSpeed;
+    }
+
+    // Update position
+    p.position += p.velocity * push.deltaTime;
+
+    // Update temperature based on velocity (kinetic energy)
+    float speed = length(p.velocity);
+    p.temperature = mix(p.temperature, speed * 0.5, 0.1);
+
+    // Update density based on proximity to center
+    p.density = 1.0 / (distance * 0.1 + 1.0);
+
+    // Boundary confinement (soft sphere with stronger containment)
+    float maxRadius = 8.0; // Smaller boundary for tighter confinement
+    float currentRadius = length(p.position);
+    if (currentRadius > maxRadius) {
+        vec3 normal = normalize(p.position);
+        p.position = normal * maxRadius * 0.95; // Pull back inside
+        p.velocity = reflect(p.velocity, -normal) * 0.8; // Reflect and dampen
+
+        // Add inward force to keep particles contained
+        p.velocity -= normal * 2.0;
+    }
+
+    // Write back
+    particleBuffer.particles[id] = p;
+}

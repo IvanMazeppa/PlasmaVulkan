@@ -1,0 +1,204 @@
+#version 450
+
+// SPH (Smoothed Particle Hydrodynamics) compute shader for fluid simulation
+
+// Particle structure matching particle.comp
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// SPH parameters structure
+struct SPHParams {
+    float smoothingRadius;     // h - kernel radius
+    float restDensity;         // ρ₀ - target density
+    float pressureConstant;    // k - gas constant
+    float viscosity;           // μ - dynamic viscosity
+    float mass;                // particle mass
+    float surfaceTension;      // σ - surface tension coefficient
+    float _padding1;
+    float _padding2;
+};
+
+// Buffers
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+layout(binding = 1, std430) buffer SPHBuffer {
+    SPHParams params;
+    // Neighbor list follows after params
+    // Format: [count, idx1, idx2, ...] per particle
+    uint neighborData[];
+} sphBuffer;
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+    float time;
+    uint particleCount;
+    uint maxNeighbors;  // Maximum neighbors per particle (typically 32-64)
+} push;
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Constants
+const float PI = 3.14159265359;
+const float EPSILON = 0.001; // Prevent division by zero
+
+// SPH Kernel Functions
+
+// Poly6 kernel for density calculation
+// W(r,h) = 315/(64πh⁹) * (h²-r²)³ for r ≤ h
+float Wpoly6(float r, float h) {
+    if (r > h) return 0.0;
+    float h2 = h * h;
+    float h9 = h2 * h2 * h2 * h * h * h;
+    float r2 = r * r;
+    float diff = h2 - r2;
+    return (315.0 / (64.0 * PI * h9)) * diff * diff * diff;
+}
+
+// Gradient of Poly6 kernel (for surface normal)
+vec3 gradWpoly6(vec3 r_vec, float r, float h) {
+    if (r > h || r < EPSILON) return vec3(0.0);
+    float h2 = h * h;
+    float h9 = h2 * h2 * h2 * h * h * h;
+    float r2 = r * r;
+    float diff = h2 - r2;
+    float coeff = -945.0 / (32.0 * PI * h9) * diff * diff;
+    return coeff * r_vec;
+}
+
+// Spiky kernel gradient for pressure force
+// ∇W(r,h) = -45/(πh⁶) * (h-r)² * r̂ for r ≤ h
+vec3 gradWspiky(vec3 r_vec, float r, float h) {
+    if (r > h || r < EPSILON) return vec3(0.0);
+    float h6 = h * h * h * h * h * h;
+    float diff = h - r;
+    float coeff = -45.0 / (PI * h6) * diff * diff / r;
+    return coeff * r_vec;
+}
+
+// Viscosity kernel laplacian
+// ∇²W(r,h) = 45/(πh⁶) * (h-r) for r ≤ h
+float laplacianWviscosity(float r, float h) {
+    if (r > h) return 0.0;
+    float h6 = h * h * h * h * h * h;
+    return 45.0 / (PI * h6) * (h - r);
+}
+
+// Get neighbor list for particle
+uint getNeighborCount(uint particleId) {
+    uint offset = particleId * (push.maxNeighbors + 1);
+    return sphBuffer.neighborData[offset];
+}
+
+uint getNeighbor(uint particleId, uint neighborIndex) {
+    uint offset = particleId * (push.maxNeighbors + 1) + 1 + neighborIndex;
+    return sphBuffer.neighborData[offset];
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    
+    if (id >= push.particleCount) {
+        return;
+    }
+    
+    Particle p = particleBuffer.particles[id];
+    SPHParams sph = sphBuffer.params;
+    
+    // Step 1: Calculate density at particle position
+    float density = 0.0;
+    uint neighborCount = getNeighborCount(id);
+    
+    for (uint i = 0; i < neighborCount; i++) {
+        uint neighborId = getNeighbor(id, i);
+        if (neighborId >= push.particleCount) continue;
+        
+        vec3 diff = p.position - particleBuffer.particles[neighborId].position;
+        float dist = length(diff);
+        
+        // Accumulate density using Poly6 kernel
+        density += sph.mass * Wpoly6(dist, sph.smoothingRadius);
+    }
+    
+    // Include self-contribution
+    density += sph.mass * Wpoly6(0.0, sph.smoothingRadius);
+    
+    // Clamp density to prevent instabilities
+    density = max(density, sph.restDensity * 0.5);
+    
+    // Step 2: Calculate pressure from density (ideal gas law)
+    float pressure = sph.pressureConstant * (density - sph.restDensity);
+    
+    // Step 3: Calculate SPH forces
+    vec3 pressureForce = vec3(0.0);
+    vec3 viscosityForce = vec3(0.0);
+    vec3 surfaceNormal = vec3(0.0);
+    float colorFieldLaplacian = 0.0;
+    
+    for (uint i = 0; i < neighborCount; i++) {
+        uint neighborId = getNeighbor(id, i);
+        if (neighborId >= push.particleCount) continue;
+        
+        Particle neighbor = particleBuffer.particles[neighborId];
+        vec3 diff = p.position - neighbor.position;
+        float dist = length(diff);
+        
+        if (dist < EPSILON) continue;
+        
+        // Calculate neighbor density (stored from previous iteration)
+        float neighborDensity = max(neighbor.density, sph.restDensity * 0.5);
+        float neighborPressure = sph.pressureConstant * (neighborDensity - sph.restDensity);
+        
+        // Pressure force (symmetric form to conserve momentum)
+        float pressureTerm = (pressure / (density * density)) + 
+                           (neighborPressure / (neighborDensity * neighborDensity));
+        pressureForce -= sph.mass * pressureTerm * gradWspiky(diff, dist, sph.smoothingRadius);
+        
+        // Viscosity force
+        vec3 velocityDiff = neighbor.velocity - p.velocity;
+        viscosityForce += sph.mass * (velocityDiff / neighborDensity) * 
+                         laplacianWviscosity(dist, sph.smoothingRadius);
+        
+        // Surface tension - calculate surface normal and curvature
+        float colorField = sph.mass / neighborDensity;
+        surfaceNormal += colorField * gradWpoly6(diff, dist, sph.smoothingRadius);
+        colorFieldLaplacian += colorField * laplacianWviscosity(dist, sph.smoothingRadius);
+    }
+    
+    // Apply viscosity coefficient
+    viscosityForce *= sph.viscosity;
+    
+    // Surface tension force (only significant at fluid boundary)
+    vec3 surfaceTensionForce = vec3(0.0);
+    float surfaceNormalLength = length(surfaceNormal);
+    if (surfaceNormalLength > 0.1) { // Near surface threshold
+        surfaceNormal = normalize(surfaceNormal);
+        float curvature = -colorFieldLaplacian / surfaceNormalLength;
+        surfaceTensionForce = sph.surfaceTension * curvature * surfaceNormal;
+    }
+    
+    // Total SPH acceleration
+    vec3 sphAcceleration = (pressureForce + viscosityForce + surfaceTensionForce) / density;
+    
+    // Apply forces and update velocity
+    p.velocity += sphAcceleration * push.deltaTime;
+    
+    // Update position
+    p.position += p.velocity * push.deltaTime;
+    
+    // Store density for next iteration
+    p.density = density / sph.restDensity; // Normalize for visualization
+    
+    // Update temperature based on compression (adiabatic heating)
+    float compressionRatio = density / sph.restDensity;
+    p.temperature = mix(p.temperature, compressionRatio * 0.8, 0.1);
+    
+    // Write back
+    particleBuffer.particles[id] = p;
+}

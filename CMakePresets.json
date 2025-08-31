@@ -1,0 +1,107 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_COLOR_DIAGNOSTICS": "ON"
+            }
+        },
+        {
+            "name": "windows-base",
+            "hidden": true,
+            "inherits": "default",
+            "generator": "Visual Studio 17 2022",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
+            }
+        },
+        {
+            "name": "windows-debug",
+            "inherits": "windows-base",
+            "displayName": "Windows Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_VALIDATION": "ON"
+            }
+        },
+        {
+            "name": "windows-release",
+            "inherits": "windows-base",
+            "displayName": "Windows Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_VALIDATION": "OFF"
+            }
+        },
+        {
+            "name": "linux-base",
+            "hidden": true,
+            "inherits": "default",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "/mnt/e/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "inherits": "linux-base",
+            "displayName": "Linux Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_VALIDATION": "ON"
+            }
+        },
+        {
+            "name": "linux-release",
+            "inherits": "linux-base",
+            "displayName": "Linux Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_VALIDATION": "OFF"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-debug",
+            "configurePreset": "windows-debug",
+            "displayName": "Windows Debug Build"
+        },
+        {
+            "name": "windows-release",
+            "configurePreset": "windows-release",
+            "displayName": "Windows Release Build"
+        },
+        {
+            "name": "linux-debug",
+            "configurePreset": "linux-debug",
+            "displayName": "Linux Debug Build"
+        },
+        {
+            "name": "linux-release",
+            "configurePreset": "linux-release",
+            "displayName": "Linux Release Build"
+        }
+    ]
+}
