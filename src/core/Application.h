@@ -13,9 +13,6 @@
 #include "renderer/VulkanContext.h"
 #include "systems/ParticleSystem.h"
 #include "systems/VolumeRenderer.h"
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -45,12 +42,15 @@ protected:
 private:
     void initWindow();
     void initVulkan();
-    void initImGui();
     void createCommandBuffers();
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void recreateSwapChain();
-    void renderImGui(VkCommandBuffer commandBuffer);
     void cleanup();
+    
+    // Enhanced console display
+    void updateWindowTitle();
+    void printStatusUpdate();
+    void printParameterChange(const std::string& paramName, float value);
     
     // Callbacks
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -85,6 +85,11 @@ private:
     float m_fps = 0.0f;
     uint32_t m_frameCount = 0;
     
+    // Enhanced console display
+    float m_statusUpdateTimer = 0.0f;
+    bool m_showOSD = true;
+    float m_lastParamUpdate = 0.0f;
+    
     // Enhanced camera controls
     float m_cameraDistance = 20.0f;
     float m_cameraTheta = 0.0f;     // Horizontal rotation (azimuth)
@@ -103,10 +108,6 @@ private:
     
     // Volumetric rendering
     bool m_volumetricMode = false;
-    
-    // ImGui state
-    VkDescriptorPool m_imguiDescriptorPool = VK_NULL_HANDLE;
-    bool m_showGUI = true;
     
     // State
     bool m_isRunning = false;

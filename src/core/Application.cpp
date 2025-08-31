@@ -11,7 +11,6 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
 
     initWindow();
     initVulkan();
-    initImGui();
 }
 
 Application::~Application() {
@@ -46,10 +45,14 @@ void Application::run() {
             m_fps = m_frameCount / m_frameTime;
             m_frameCount = 0;
             m_frameTime = 0.0f;
-
-            // Update window title with FPS
-            std::string newTitle = m_title + " - FPS: " + std::to_string(static_cast<int>(m_fps));
-            glfwSetWindowTitle(m_window, newTitle.c_str());
+            updateWindowTitle();
+        }
+        
+        // Enhanced console display - periodic status updates
+        m_statusUpdateTimer += deltaTime;
+        if (m_statusUpdateTimer >= 3.0f && m_showOSD) {  // Every 3 seconds
+            printStatusUpdate();
+            m_statusUpdateTimer = 0.0f;
         }
     }
 
@@ -346,9 +349,6 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             // Render particles (drawing only, physics already updated)
             m_particleSystem->render(commandBuffer, viewProj);
         }
-
-        // Render ImGui on top
-        renderImGui(commandBuffer);
     }
 
     vkCmdEndRendering(commandBuffer);
@@ -388,183 +388,57 @@ void Application::recreateSwapChain() {
     m_vulkanContext->createSwapChain();
 }
 
-void Application::initImGui() {
-    // Create descriptor pool for ImGui
-    VkDescriptorPoolSize poolSizes[] = {
-        {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
-    };
 
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    poolInfo.maxSets = 1000;
-    poolInfo.poolSizeCount = std::size(poolSizes);
-    poolInfo.pPoolSizes = poolSizes;
-
-    if (vkCreateDescriptorPool(m_vulkanContext->getDevice(), &poolInfo, nullptr, &m_imguiDescriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create ImGui descriptor pool!");
+void Application::updateWindowTitle() {
+    std::string title = m_title;
+    
+    // Add FPS
+    title += " - FPS: " + std::to_string(static_cast<int>(m_fps));
+    
+    // Add key parameters for quick reference
+    if (m_particleSystem) {
+        title += " | G:" + std::to_string(m_particleSystem->getGravityStrength()).substr(0, 4);
+        title += " T:" + std::to_string(m_particleSystem->getTurbulenceStrength()).substr(0, 4);
+        title += " P:" + std::to_string(m_particleSystem->getActiveParticleCount() / 1000) + "k";
+        
+        if (m_particleSystem->isSPHMode()) {
+            title += " [SPH]";
+        }
+        if (m_volumetricMode) {
+            title += " [VOL]";
+        }
     }
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-
-    // Initialize ImGui for GLFW and Vulkan
-    ImGui_ImplGlfw_InitForVulkan(m_window, true);
-
-    ImGui_ImplVulkan_InitInfo initInfo{};
-    initInfo.Instance = m_vulkanContext->getInstance();
-    initInfo.PhysicalDevice = m_vulkanContext->getPhysicalDevice();
-    initInfo.Device = m_vulkanContext->getDevice();
-    initInfo.QueueFamily = m_vulkanContext->getQueueFamilyIndices().graphicsFamily.value();
-    initInfo.Queue = m_vulkanContext->getGraphicsQueue();
-    initInfo.PipelineCache = VK_NULL_HANDLE;
-    initInfo.DescriptorPool = m_imguiDescriptorPool;
-    initInfo.RenderPass = VK_NULL_HANDLE; // Using dynamic rendering
-    initInfo.Subpass = 0;
-    initInfo.MinImageCount = VulkanContext::MAX_FRAMES_IN_FLIGHT;
-    initInfo.ImageCount = VulkanContext::MAX_FRAMES_IN_FLIGHT;
-    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    initInfo.UseDynamicRendering = true;
-
-    ImGui_ImplVulkan_Init(&initInfo);
-
-    // Upload fonts
-    VkCommandBuffer commandBuffer = m_vulkanContext->beginSingleTimeCommands();
-    ImGui_ImplVulkan_CreateFontsTexture();
-    m_vulkanContext->endSingleTimeCommands(commandBuffer);
-    ImGui_ImplVulkan_DestroyFontsTexture();
+    
+    glfwSetWindowTitle(m_window, title.c_str());
 }
 
-void Application::renderImGui(VkCommandBuffer commandBuffer) {
-    if (!m_showGUI) return;
+void Application::printStatusUpdate() {
+    if (!m_particleSystem) return;
+    
+    std::cout << "\n=== PlasmaVulkan Status Update ===" << std::endl;
+    std::cout << "Performance: " << std::to_string(static_cast<int>(m_fps)) << " FPS" << std::endl;
+    std::cout << "Physics Parameters:" << std::endl;
+    std::cout << "  Gravity: " << m_particleSystem->getGravityStrength() << std::endl;
+    std::cout << "  Turbulence: " << m_particleSystem->getTurbulenceStrength() << std::endl;
+    std::cout << "  Damping: " << m_particleSystem->getDampingFactor() << std::endl;
+    std::cout << "  Particles: " << m_particleSystem->getActiveParticleCount() 
+              << " / " << m_particleSystem->getParticleCount() << std::endl;
+    
+    std::cout << "Simulation Modes:" << std::endl;
+    std::cout << "  SPH Fluid: " << (m_particleSystem->isSPHMode() ? "ENABLED" : "DISABLED") << std::endl;
+    std::cout << "  Volumetric: " << (m_volumetricMode ? "ENABLED" : "DISABLED") << std::endl;
+    
+    std::cout << "Camera: Distance=" << m_cameraDistance 
+              << " Theta=" << m_cameraTheta << " Phi=" << m_cameraPhi << std::endl;
+    std::cout << "=================================" << std::endl;
+}
 
-    // Start the Dear ImGui frame
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    // Create main control panel
-    ImGui::Begin("PlasmaVulkan Control Panel", &m_showGUI);
-
-    // Physics parameters
-    if (ImGui::CollapsingHeader("Physics Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
-        float gravity = m_particleSystem->getGravityStrength();
-        if (ImGui::SliderFloat("Gravity Strength", &gravity, 0.0f, 5.0f, "%.2f")) {
-            m_particleSystem->setGravityStrength(gravity);
-        }
-
-        float turbulence = m_particleSystem->getTurbulenceStrength();
-        if (ImGui::SliderFloat("Turbulence", &turbulence, 0.0f, 1.0f, "%.3f")) {
-            m_particleSystem->setTurbulenceStrength(turbulence);
-        }
-
-        float damping = m_particleSystem->getDampingFactor();
-        if (ImGui::SliderFloat("Damping", &damping, 0.9f, 1.0f, "%.4f")) {
-            m_particleSystem->setDampingFactor(damping);
-        }
-
-        int particleCount = static_cast<int>(m_particleSystem->getActiveParticleCount());
-        int maxParticles = static_cast<int>(m_particleSystem->getParticleCount());
-        if (ImGui::SliderInt("Active Particles", &particleCount, 1000, maxParticles, "%d")) {
-            m_particleSystem->setActiveParticleCount(static_cast<uint32_t>(particleCount));
-        }
-
-        // Reset button
-        if (ImGui::Button("Reset Physics")) {
-            m_particleSystem->setGravityStrength(0.6f);
-            m_particleSystem->setTurbulenceStrength(0.0f);
-            m_particleSystem->setDampingFactor(0.999f);
-        }
-    }
-
-    // Simulation modes
-    if (ImGui::CollapsingHeader("Simulation Modes", ImGuiTreeNodeFlags_DefaultOpen)) {
-        bool sphMode = m_particleSystem->isSPHMode();
-        if (ImGui::Checkbox("SPH Fluid Mode", &sphMode)) {
-            m_particleSystem->setSPHMode(sphMode);
-            if (sphMode) {
-                m_particleSystem->setActiveParticleCount(m_sphParticleCount);
-            } else {
-                m_particleSystem->setActiveParticleCount(m_fullParticleCount);
-            }
-        }
-
-        ImGui::Checkbox("Volumetric Rendering", &m_volumetricMode);
-    }
-
-    // Camera controls
-    if (ImGui::CollapsingHeader("Camera Controls")) {
-        ImGui::SliderFloat("Distance", &m_cameraDistance, 0.5f, 200.0f, "%.1f");
-        ImGui::SliderFloat("Theta", &m_cameraTheta, -3.14f, 3.14f, "%.2f");
-        ImGui::SliderFloat("Phi", &m_cameraPhi, -1.5f, 1.5f, "%.2f");
-        
-        if (ImGui::Button("Reset Camera")) {
-            m_cameraDistance = 20.0f;
-            m_cameraTheta = 0.0f;
-            m_cameraPhi = 0.0f;
-            m_cameraTarget = {0.0f, 0.0f, 0.0f};
-        }
-    }
-
-    // Performance info
-    if (ImGui::CollapsingHeader("Performance")) {
-        ImGui::Text("FPS: %.1f", m_fps);
-        ImGui::Text("Frame Time: %.3f ms", m_frameTime * 1000.0f);
-        ImGui::Text("Total Time: %.2f s", m_totalTime);
-        ImGui::Text("Particles: %u / %u", 
-                   m_particleSystem->getActiveParticleCount(),
-                   m_particleSystem->getParticleCount());
-    }
-
-    // Controls help
-    if (ImGui::CollapsingHeader("Keyboard Controls")) {
-        ImGui::Text("G/Shift+G: Adjust gravity strength");
-        ImGui::Text("T/Shift+T: Adjust turbulence");
-        ImGui::Text("D/Shift+D: Adjust damping");
-        ImGui::Text("P/Shift+P: Adjust particle count");
-        ImGui::Text("R: Reset physics parameters");
-        ImGui::Text("H: Print help to console");
-        ImGui::Text("Space: Toggle SPH fluid mode");
-        ImGui::Text("V: Toggle volumetric rendering");
-        ImGui::Text("Mouse: Orbit camera");
-        ImGui::Text("Wheel: Zoom in/out");
-        ImGui::Text("Middle Mouse: Pan camera");
-    }
-
-    ImGui::End();
-
-    // Render ImGui
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+void Application::printParameterChange(const std::string& paramName, float value) {
+    std::cout << "[PARAM] " << paramName << ": " << value << std::endl;
+    updateWindowTitle(); // Immediately update title when parameters change
 }
 
 void Application::cleanup() {
-    // Cleanup ImGui
-    if (m_imguiDescriptorPool != VK_NULL_HANDLE) {
-        ImGui_ImplVulkan_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
-
-        vkDestroyDescriptorPool(m_vulkanContext->getDevice(), m_imguiDescriptorPool, nullptr);
-        m_imguiDescriptorPool = VK_NULL_HANDLE;
-    }
-
     if (m_allocator) {
         vmaDestroyAllocator(m_allocator);
     }
@@ -648,12 +522,12 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             // Decrease gravity
             float newGravity = std::max(0.0f, app->m_particleSystem->getGravityStrength() - 0.1f);
             app->m_particleSystem->setGravityStrength(newGravity);
-            std::cout << "Gravity strength: " << newGravity << std::endl;
+            app->printParameterChange("Gravity Strength", newGravity);
         } else {
             // Increase gravity
             float newGravity = std::min(5.0f, app->m_particleSystem->getGravityStrength() + 0.1f);
             app->m_particleSystem->setGravityStrength(newGravity);
-            std::cout << "Gravity strength: " << newGravity << std::endl;
+            app->printParameterChange("Gravity Strength", newGravity);
         }
     }
     else if (key == GLFW_KEY_T && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
@@ -662,12 +536,12 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             // Decrease turbulence
             float newTurbulence = std::max(0.0f, app->m_particleSystem->getTurbulenceStrength() - 0.05f);
             app->m_particleSystem->setTurbulenceStrength(newTurbulence);
-            std::cout << "Turbulence strength: " << newTurbulence << std::endl;
+            app->printParameterChange("Turbulence Strength", newTurbulence);
         } else {
             // Increase turbulence
             float newTurbulence = std::min(1.0f, app->m_particleSystem->getTurbulenceStrength() + 0.05f);
             app->m_particleSystem->setTurbulenceStrength(newTurbulence);
-            std::cout << "Turbulence strength: " << newTurbulence << std::endl;
+            app->printParameterChange("Turbulence Strength", newTurbulence);
         }
     }
     else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
@@ -676,12 +550,12 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             // Decrease damping (more energy retention)
             float newDamping = std::max(0.9f, app->m_particleSystem->getDampingFactor() - 0.005f);
             app->m_particleSystem->setDampingFactor(newDamping);
-            std::cout << "Damping factor: " << newDamping << std::endl;
+            app->printParameterChange("Damping Factor", newDamping);
         } else {
             // Increase damping (more energy loss)
             float newDamping = std::min(1.0f, app->m_particleSystem->getDampingFactor() + 0.005f);
             app->m_particleSystem->setDampingFactor(newDamping);
-            std::cout << "Damping factor: " << newDamping << std::endl;
+            app->printParameterChange("Damping Factor", newDamping);
         }
     }
     else if (key == GLFW_KEY_P && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
@@ -691,14 +565,14 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             uint32_t currentCount = app->m_particleSystem->getActiveParticleCount();
             uint32_t newCount = std::max(1000u, currentCount - 5000u);
             app->m_particleSystem->setActiveParticleCount(newCount);
-            std::cout << "Active particles: " << newCount << std::endl;
+            app->printParameterChange("Active Particles", static_cast<float>(newCount));
         } else {
             // Increase particle count
             uint32_t currentCount = app->m_particleSystem->getActiveParticleCount();
             uint32_t maxCount = app->m_particleSystem->getParticleCount();
             uint32_t newCount = std::min(maxCount, currentCount + 5000u);
             app->m_particleSystem->setActiveParticleCount(newCount);
-            std::cout << "Active particles: " << newCount << std::endl;
+            app->printParameterChange("Active Particles", static_cast<float>(newCount));
         }
     }
     else if (key == GLFW_KEY_R && action == GLFW_PRESS) {
@@ -719,28 +593,42 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "Damping factor: " << app->m_particleSystem->getDampingFactor() << std::endl;
         std::cout << "Active particles: " << app->m_particleSystem->getActiveParticleCount() << "/" << app->m_particleSystem->getParticleCount() << std::endl;
         std::cout << "===================================" << std::endl;
-        std::cout << "\nControls:" << std::endl;
-        std::cout << "G/Shift+G: Increase/Decrease gravity strength" << std::endl;
-        std::cout << "T/Shift+T: Increase/Decrease turbulence" << std::endl;
-        std::cout << "D/Shift+D: Increase/Decrease damping" << std::endl;
-        std::cout << "P/Shift+P: Increase/Decrease particle count" << std::endl;
-        std::cout << "R: Reset all physics parameters" << std::endl;
-        std::cout << "H: Show this help" << std::endl;
+        std::cout << "\n=== Controls ===" << std::endl;
+        std::cout << "Physics Controls:" << std::endl;
+        std::cout << "  G/Shift+G: Increase/Decrease gravity strength" << std::endl;
+        std::cout << "  T/Shift+T: Increase/Decrease turbulence" << std::endl;
+        std::cout << "  D/Shift+D: Increase/Decrease damping" << std::endl;
+        std::cout << "  P/Shift+P: Increase/Decrease particle count" << std::endl;
+        std::cout << "  R: Reset all physics parameters" << std::endl;
+        std::cout << "Mode Controls:" << std::endl;
+        std::cout << "  Space: Toggle SPH fluid mode" << std::endl;
+        std::cout << "  V: Toggle volumetric rendering" << std::endl;
+        std::cout << "Display Controls:" << std::endl;
+        std::cout << "  H: Show this help" << std::endl;
+        std::cout << "  F1: Toggle periodic status updates (OSD)" << std::endl;
+        std::cout << "Camera Controls:" << std::endl;
+        std::cout << "  Mouse: Orbit camera" << std::endl;
+        std::cout << "  Wheel: Zoom in/out (0.5-200 units)" << std::endl;
+        std::cout << "  Middle Mouse: Pan camera target" << std::endl;
     }
     // Volumetric rendering toggle
     else if (key == GLFW_KEY_V && action == GLFW_PRESS) {
         app->m_volumetricMode = !app->m_volumetricMode;
         if (app->m_volumetricMode) {
-            std::cout << "Volumetric rendering ENABLED - 3D plasma glow!" << std::endl;
-            std::cout << "Note: Particles → Volume → Ray march pipeline active" << std::endl;
+            std::cout << "[MODE] Volumetric rendering ENABLED - 3D plasma glow!" << std::endl;
+            std::cout << "       Particles → Volume → Ray march pipeline active" << std::endl;
         } else {
-            std::cout << "Volumetric rendering DISABLED - Back to particle rendering" << std::endl;
+            std::cout << "[MODE] Volumetric rendering DISABLED - Back to particle rendering" << std::endl;
         }
+        app->updateWindowTitle();
     }
-    // GUI toggle
+    // OSD toggle
     else if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
-        app->m_showGUI = !app->m_showGUI;
-        std::cout << "GUI " << (app->m_showGUI ? "ENABLED" : "DISABLED") << std::endl;
+        app->m_showOSD = !app->m_showOSD;
+        std::cout << "[OSD] Status updates " << (app->m_showOSD ? "ENABLED" : "DISABLED") << std::endl;
+        if (app->m_showOSD) {
+            app->printStatusUpdate(); // Show immediate status when enabled
+        }
     }
 }
 
