@@ -134,7 +134,13 @@ void Application::initVulkan() {
     
     // Create particle system
     try {
-        m_particleSystem = std::make_unique<ParticleSystem>(m_vulkanContext.get(), 250000); // 250k particles - utilizing performance headroom
+        m_particleSystem = std::make_unique<ParticleSystem>(m_vulkanContext.get(), m_fullParticleCount); // 1M particles - full performance utilization!
+        
+        // Initialize constraint parameters
+        m_particleSystem->setConstraintShape(static_cast<uint32_t>(m_constraintShape));
+        m_particleSystem->setConstraintRadius(m_constraintRadius);
+        m_particleSystem->setConstraintThickness(m_constraintThickness);
+        
         std::cout << "Particle system created with " << m_particleSystem->getParticleCount() << " particles" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Warning: Failed to create particle system: " << e.what() << std::endl;
@@ -447,6 +453,24 @@ void Application::updateWindowTitle() {
         if (m_energyInjection > 0.0f) {
             title += " EN:" + std::to_string(m_energyInjection).substr(0, 3);
         }
+        
+        // Shape constraint indicators
+        switch (m_constraintShape) {
+            case ConstraintShape::SPHERE:
+                title += " [SPHERE]";
+                break;
+            case ConstraintShape::DISC:
+                title += " [DISC]";
+                break;
+            case ConstraintShape::TORUS:
+                title += " [TORUS]";
+                break;
+            default:
+                break;
+        }
+        if (m_showWireframe && m_constraintShape != ConstraintShape::NONE) {
+            title += " [WIRE]";
+        }
     }
     
     glfwSetWindowTitle(m_window, title.c_str());
@@ -475,6 +499,17 @@ void Application::printStatusUpdate() {
     
     glm::vec3 gravCenter = m_particleSystem->getGravityCenter();
     std::cout << "  Gravity Center: (" << gravCenter.x << ", " << gravCenter.y << ", " << gravCenter.z << ")" << std::endl;
+    
+    std::cout << "Shape Constraints:" << std::endl;
+    std::cout << "  Shape: ";
+    switch (m_constraintShape) {
+        case ConstraintShape::NONE:   std::cout << "NONE (Open space)"; break;
+        case ConstraintShape::SPHERE: std::cout << "SPHERE (R=" << m_constraintRadius << ")"; break;
+        case ConstraintShape::DISC:   std::cout << "DISC (R=" << m_constraintRadius << " T=" << m_constraintThickness << ")"; break;
+        case ConstraintShape::TORUS:  std::cout << "TORUS (Major=" << m_constraintRadius << " Minor=" << m_constraintThickness << ")"; break;
+    }
+    std::cout << std::endl;
+    std::cout << "  Wireframe: " << (m_showWireframe ? "ENABLED" : "DISABLED") << std::endl;
     
     std::cout << "Camera: Distance=" << m_cameraDistance 
               << " Theta=" << m_cameraTheta << " Phi=" << m_cameraPhi << std::endl;
@@ -660,6 +695,13 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "  [ / ]: Decrease/Increase time scale (0.1x to 5.0x)" << std::endl;
         std::cout << "  N: Toggle attraction/repulsion gravity" << std::endl;
         std::cout << "  I/U: Increase/Decrease energy injection" << std::endl;
+        std::cout << "Shape Constraints:" << std::endl;
+        std::cout << "  1: No constraints (open space)" << std::endl;
+        std::cout << "  2: Spherical boundary" << std::endl;
+        std::cout << "  3: Disc boundary (accretion disc)" << std::endl;
+        std::cout << "  4: Torus boundary (fusion reactor)" << std::endl;
+        std::cout << "  W: Toggle wireframe display" << std::endl;
+        std::cout << "  +/-: Increase/Decrease constraint size" << std::endl;
         std::cout << "Camera Controls:" << std::endl;
         std::cout << "  Mouse: Orbit camera" << std::endl;
         std::cout << "  Wheel: Zoom in/out (0.5-200 units)" << std::endl;
@@ -752,6 +794,51 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         // Decrease energy injection
         app->m_energyInjection = std::max(0.0f, app->m_energyInjection - 0.1f);
         app->printParameterChange("Energy Injection", app->m_energyInjection);
+    }
+    // Shape constraint controls
+    else if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
+        app->m_constraintShape = Application::ConstraintShape::NONE;
+        app->m_particleSystem->setConstraintShape(static_cast<uint32_t>(app->m_constraintShape));
+        std::cout << "[SHAPE] No constraints - Open space" << std::endl;
+        app->updateWindowTitle();
+    }
+    else if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        app->m_constraintShape = Application::ConstraintShape::SPHERE;
+        app->m_particleSystem->setConstraintShape(static_cast<uint32_t>(app->m_constraintShape));
+        std::cout << "[SHAPE] Spherical boundary - Radius: " << app->m_constraintRadius << std::endl;
+        app->updateWindowTitle();
+    }
+    else if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
+        app->m_constraintShape = Application::ConstraintShape::DISC;
+        app->m_particleSystem->setConstraintShape(static_cast<uint32_t>(app->m_constraintShape));
+        std::cout << "[SHAPE] Disc boundary - Radius: " << app->m_constraintRadius 
+                  << " Thickness: " << app->m_constraintThickness << std::endl;
+        app->updateWindowTitle();
+    }
+    else if (key == GLFW_KEY_4 && action == GLFW_PRESS) {
+        app->m_constraintShape = Application::ConstraintShape::TORUS;
+        app->m_particleSystem->setConstraintShape(static_cast<uint32_t>(app->m_constraintShape));
+        std::cout << "[SHAPE] Torus boundary - Major: " << app->m_constraintRadius 
+                  << " Minor: " << app->m_constraintThickness << std::endl;
+        app->updateWindowTitle();
+    }
+    else if (key == GLFW_KEY_W && action == GLFW_PRESS) {
+        app->m_showWireframe = !app->m_showWireframe;
+        std::cout << "[WIREFRAME] " << (app->m_showWireframe ? "ENABLED" : "DISABLED") << std::endl;
+        app->updateWindowTitle();
+    }
+    // Constraint size controls
+    else if (key == GLFW_KEY_EQUAL && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase constraint radius
+        app->m_constraintRadius = std::min(50.0f, app->m_constraintRadius + 1.0f);
+        app->m_particleSystem->setConstraintRadius(app->m_constraintRadius);
+        app->printParameterChange("Constraint Radius", app->m_constraintRadius);
+    }
+    else if (key == GLFW_KEY_MINUS && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Decrease constraint radius
+        app->m_constraintRadius = std::max(5.0f, app->m_constraintRadius - 1.0f);
+        app->m_particleSystem->setConstraintRadius(app->m_constraintRadius);
+        app->printParameterChange("Constraint Radius", app->m_constraintRadius);
     }
 }
 
