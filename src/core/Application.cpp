@@ -346,6 +346,9 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             // Render particles (drawing only, physics already updated)
             m_particleSystem->render(commandBuffer, viewProj);
         }
+
+        // Render ImGui on top
+        renderImGui(commandBuffer);
     }
 
     vkCmdEndRendering(commandBuffer);
@@ -385,7 +388,183 @@ void Application::recreateSwapChain() {
     m_vulkanContext->createSwapChain();
 }
 
+void Application::initImGui() {
+    // Create descriptor pool for ImGui
+    VkDescriptorPoolSize poolSizes[] = {
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolInfo.maxSets = 1000;
+    poolInfo.poolSizeCount = std::size(poolSizes);
+    poolInfo.pPoolSizes = poolSizes;
+
+    if (vkCreateDescriptorPool(m_vulkanContext->getDevice(), &poolInfo, nullptr, &m_imguiDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create ImGui descriptor pool!");
+    }
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+
+    // Initialize ImGui for GLFW and Vulkan
+    ImGui_ImplGlfw_InitForVulkan(m_window, true);
+
+    ImGui_ImplVulkan_InitInfo initInfo{};
+    initInfo.Instance = m_vulkanContext->getInstance();
+    initInfo.PhysicalDevice = m_vulkanContext->getPhysicalDevice();
+    initInfo.Device = m_vulkanContext->getDevice();
+    initInfo.QueueFamily = m_vulkanContext->getQueueFamilyIndices().graphicsFamily.value();
+    initInfo.Queue = m_vulkanContext->getGraphicsQueue();
+    initInfo.PipelineCache = VK_NULL_HANDLE;
+    initInfo.DescriptorPool = m_imguiDescriptorPool;
+    initInfo.RenderPass = VK_NULL_HANDLE; // Using dynamic rendering
+    initInfo.Subpass = 0;
+    initInfo.MinImageCount = VulkanContext::MAX_FRAMES_IN_FLIGHT;
+    initInfo.ImageCount = VulkanContext::MAX_FRAMES_IN_FLIGHT;
+    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    initInfo.UseDynamicRendering = true;
+
+    ImGui_ImplVulkan_Init(&initInfo);
+
+    // Upload fonts
+    VkCommandBuffer commandBuffer = m_vulkanContext->beginSingleTimeCommands();
+    ImGui_ImplVulkan_CreateFontsTexture();
+    m_vulkanContext->endSingleTimeCommands(commandBuffer);
+    ImGui_ImplVulkan_DestroyFontsTexture();
+}
+
+void Application::renderImGui(VkCommandBuffer commandBuffer) {
+    if (!m_showGUI) return;
+
+    // Start the Dear ImGui frame
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    // Create main control panel
+    ImGui::Begin("PlasmaVulkan Control Panel", &m_showGUI);
+
+    // Physics parameters
+    if (ImGui::CollapsingHeader("Physics Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
+        float gravity = m_particleSystem->getGravityStrength();
+        if (ImGui::SliderFloat("Gravity Strength", &gravity, 0.0f, 5.0f, "%.2f")) {
+            m_particleSystem->setGravityStrength(gravity);
+        }
+
+        float turbulence = m_particleSystem->getTurbulenceStrength();
+        if (ImGui::SliderFloat("Turbulence", &turbulence, 0.0f, 1.0f, "%.3f")) {
+            m_particleSystem->setTurbulenceStrength(turbulence);
+        }
+
+        float damping = m_particleSystem->getDampingFactor();
+        if (ImGui::SliderFloat("Damping", &damping, 0.9f, 1.0f, "%.4f")) {
+            m_particleSystem->setDampingFactor(damping);
+        }
+
+        int particleCount = static_cast<int>(m_particleSystem->getActiveParticleCount());
+        int maxParticles = static_cast<int>(m_particleSystem->getParticleCount());
+        if (ImGui::SliderInt("Active Particles", &particleCount, 1000, maxParticles, "%d")) {
+            m_particleSystem->setActiveParticleCount(static_cast<uint32_t>(particleCount));
+        }
+
+        // Reset button
+        if (ImGui::Button("Reset Physics")) {
+            m_particleSystem->setGravityStrength(0.6f);
+            m_particleSystem->setTurbulenceStrength(0.0f);
+            m_particleSystem->setDampingFactor(0.999f);
+        }
+    }
+
+    // Simulation modes
+    if (ImGui::CollapsingHeader("Simulation Modes", ImGuiTreeNodeFlags_DefaultOpen)) {
+        bool sphMode = m_particleSystem->isSPHMode();
+        if (ImGui::Checkbox("SPH Fluid Mode", &sphMode)) {
+            m_particleSystem->setSPHMode(sphMode);
+            if (sphMode) {
+                m_particleSystem->setActiveParticleCount(m_sphParticleCount);
+            } else {
+                m_particleSystem->setActiveParticleCount(m_fullParticleCount);
+            }
+        }
+
+        ImGui::Checkbox("Volumetric Rendering", &m_volumetricMode);
+    }
+
+    // Camera controls
+    if (ImGui::CollapsingHeader("Camera Controls")) {
+        ImGui::SliderFloat("Distance", &m_cameraDistance, 0.5f, 200.0f, "%.1f");
+        ImGui::SliderFloat("Theta", &m_cameraTheta, -3.14f, 3.14f, "%.2f");
+        ImGui::SliderFloat("Phi", &m_cameraPhi, -1.5f, 1.5f, "%.2f");
+        
+        if (ImGui::Button("Reset Camera")) {
+            m_cameraDistance = 20.0f;
+            m_cameraTheta = 0.0f;
+            m_cameraPhi = 0.0f;
+            m_cameraTarget = {0.0f, 0.0f, 0.0f};
+        }
+    }
+
+    // Performance info
+    if (ImGui::CollapsingHeader("Performance")) {
+        ImGui::Text("FPS: %.1f", m_fps);
+        ImGui::Text("Frame Time: %.3f ms", m_frameTime * 1000.0f);
+        ImGui::Text("Total Time: %.2f s", m_totalTime);
+        ImGui::Text("Particles: %u / %u", 
+                   m_particleSystem->getActiveParticleCount(),
+                   m_particleSystem->getParticleCount());
+    }
+
+    // Controls help
+    if (ImGui::CollapsingHeader("Keyboard Controls")) {
+        ImGui::Text("G/Shift+G: Adjust gravity strength");
+        ImGui::Text("T/Shift+T: Adjust turbulence");
+        ImGui::Text("D/Shift+D: Adjust damping");
+        ImGui::Text("P/Shift+P: Adjust particle count");
+        ImGui::Text("R: Reset physics parameters");
+        ImGui::Text("H: Print help to console");
+        ImGui::Text("Space: Toggle SPH fluid mode");
+        ImGui::Text("V: Toggle volumetric rendering");
+        ImGui::Text("Mouse: Orbit camera");
+        ImGui::Text("Wheel: Zoom in/out");
+        ImGui::Text("Middle Mouse: Pan camera");
+    }
+
+    ImGui::End();
+
+    // Render ImGui
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+}
+
 void Application::cleanup() {
+    // Cleanup ImGui
+    if (m_imguiDescriptorPool != VK_NULL_HANDLE) {
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+
+        vkDestroyDescriptorPool(m_vulkanContext->getDevice(), m_imguiDescriptorPool, nullptr);
+        m_imguiDescriptorPool = VK_NULL_HANDLE;
+    }
+
     if (m_allocator) {
         vmaDestroyAllocator(m_allocator);
     }
@@ -557,6 +736,11 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         } else {
             std::cout << "Volumetric rendering DISABLED - Back to particle rendering" << std::endl;
         }
+    }
+    // GUI toggle
+    else if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+        app->m_showGUI = !app->m_showGUI;
+        std::cout << "GUI " << (app->m_showGUI ? "ENABLED" : "DISABLED") << std::endl;
     }
 }
 

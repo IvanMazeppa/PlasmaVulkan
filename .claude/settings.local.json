@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake:*)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target PlasmaVulkan --config Debug)",
+      "Bash(./PlasmaVulkan.exe)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target shaders --config Debug)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" .. -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake -G \"Visual Studio 17 2022\")",
+      "Bash(timeout:*)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build . --target clean)",
+      "Bash(ls:*)",
+      "Bash(glslc:*)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build . --target shaders --config Debug)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build . --target PlasmaVulkan --config Debug)",
+      "Bash(./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" . -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake -G \"Visual Studio 17 2022\")",
+      "Bash(./Debug/PlasmaVulkan.exe)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build cmake-build-debug-visual-studio --target PlasmaVulkan --config Debug)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build . --target PlasmaVulkan --config Debug)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build . --target shaders --config Debug)",
+      "Bash(taskkill:*)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build . --target clean)",
+      "Read(/mnt/d/Users/dilli/AndroidStudioProjects/**)",
+      "mcp__vulkan_db__vulkan_quick_reference",
+      "mcp__vulkan_db__search_vulkan_api",
+      "WebSearch",
+      "mcp__vulkan_db__get_vulkan_entity",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build build/windows-debug --target shaders --config Debug)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build build/windows-debug --target PlasmaVulkan --config Debug)",
+      "Bash(./build/windows-debug/Debug/PlasmaVulkan.exe)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

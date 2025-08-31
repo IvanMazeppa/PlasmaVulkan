@@ -1,0 +1,122 @@
+cmake_minimum_required(VERSION 3.20)
+project(PlasmaVulkan VERSION 1.0.0 LANGUAGES CXX C)
+
+# Modern C++ standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Export compile commands for IDEs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Options
+option(ENABLE_VALIDATION "Enable Vulkan validation layers" ON)
+
+# Set Vulkan SDK paths for WSL
+set(VULKAN_SDK_PATH "/mnt/c/VulkanSDK/1.3.296.0")
+set(CMAKE_PREFIX_PATH "${VULKAN_SDK_PATH}")
+
+# Find Vulkan
+find_path(Vulkan_INCLUDE_DIR 
+    NAMES vulkan/vulkan.h
+    PATHS ${VULKAN_SDK_PATH}/Include
+    NO_DEFAULT_PATH
+)
+
+find_library(Vulkan_LIBRARY
+    NAMES vulkan vulkan-1
+    PATHS ${VULKAN_SDK_PATH}/Lib
+    NO_DEFAULT_PATH
+)
+
+if(NOT Vulkan_INCLUDE_DIR OR NOT Vulkan_LIBRARY)
+    message(FATAL_ERROR "Could not find Vulkan SDK at ${VULKAN_SDK_PATH}")
+endif()
+
+# Find GLFW (use system package if vcpkg not available)
+find_package(PkgConfig)
+if(PkgConfig_FOUND)
+    pkg_check_modules(GLFW glfw3)
+endif()
+
+if(NOT GLFW_FOUND)
+    find_package(glfw3 QUIET)
+endif()
+
+# Find GLM (header-only, so we can use git submodule or system)
+find_path(GLM_INCLUDE_DIR glm/glm.hpp
+    PATHS 
+    /usr/include
+    /usr/local/include
+)
+
+# Create main executable
+file(GLOB_RECURSE SOURCES 
+    "src/*.cpp"
+    "src/*.h"
+)
+
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${Vulkan_INCLUDE_DIR}
+    ${GLM_INCLUDE_DIR}
+)
+
+if(GLFW_FOUND)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${GLFW_INCLUDE_DIRS})
+endif()
+
+# Compile definitions
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    GLM_FORCE_RADIANS
+    GLM_FORCE_DEPTH_ZERO_TO_ONE
+    GLM_ENABLE_EXPERIMENTAL
+    VK_USE_PLATFORM_XCB_KHR
+    $<$<CONFIG:Debug>:DEBUG_BUILD>
+    $<$<BOOL:${ENABLE_VALIDATION}>:ENABLE_VALIDATION>
+)
+
+# Link libraries
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    ${Vulkan_LIBRARY}
+    ${GLFW_LIBRARIES}
+    pthread
+    dl
+    X11
+)
+
+# If using pkg-config for GLFW
+if(GLFW_FOUND AND GLFW_CFLAGS)
+    target_compile_options(${PROJECT_NAME} PRIVATE ${GLFW_CFLAGS})
+endif()
+
+# Compiler warnings
+target_compile_options(${PROJECT_NAME} PRIVATE 
+    -Wall 
+    -Wextra 
+    -Wpedantic
+    -Wno-missing-field-initializers
+    $<$<CONFIG:Release>:-O3>
+)
+
+# Shader compilation
+add_subdirectory(shaders)
+
+# Copy assets to build directory if they exist
+if(EXISTS ${CMAKE_SOURCE_DIR}/assets)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
+    )
+endif()
+
+# Install rules
+install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+if(EXISTS ${CMAKE_SOURCE_DIR}/assets)
+    install(DIRECTORY assets/ DESTINATION bin/assets)
+endif()
+install(DIRECTORY shaders/ DESTINATION bin/shaders FILES_MATCHING PATTERN "*.spv")
