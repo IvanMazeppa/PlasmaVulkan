@@ -32,7 +32,10 @@ public:
         glm::vec3 gravityCenter;   // Center of gravity attraction
         float turbulenceStrength;  // Noise/chaos factor
         float dampingFactor;       // Velocity damping
-        float _padding[2];
+        uint32_t constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS
+        float constraintRadius;    // Main radius for all shapes
+        float constraintThickness; // For disc thickness, torus tube radius
+        float _padding[1];
     };
     
     // Push constants for SPH shader
@@ -91,6 +94,16 @@ public:
     
     void setDampingFactor(float damping) { m_dampingFactor = damping; }
     float getDampingFactor() const { return m_dampingFactor; }
+    
+    // Constraint controls
+    void setConstraintShape(uint32_t shape) { m_constraintShape = shape; }
+    uint32_t getConstraintShape() const { return m_constraintShape; }
+    
+    void setConstraintRadius(float radius) { m_constraintRadius = radius; }
+    float getConstraintRadius() const { return m_constraintRadius; }
+    
+    void setConstraintThickness(float thickness) { m_constraintThickness = thickness; }
+    float getConstraintThickness() const { return m_constraintThickness; }
     
 private:
     void createParticleBuffer();
@@ -151,6 +164,11 @@ private:
     glm::vec3 m_gravityCenter = {0.0f, 0.0f, 0.0f}; // Center of attraction
     float m_turbulenceStrength = 0.0f;           // Chaos/randomness factor
     float m_dampingFactor = 0.999f;              // Velocity damping (1.0 = no damping)
+    
+    // Constraint parameters
+    uint32_t m_constraintShape = 0;              // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS
+    float m_constraintRadius = 15.0f;            // Main radius for all shapes
+    float m_constraintThickness = 3.0f;          // For disc thickness, torus tube radius
 };
 
 } // namespace plasma

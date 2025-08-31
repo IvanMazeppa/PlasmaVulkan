@@ -482,6 +482,9 @@ void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, floa
         pushConstants.gravityCenter = m_gravityCenter;
         pushConstants.turbulenceStrength = m_turbulenceStrength;
         pushConstants.dampingFactor = m_dampingFactor;
+        pushConstants.constraintShape = m_constraintShape;
+        pushConstants.constraintRadius = m_constraintRadius;
+        pushConstants.constraintThickness = m_constraintThickness;
         
         vkCmdPushConstants(commandBuffer, m_computePipelineLayout,
             VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pushConstants);

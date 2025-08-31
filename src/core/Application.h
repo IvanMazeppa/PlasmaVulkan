@@ -96,6 +96,18 @@ private:
     float m_energyInjection = 0.0f;
     float m_energyTimer = 0.0f;
     
+    // Shape constraints
+    enum class ConstraintShape {
+        NONE = 0,    // Open space - current behavior
+        SPHERE = 1,  // Spherical boundary
+        DISC = 2,    // Flat disc (accretion disc)
+        TORUS = 3    // Donut shape (fusion reactor style)
+    };
+    ConstraintShape m_constraintShape = ConstraintShape::NONE;
+    bool m_showWireframe = false;
+    float m_constraintRadius = 15.0f;  // Main radius for all shapes
+    float m_constraintThickness = 3.0f; // For disc thickness, torus tube radius
+    
     // Enhanced camera controls
     float m_cameraDistance = 20.0f;
     float m_cameraTheta = 0.0f;     // Horizontal rotation (azimuth)
@@ -108,9 +120,9 @@ private:
     double m_lastMouseY = 0.0;
     bool m_middleMousePressed = false; // For panning
     
-    // Performance optimization
-    uint32_t m_fullParticleCount = 250000;  // For orbital physics (2.5x increase)
-    uint32_t m_sphParticleCount = 15000;    // For SPH physics (increased for better fluid dynamics)
+    // Performance optimization  
+    uint32_t m_fullParticleCount = 1000000; // 1 million particles! (4x increase from 250k)
+    uint32_t m_sphParticleCount = 25000;    // Increased SPH for better fluid dynamics
     
     // Volumetric rendering
     bool m_volumetricMode = false;
