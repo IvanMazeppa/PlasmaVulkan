@@ -668,12 +668,25 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         }
     }
     else if (key == GLFW_KEY_R && action == GLFW_PRESS) {
-        // Reset physics parameters to defaults
-        app->m_particleSystem->setGravityStrength(0.6f);
-        app->m_particleSystem->setGravityCenter({0.0f, 0.0f, 0.0f});
-        app->m_particleSystem->setTurbulenceStrength(0.0f);
-        app->m_particleSystem->setDampingFactor(0.999f);
-        std::cout << "Physics parameters reset to defaults" << std::endl;
+        if (mods & GLFW_MOD_SHIFT) {
+            // SHIFT+R: Initialize particles in disk formation for accretion disk mode
+            if (app->m_constraintShape == Application::ConstraintShape::ACCRETION_DISK) {
+                std::cout << "[DISK INIT] Forming accretion disk structure..." << std::endl;
+                // The actual disk formation happens in the shader based on initial conditions
+                // Reset with optimal parameters for disk
+                app->m_particleSystem->setGravityStrength(1.5f);
+                app->m_particleSystem->setTurbulenceStrength(0.05f); // Slight turbulence
+                app->m_particleSystem->setDampingFactor(0.995f);
+                std::cout << "  Particles will organize into disk orbits" << std::endl;
+            }
+        } else {
+            // Regular R: Reset physics parameters to defaults
+            app->m_particleSystem->setGravityStrength(0.6f);
+            app->m_particleSystem->setGravityCenter({0.0f, 0.0f, 0.0f});
+            app->m_particleSystem->setTurbulenceStrength(0.0f);
+            app->m_particleSystem->setDampingFactor(0.999f);
+            std::cout << "Physics parameters reset to defaults" << std::endl;
+        }
     }
     else if (key == GLFW_KEY_H && action == GLFW_PRESS) {
         // Display current physics values
@@ -727,8 +740,8 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         }
         app->updateWindowTitle();
     }
-    // OSD toggle
-    else if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+    // OSD toggle - moved to O key to free up F1
+    else if (key == GLFW_KEY_O && action == GLFW_PRESS) {
         app->m_showOSD = !app->m_showOSD;
         std::cout << "[OSD] Status updates " << (app->m_showOSD ? "ENABLED" : "DISABLED") << std::endl;
         if (app->m_showOSD) {
@@ -831,10 +844,76 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
                   << " Minor: " << app->m_constraintThickness << std::endl;
         app->updateWindowTitle();
     }
+    else if (key == GLFW_KEY_F5 && action == GLFW_PRESS) {
+        app->m_constraintShape = Application::ConstraintShape::ACCRETION_DISK;
+        app->m_particleSystem->setConstraintShape(static_cast<uint32_t>(app->m_constraintShape));
+        // Set optimal accretion disk parameters
+        app->m_particleSystem->setGravityStrength(1.5f); // Gentler gravity
+        app->m_particleSystem->setDampingFactor(0.995f); // Less damping for more motion
+        app->m_particleSystem->setBlackHoleMass(app->m_blackHoleMass);
+        app->m_particleSystem->setAlphaViscosity(app->m_alphaViscosity);
+        app->m_constraintRadius = 25.0f; // Larger disk
+        app->m_constraintThickness = 2.0f;
+        app->m_particleSystem->setConstraintRadius(app->m_constraintRadius);
+        app->m_particleSystem->setConstraintThickness(app->m_constraintThickness);
+        std::cout << "[SHAPE] BLACK HOLE ACCRETION DISK MODE" << std::endl;
+        std::cout << "  Black hole mass: " << app->m_blackHoleMass << " solar masses" << std::endl;
+        std::cout << "  Alpha viscosity: " << app->m_alphaViscosity << std::endl;
+        std::cout << "  Controls:" << std::endl;
+        std::cout << "    M/N - Adjust black hole mass" << std::endl;
+        std::cout << "    B/SHIFT+V - Adjust alpha viscosity" << std::endl;
+        std::cout << "    C/X - Adjust color temperature scale" << std::endl;
+        std::cout << "    SHIFT+R - Reset particles in disk formation" << std::endl;
+        app->updateWindowTitle();
+    }
     else if (key == GLFW_KEY_W && action == GLFW_PRESS) {
         app->m_showWireframe = !app->m_showWireframe;
         std::cout << "[WIREFRAME] " << (app->m_showWireframe ? "ENABLED" : "DISABLED") << std::endl;
         app->updateWindowTitle();
+    }
+    // Black hole mass controls (M/N keys)
+    else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase black hole mass
+        app->m_blackHoleMass = std::min(10.0f, app->m_blackHoleMass + 0.1f);
+        app->m_particleSystem->setBlackHoleMass(app->m_blackHoleMass);
+        app->printParameterChange("Black Hole Mass", app->m_blackHoleMass);
+        std::cout << "  (solar masses)" << std::endl;
+    }
+    else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Decrease black hole mass
+        app->m_blackHoleMass = std::max(0.1f, app->m_blackHoleMass - 0.1f);
+        app->m_particleSystem->setBlackHoleMass(app->m_blackHoleMass);
+        app->printParameterChange("Black Hole Mass", app->m_blackHoleMass);
+        std::cout << "  (solar masses)" << std::endl;
+    }
+    // Alpha viscosity controls (B/V keys - reusing V when not in volumetric toggle)
+    else if (key == GLFW_KEY_B && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase alpha viscosity
+        app->m_alphaViscosity = std::min(0.4f, app->m_alphaViscosity + 0.01f);
+        app->m_particleSystem->setAlphaViscosity(app->m_alphaViscosity);
+        app->printParameterChange("Alpha Viscosity", app->m_alphaViscosity);
+        std::cout << "  (angular momentum transport)" << std::endl;
+    }
+    else if (key == GLFW_KEY_V && (action == GLFW_PRESS || action == GLFW_REPEAT) && 
+             (mods & GLFW_MOD_SHIFT)) {
+        // Decrease alpha viscosity (with shift to avoid conflict with volumetric toggle)
+        app->m_alphaViscosity = std::max(0.0f, app->m_alphaViscosity - 0.01f);
+        app->m_particleSystem->setAlphaViscosity(app->m_alphaViscosity);
+        app->printParameterChange("Alpha Viscosity", app->m_alphaViscosity);
+        std::cout << "  (angular momentum transport)" << std::endl;
+    }
+    // Temperature scaling controls (C/X keys)
+    else if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase temperature scale (hotter colors)
+        app->m_temperatureScale = std::min(5.0f, app->m_temperatureScale + 0.1f);
+        app->printParameterChange("Temperature Scale", app->m_temperatureScale);
+        std::cout << "  (color intensity)" << std::endl;
+    }
+    else if (key == GLFW_KEY_X && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Decrease temperature scale (cooler colors)
+        app->m_temperatureScale = std::max(0.1f, app->m_temperatureScale - 0.1f);
+        app->printParameterChange("Temperature Scale", app->m_temperatureScale);
+        std::cout << "  (color intensity)" << std::endl;
     }
     // Constraint size controls
     else if (key == GLFW_KEY_EQUAL && (action == GLFW_PRESS || action == GLFW_REPEAT)) {

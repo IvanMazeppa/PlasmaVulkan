@@ -212,7 +212,7 @@ void ParticleSystem::createGraphicsPipeline() {
     bindingDescription.stride = sizeof(Particle);
     bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
     attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -222,6 +222,11 @@ void ParticleSystem::createGraphicsPipeline() {
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Particle, velocity);
+    
+    attributeDescriptions[2].binding = 0;
+    attributeDescriptions[2].location = 2;
+    attributeDescriptions[2].format = VK_FORMAT_R32_SFLOAT;
+    attributeDescriptions[2].offset = offsetof(Particle, temperature);
     
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -485,6 +490,8 @@ void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, floa
         pushConstants.constraintShape = m_constraintShape;
         pushConstants.constraintRadius = m_constraintRadius;
         pushConstants.constraintThickness = m_constraintThickness;
+        pushConstants.blackHoleMass = m_blackHoleMass;
+        pushConstants.alphaViscosity = m_alphaViscosity;
         
         vkCmdPushConstants(commandBuffer, m_computePipelineLayout,
             VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pushConstants);
