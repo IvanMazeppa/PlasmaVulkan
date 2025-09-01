@@ -3,6 +3,7 @@
 // Input from vertex buffer
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inVelocity;
+layout(location = 2) in float inTemperature;
 
 // Output to fragment shader
 layout(location = 0) out vec3 fragColor;
@@ -24,31 +25,35 @@ void main() {
     gl_PointSize = push.particleSize * (20.0 / (distance + 1.0)); // Larger base size
     gl_PointSize = clamp(gl_PointSize, 2.0, 20.0); // Bigger range
     
-    // Enhanced color mapping for wider velocity range visualization
-    float speed = length(inVelocity);
-    float normalizedSpeed = clamp(speed * 0.15, 0.0, 1.0); // Much lower sensitivity to spread colors
+    // ORBITAL VELOCITY-BASED TEMPERATURE MODEL
+    // Use persistent temperature from compute shader instead of distance-based calculation
+    float normalizedTemp = clamp(inTemperature, 0.0, 1.0);
     
-    // Extended plasma spectrum with more color bands
-    vec3 verySlowColor = vec3(0.2, 0.0, 0.8);  // Deep blue (very slow)
-    vec3 slowColor = vec3(0.0, 0.6, 1.0);      // Cyan (slow)  
-    vec3 mediumColor = vec3(0.4, 1.0, 0.6);    // Green (medium)
-    vec3 fastColor = vec3(1.0, 0.8, 0.0);      // Yellow (fast)
-    vec3 veryFastColor = vec3(1.0, 0.4, 0.0);  // Orange (very fast)
-    vec3 extremeColor = vec3(1.0, 0.2, 0.2);   // Red (extreme speed)
-    
-    // 6-band color spectrum for better velocity visualization
-    if (normalizedSpeed < 0.2) {
-        fragColor = mix(verySlowColor, slowColor, normalizedSpeed * 5.0);
-    } else if (normalizedSpeed < 0.4) {
-        fragColor = mix(slowColor, mediumColor, (normalizedSpeed - 0.2) * 5.0);
-    } else if (normalizedSpeed < 0.6) {
-        fragColor = mix(mediumColor, fastColor, (normalizedSpeed - 0.4) * 5.0);
-    } else if (normalizedSpeed < 0.8) {
-        fragColor = mix(fastColor, veryFastColor, (normalizedSpeed - 0.6) * 5.0);
+    // Blackbody radiation color mapping - proper physics-based spectrum
+    // Based on 2025 research: stable temperature tracking prevents white-out
+    if (normalizedTemp < 0.1) {
+        // Very cool: Deep red-brown (outer disk regions)
+        fragColor = vec3(0.4, 0.05, 0.0);
+    } else if (normalizedTemp < 0.2) {
+        // Cool: Red (stable orbital regions)
+        fragColor = vec3(0.8, 0.1, 0.0);
+    } else if (normalizedTemp < 0.35) {
+        // Moderate cool: Red-orange (mid-disk)
+        fragColor = vec3(1.0, 0.25, 0.0);
+    } else if (normalizedTemp < 0.5) {
+        // Moderate: Orange (active regions)
+        fragColor = vec3(1.0, 0.5, 0.05);
+    } else if (normalizedTemp < 0.65) {
+        // Moderate hot: Yellow-orange (high shear zones)
+        fragColor = vec3(1.0, 0.7, 0.1);
+    } else if (normalizedTemp < 0.8) {
+        // Hot: Yellow (viscous heating zones)
+        fragColor = vec3(1.0, 0.9, 0.2);
     } else {
-        fragColor = mix(veryFastColor, extremeColor, (normalizedSpeed - 0.8) * 5.0);
+        // Very hot: Yellow-white (extreme shear/viscous dissipation)
+        fragColor = vec3(1.0, 0.95, 0.6);
     }
     
-    // Enhanced intensity for more vibrant glow effect
-    fragIntensity = 0.7 + normalizedSpeed * 0.8; // Brighter base intensity
+    // Stable intensity based on temperature
+    fragIntensity = 0.3 + normalizedTemp * 0.6;
 }

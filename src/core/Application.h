@@ -101,15 +101,21 @@ private:
     
     // Shape constraints
     enum class ConstraintShape {
-        NONE = 0,    // Open space - current behavior
-        SPHERE = 1,  // Spherical boundary
-        DISC = 2,    // Flat disc (accretion disc)
-        TORUS = 3    // Donut shape (fusion reactor style)
+        NONE = 0,           // Open space - current behavior
+        SPHERE = 1,         // Spherical boundary
+        DISC = 2,           // Flat disc (accretion disc)
+        TORUS = 3,          // Donut shape (fusion reactor style)
+        ACCRETION_DISK = 4  // Black hole accretion disk simulation
     };
     ConstraintShape m_constraintShape = ConstraintShape::NONE;
     bool m_showWireframe = false;
     float m_constraintRadius = 15.0f;  // Main radius for all shapes
     float m_constraintThickness = 3.0f; // For disc thickness, torus tube radius
+    
+    // Accretion disk physics parameters
+    float m_blackHoleMass = 1.0f;      // In solar masses
+    float m_alphaViscosity = 0.1f;     // Shakura-Sunyaev α parameter (0.01-0.4 typical)
+    float m_temperatureScale = 1.0f;   // Global temperature scaling for color control
     
     // Enhanced camera controls
     float m_cameraDistance = 20.0f;

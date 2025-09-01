@@ -22,10 +22,11 @@ layout(push_constant) uniform PushConstants {
     vec3 gravityCenter;
     float turbulenceStrength;
     float dampingFactor;
-    uint constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS
+    uint constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK
     float constraintRadius;
     float constraintThickness;
-    float _padding[1];
+    float blackHoleMass;  // In solar masses
+    float alphaViscosity; // Shakura-Sunyaev alpha parameter
 } push;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -107,21 +108,43 @@ void main() {
 
     Particle p = particleBuffer.particles[id];
 
-    // Calculate force towards center (gravity/attraction)
+    // Calculate force towards center
     vec3 toCenter = push.gravityCenter - p.position;
     float distance = length(toCenter);
 
     // Prevent division by zero and singularity
     distance = max(distance, 0.1);
-
-    // Gravity force (inverse square law with softening)
-    float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0); // More softening
-    vec3 gravityForce = normalize(toCenter) * gravityMagnitude;
     
-    // Add repulsion when too close to center (prevents singularity/slingshot)
-    if (distance < 1.0) {
-        float repulsionStrength = 2.0 * (1.0 - distance); // Stronger when closer
-        gravityForce -= normalize(toCenter) * repulsionStrength;
+    vec3 gravityForce;
+    float ISCO = 3.0; // Innermost stable circular orbit at 3 Schwarzschild radii
+    
+    if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+        // Paczynski-Wiita pseudo-Newtonian potential
+        // Mimics relativistic effects near black hole
+        float r_s = 0.5 * push.blackHoleMass; // Schwarzschild radius (scaled down)
+        float effectiveRadius = max(distance - r_s, 0.5);
+        
+        // Gentler gravity with better falloff
+        float gravityMagnitude = push.gravityStrength * push.blackHoleMass / (effectiveRadius * effectiveRadius + 1.0);
+        gravityForce = normalize(toCenter) * gravityMagnitude * 0.3; // Reduced strength
+        
+        // Sink particles inside ISCO but more gradually
+        if (distance < ISCO * r_s) {
+            // Gradual inward pull
+            float sinkFactor = 1.0 + 2.0 * (1.0 - distance / (ISCO * r_s));
+            gravityForce *= sinkFactor;
+            p.temperature = mix(p.temperature, 2.0, 0.01); // Gradual heating
+        }
+    } else {
+        // Standard Newtonian gravity for other modes
+        float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0);
+        gravityForce = normalize(toCenter) * gravityMagnitude;
+        
+        // Add repulsion when too close to center (prevents singularity/slingshot)
+        if (distance < 1.0) {
+            float repulsionStrength = 2.0 * (1.0 - distance);
+            gravityForce -= normalize(toCenter) * repulsionStrength;
+        }
     }
 
     // Calculate proper orbital velocity (perpendicular to radius)
@@ -131,10 +154,27 @@ void main() {
     }
     tangent = normalize(tangent);
 
-    // Maintain angular momentum - less aggressive orbital correction
-    float currentSpeed = length(p.velocity);
-    float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
-    vec3 orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02; // Gentle correction
+    vec3 orbitalCorrection;
+    if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+        // Keplerian orbital velocity with relativistic correction
+        float r_s = 0.5 * push.blackHoleMass;
+        float keplerianSpeed = sqrt(push.gravityStrength * push.blackHoleMass / (distance + 0.5));
+        
+        // Smoother orbital velocity targeting
+        float targetOrbitalSpeed = keplerianSpeed * 0.7; // Reduced for stability
+        
+        // Much gentler α-viscosity for slower inward spiral
+        float viscousForce = push.alphaViscosity * 0.01; // Reduced by 10x
+        vec3 radialDrift = -normalize(toCenter) * viscousForce;
+        
+        float currentSpeed = length(p.velocity);
+        orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02 + radialDrift;
+    } else {
+        // Standard orbital correction for other modes
+        float currentSpeed = length(p.velocity);
+        float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
+        orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02;
+    }
 
     // Apply forces
     vec3 acceleration = gravityForce + orbitalCorrection;
@@ -149,11 +189,24 @@ void main() {
     p.velocity += acceleration * push.deltaTime;
     p.velocity *= push.dampingFactor;
     
-    // Clamp velocity to prevent extreme speeds
-    float maxSpeed = 5.0;
+    // Clamp velocity to prevent extreme speeds - MUCH slower for stable orbits
+    float maxSpeed = 2.0; // Reduced from 5.0
     float velMagnitude = length(p.velocity);
     if (velMagnitude > maxSpeed) {
         p.velocity = normalize(p.velocity) * maxSpeed;
+    }
+    
+    // Add slight particle repulsion to prevent complete overlap
+    if (push.constraintShape == 4u) { // Only in accretion disk mode
+        // Simple spacing force to spread particles
+        vec3 spacingForce = vec3(0.0);
+        float minDistance = 0.1;
+        
+        // Add small random offset based on particle position
+        vec3 pseudoRandom = sin(p.position * 123.456) * 0.01;
+        spacingForce += pseudoRandom;
+        
+        p.velocity += spacingForce;
     }
 
     // Update position
@@ -164,12 +217,46 @@ void main() {
         applyConstraints(p.position, p.velocity);
     }
 
-    // Update temperature based on velocity (kinetic energy)
-    float speed = length(p.velocity);
-    p.temperature = mix(p.temperature, speed * 0.5, 0.1);
-
-    // Update density based on proximity to center
-    p.density = 1.0 / (distance * 0.1 + 1.0);
+    // Update temperature and density for accretion disk
+    if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+        // ORBITAL VELOCITY-BASED TEMPERATURE MODEL
+        // Based on 2025 research: temperature from orbital mechanics, not distance
+        
+        float speed = length(p.velocity);
+        vec3 radialDirection = normalize(toCenter);
+        
+        // Calculate orbital velocity (perpendicular to radius)
+        vec3 orbitalVelocity = p.velocity - dot(p.velocity, radialDirection) * radialDirection;
+        float orbitalSpeed = length(orbitalVelocity);
+        
+        // Keplerian velocity for circular orbit at this radius
+        float keplerianVel = sqrt(push.gravityStrength * push.blackHoleMass / (distance + 0.5));
+        
+        // Temperature based on orbital shear and velocity deviation
+        // Higher temperature when orbital velocity deviates from Keplerian
+        float velocityDeviation = abs(orbitalSpeed - keplerianVel) / keplerianVel;
+        float shearHeating = velocityDeviation * 0.5;
+        
+        // Viscous dissipation heating (from α-viscosity model)
+        float viscousHeating = push.alphaViscosity * orbitalSpeed * orbitalSpeed * 0.1;
+        
+        // Maintain stable temperature history - particles remember their thermal state
+        float newTemp = shearHeating + viscousHeating + 0.05; // Base temperature
+        
+        // Very gradual temperature evolution to maintain stable colors
+        p.temperature = mix(p.temperature, newTemp, 0.02);
+        p.temperature = clamp(p.temperature, 0.05, 0.8);
+        
+        // Gentler density profile
+        float normalizedRadius = max(distance / 10.0, 0.1);
+        p.density = 0.5 / pow(normalizedRadius, 0.3);
+        p.density = clamp(p.density, 0.0, 2.0);
+    } else {
+        // Standard temperature and density for other modes
+        float speed = length(p.velocity);
+        p.temperature = mix(p.temperature, speed * 0.1, 0.05); // Much cooler
+        p.density = 1.0 / (distance * 0.1 + 1.0);
+    }
 
     // Write back
     particleBuffer.particles[id] = p;

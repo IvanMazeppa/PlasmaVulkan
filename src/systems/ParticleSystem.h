@@ -32,10 +32,11 @@ public:
         glm::vec3 gravityCenter;   // Center of gravity attraction
         float turbulenceStrength;  // Noise/chaos factor
         float dampingFactor;       // Velocity damping
-        uint32_t constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS
+        uint32_t constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK
         float constraintRadius;    // Main radius for all shapes
         float constraintThickness; // For disc thickness, torus tube radius
-        float _padding[1];
+        float blackHoleMass;       // In solar masses for accretion disk
+        float alphaViscosity;      // Shakura-Sunyaev α parameter
     };
     
     // Push constants for SPH shader
@@ -105,6 +106,13 @@ public:
     void setConstraintThickness(float thickness) { m_constraintThickness = thickness; }
     float getConstraintThickness() const { return m_constraintThickness; }
     
+    // Accretion disk parameters
+    void setBlackHoleMass(float mass) { m_blackHoleMass = mass; }
+    float getBlackHoleMass() const { return m_blackHoleMass; }
+    
+    void setAlphaViscosity(float alpha) { m_alphaViscosity = alpha; }
+    float getAlphaViscosity() const { return m_alphaViscosity; }
+    
 private:
     void createParticleBuffer();
     void createComputePipeline();
@@ -166,9 +174,13 @@ private:
     float m_dampingFactor = 0.999f;              // Velocity damping (1.0 = no damping)
     
     // Constraint parameters
-    uint32_t m_constraintShape = 0;              // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS
+    uint32_t m_constraintShape = 0;              // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK
     float m_constraintRadius = 15.0f;            // Main radius for all shapes
     float m_constraintThickness = 3.0f;          // For disc thickness, torus tube radius
+    
+    // Accretion disk physics
+    float m_blackHoleMass = 1.0f;                // Black hole mass in solar masses
+    float m_alphaViscosity = 0.1f;               // Shakura-Sunyaev α parameter
 };
 
 } // namespace plasma

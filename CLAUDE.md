@@ -64,10 +64,10 @@ cmake --build cmake-build-debug-visual-studio --target shaders
 - Optional Tracy profiling support (`ENABLE_PROFILING` CMake option)
 - Mesh shader support when available (`USE_MESH_SHADERS` CMake option)
 
-## Project Guardrails & Context (August 2025)
+## Project Guardrails & Context (September 2025)
 
 ### Critical Project Awareness
-- **Current Date**: August 31, 2025
+- **Current Date**: September 1, 2025
 - **Vulkan Version**: 1.4.321.1 SDK (latest release, modern dynamic rendering, no render passes)
 - **Architecture**: Vulkan 1.4 compute shaders with modern C++20
 - **Performance Target**: 1000+ FPS with 250,000 particles achieved
@@ -89,7 +89,7 @@ cmake --build cmake-build-debug-visual-studio --target shaders
   - `mcp__vulkan_db__browse_vulkan_hierarchy` - Browse API by category
   - `mcp__vulkan_db__vulkan_quick_reference` - API statistics and overview
 - **Research Protocol**: When implementing Vulkan features, use MCP tools to find Vulkan 1.4 improvements
-- **Training Data Gap**: My training data predates Vulkan 1.4, so use web search + MCP tools for 1.4 features
+- **CRITICAL: Training Data Gap**: My training data predates Vulkan 1.4 (released early 2025), so ALWAYS use web search + MCP tools for 1.4 features and current techniques (September 2025)
 - **Documentation**: Consult VULKAN_SEARCH_GUIDE.md for MCP server usage patterns
 
 ### Current Project State
