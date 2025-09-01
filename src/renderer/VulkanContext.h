@@ -89,6 +89,7 @@ private:
     void createLogicalDevice();
     void createCommandPool();
     void createSyncObjects();
+    void recreateSyncObjects();
     void cleanup();
     
     // Helper functions

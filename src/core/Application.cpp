@@ -100,16 +100,16 @@ void Application::initVulkan() {
 
     m_vulkanContext = std::make_unique<VulkanContext>(m_window, enableValidation);
 
-    // Skip VMA for now to debug the rest of the application
-    std::cout << "Skipping VMA allocator for debugging..." << std::endl;
+    // NOTE: VMA currently has initialization issues - needs further investigation
+    std::cout << "VMA allocator disabled for now (needs investigation)" << std::endl;
     m_allocator = nullptr;
     
-    // TODO: Re-enable VMA after debugging
+    // TODO: Debug VMA hanging issue 
     /*
     std::cout << "Initializing VMA allocator..." << std::endl;
     // Initialize VMA allocator
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;  // Use 1.3 for better compatibility
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;  // Use 1.3 for better VMA compatibility
     allocatorInfo.physicalDevice = m_vulkanContext->getPhysicalDevice();
     allocatorInfo.device = m_vulkanContext->getDevice();
     allocatorInfo.instance = m_vulkanContext->getInstance();
@@ -245,23 +245,31 @@ void Application::render() {
     vkResetCommandBuffer(m_commandBuffers[m_currentFrame], 0);
     recordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex);
 
-    // Submit command buffer
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    // Submit command buffer using Synchronization2
+    VkSemaphoreSubmitInfo waitSemaphoreInfo{};
+    waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    waitSemaphoreInfo.semaphore = m_vulkanContext->getImageAvailableSemaphore(m_currentFrame);
+    waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    VkSemaphore waitSemaphores[] = {m_vulkanContext->getImageAvailableSemaphore(m_currentFrame)};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_commandBuffers[m_currentFrame];
+    VkCommandBufferSubmitInfo commandBufferInfo{};
+    commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    commandBufferInfo.commandBuffer = m_commandBuffers[m_currentFrame];
 
-    VkSemaphore signalSemaphores[] = {m_vulkanContext->getRenderFinishedSemaphore(m_currentFrame)};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    VkSemaphoreSubmitInfo signalSemaphoreInfo{};
+    signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    signalSemaphoreInfo.semaphore = m_vulkanContext->getRenderFinishedSemaphore(m_currentFrame);
+    signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 
-    if (vkQueueSubmit(m_vulkanContext->getGraphicsQueue(), 1, &submitInfo,
+    VkSubmitInfo2 submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submitInfo.waitSemaphoreInfoCount = 1;
+    submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &commandBufferInfo;
+    submitInfo.signalSemaphoreInfoCount = 1;
+    submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+    if (vkQueueSubmit2(m_vulkanContext->getGraphicsQueue(), 1, &submitInfo,
         fence) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
@@ -270,7 +278,8 @@ void Application::render() {
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
+    VkSemaphore presentWaitSemaphore = m_vulkanContext->getRenderFinishedSemaphore(m_currentFrame);
+    presentInfo.pWaitSemaphores = &presentWaitSemaphore;
 
     VkSwapchainKHR swapChains[] = {m_vulkanContext->getSwapChain()};
     presentInfo.swapchainCount = 1;

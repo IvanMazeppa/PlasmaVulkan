@@ -172,6 +172,7 @@ void VulkanContext::createLogicalDevice() {
     vk14Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
     vk14Features.maintenance5 = VK_TRUE;
     vk14Features.maintenance6 = VK_TRUE;
+    vk14Features.pushDescriptor = VK_TRUE;  // Required for push descriptor extension
 
     VkPhysicalDeviceVulkan13Features vk13Features{};
     vk13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -199,7 +200,8 @@ void VulkanContext::createLogicalDevice() {
 
     // Device extensions
     std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME  // Required for VolumeRenderer push descriptors
         // Dynamic rendering is core in Vulkan 1.3, not an extension
         // Mesh shader extension can be added conditionally if supported
     };
@@ -346,6 +348,21 @@ void VulkanContext::createSyncObjects() {
     }
 }
 
+void VulkanContext::recreateSyncObjects() {
+    vkDeviceWaitIdle(m_device);
+    
+    // Clean up old semaphores
+    for (size_t i = 0; i < m_renderFinishedSemaphores.size(); i++) {
+        vkDestroySemaphore(m_device, m_renderFinishedSemaphores[i], nullptr);
+    }
+    for (size_t i = 0; i < m_imageAvailableSemaphores.size(); i++) {
+        vkDestroySemaphore(m_device, m_imageAvailableSemaphores[i], nullptr);
+    }
+    
+    // Recreate semaphores with new swapchain image count
+    createSyncObjects();
+}
+
 VkCommandBuffer VulkanContext::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -368,12 +385,16 @@ VkCommandBuffer VulkanContext::beginSingleTimeCommands() {
 void VulkanContext::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkEndCommandBuffer(commandBuffer);
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+    VkCommandBufferSubmitInfo commandBufferInfo{};
+    commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    commandBufferInfo.commandBuffer = commandBuffer;
 
-    vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    VkSubmitInfo2 submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &commandBufferInfo;
+
+    vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(m_graphicsQueue);
 
     vkFreeCommandBuffers(m_device, m_commandPool, 1, &commandBuffer);
