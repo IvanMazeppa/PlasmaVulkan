@@ -35,6 +35,9 @@ public:
     void run();
     void stop();
     
+    // Accessors
+    VmaAllocator getAllocator() const { return m_allocator; }
+    
 protected:
     virtual void update(float deltaTime);
     virtual void render();

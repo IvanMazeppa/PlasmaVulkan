@@ -67,10 +67,9 @@ void applyConstraints(inout vec3 position, inout vec3 velocity) {
         float majorRadius = push.constraintRadius;
         float minorRadius = push.constraintThickness;
         
-        // Handle case where particle is at center - push it out
+        // Avoid division by zero for particles at center
         if (radiusXZ < 0.001) {
-            position.xz = vec2(majorRadius, 0.0);
-            radiusXZ = majorRadius;
+            radiusXZ = 0.001;
         }
         
         // Distance to torus center line in XZ plane
@@ -79,16 +78,18 @@ void applyConstraints(inout vec3 position, inout vec3 velocity) {
         vec3 toCenter = position - torusCenter;
         float distToTorus = length(toCenter);
         
-        if (distToTorus > minorRadius && distToTorus > 0.001) {
+        if (distToTorus > minorRadius) {
             // Project back onto torus surface
-            vec3 normal = toCenter / distToTorus; // Safe normalize
-            position = torusCenter + normal * minorRadius * 0.99;
-            velocity = reflect(velocity, -normal) * 0.7;
+            if (distToTorus > 0.001) {
+                vec3 normal = toCenter / distToTorus; // Safe normalize
+                position = torusCenter + normal * minorRadius * 0.99;
+                velocity = reflect(velocity, -normal) * 0.7;
+            }
         }
         
         // Handle case where particle is too close to center (inside donut hole)
         if (radiusXZ < majorRadius - minorRadius) {
-            position.xz = dirXZ * (majorRadius - minorRadius * 0.99);
+            position.xz = dirXZ * (majorRadius - minorRadius) * 0.99;
             vec2 velXZ = velocity.xz;
             velXZ = reflect(velXZ, -dirXZ) * 0.8;
             velocity.xz = velXZ;
@@ -158,8 +159,10 @@ void main() {
     // Update position
     p.position += p.velocity * push.deltaTime;
 
-    // Apply shape constraints
-    applyConstraints(p.position, p.velocity);
+    // Apply shape constraints only if enabled
+    if (push.constraintShape != 0u) {
+        applyConstraints(p.position, p.velocity);
+    }
 
     // Update temperature based on velocity (kinetic energy)
     float speed = length(p.velocity);
