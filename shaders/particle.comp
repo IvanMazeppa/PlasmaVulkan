@@ -27,6 +27,7 @@ layout(push_constant) uniform PushConstants {
     float constraintThickness;
     float blackHoleMass;  // In solar masses
     float alphaViscosity; // Shakura-Sunyaev alpha parameter
+    float angularMomentumBoost; // Boost orbital velocity for stable orbits
 } push;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -169,21 +170,44 @@ void main() {
         
         float currentSpeed = length(p.velocity);
         orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02 + radialDrift;
+        
+        // Apply angular momentum boost for better particle distribution
+        orbitalCorrection += tangent * push.angularMomentumBoost * 0.1;
     } else {
-        // Standard orbital correction for other modes
+        // Standard orbital correction for other modes with angular momentum boost
         float currentSpeed = length(p.velocity);
         float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
         orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02;
+        
+        // Apply angular momentum boost for better particle distribution in ALL modes
+        orbitalCorrection += tangent * push.angularMomentumBoost * 0.08;
     }
 
     // Apply forces
     vec3 acceleration = gravityForce + orbitalCorrection;
 
-    // Add turbulence for plasma-like motion (scaled down)
-    float turbulence = sin(p.position.x * 1.5 + push.time * 0.5) *
-                      cos(p.position.y * 1.5 - push.time * 0.3) *
-                      sin(p.position.z * 1.5 + push.time * 0.7);
-    acceleration += vec3(turbulence, -turbulence * 0.5, turbulence * 0.3) * push.turbulenceStrength;
+    // REALISTIC 3D NOISE-BASED TURBULENCE
+    // Multi-octave noise for natural-looking turbulence patterns
+    vec3 noisePos = p.position * 0.1 + vec3(push.time * 0.1);
+    
+    // 3D Simplex-like noise using multiple sine waves at different frequencies
+    vec3 turbulence1 = vec3(
+        sin(noisePos.x * 3.14) * cos(noisePos.y * 2.71) * sin(noisePos.z * 1.41),
+        cos(noisePos.x * 2.71) * sin(noisePos.y * 3.14) * cos(noisePos.z * 1.73),
+        sin(noisePos.x * 1.73) * sin(noisePos.y * 1.41) * cos(noisePos.z * 2.71)
+    );
+    
+    // Higher frequency detail layer
+    vec3 noisePos2 = p.position * 0.3 + vec3(push.time * 0.15);
+    vec3 turbulence2 = vec3(
+        sin(noisePos2.x * 7.1) * cos(noisePos2.y * 6.3) * sin(noisePos2.z * 5.7),
+        cos(noisePos2.x * 6.3) * sin(noisePos2.y * 7.1) * cos(noisePos2.z * 4.9),
+        sin(noisePos2.x * 5.7) * sin(noisePos2.y * 4.9) * cos(noisePos2.z * 6.3)
+    ) * 0.3;
+    
+    // Combine octaves for realistic turbulence
+    vec3 combinedTurbulence = (turbulence1 + turbulence2) * push.turbulenceStrength;
+    acceleration += combinedTurbulence;
 
     // Update velocity with damping
     p.velocity += acceleration * push.deltaTime;
@@ -240,21 +264,48 @@ void main() {
         // Viscous dissipation heating (from α-viscosity model)
         float viscousHeating = push.alphaViscosity * orbitalSpeed * orbitalSpeed * 0.1;
         
-        // Maintain stable temperature history - particles remember their thermal state
-        float newTemp = shearHeating + viscousHeating + 0.05; // Base temperature
+        // CONSERVATIVE TEMPERATURE MODEL - white only at extremes
+        // Much gentler heating for stable colors across all modes
+        float densityBoost = min(p.density * 0.1, 0.05); // Much smaller density effect
+        
+        // Rare extreme conditions for white hot cores
+        float extremeVelocity = max(0.0, (speed - 1.5) * 0.2); // Only very high velocities
+        float extremeShear = max(0.0, (shearHeating - 0.3) * 0.3); // Only extreme shear
+        
+        // Combine heating sources - much more conservative
+        float baseTemp = shearHeating + viscousHeating + 0.05;
+        float extremeBonus = (extremeVelocity + extremeShear + densityBoost) * 0.5;
+        float newTemp = baseTemp + extremeBonus;
         
         // Very gradual temperature evolution to maintain stable colors
         p.temperature = mix(p.temperature, newTemp, 0.02);
-        p.temperature = clamp(p.temperature, 0.05, 0.8);
+        p.temperature = clamp(p.temperature, 0.05, 0.85); // Cap at 85% - white very rare
         
         // Gentler density profile
         float normalizedRadius = max(distance / 10.0, 0.1);
         p.density = 0.5 / pow(normalizedRadius, 0.3);
         p.density = clamp(p.density, 0.0, 2.0);
     } else {
-        // Standard temperature and density for other modes
+        // ENHANCED STANDARD MODE TEMPERATURE - same white hot capability
         float speed = length(p.velocity);
-        p.temperature = mix(p.temperature, speed * 0.1, 0.05); // Much cooler
+        
+        // Base temperature from velocity
+        float baseTemp = speed * 0.08 + 0.05; // Conservative base
+        
+        // Extreme velocity bonus for white hot cores
+        float extremeVelocity = max(0.0, (speed - 1.8) * 0.3); // Only very high speeds
+        
+        // Distance-based heating (closer = hotter, but capped)
+        float proximityHeat = max(0.0, (3.0 - distance) * 0.05); // Gentle proximity bonus
+        
+        // Combine for final temperature
+        float newTemp = baseTemp + extremeVelocity + proximityHeat;
+        
+        // Gradual temperature evolution
+        p.temperature = mix(p.temperature, newTemp, 0.03);
+        p.temperature = clamp(p.temperature, 0.05, 0.85); // Same cap as accretion mode
+        
+        // Standard density
         p.density = 1.0 / (distance * 0.1 + 1.0);
     }
 

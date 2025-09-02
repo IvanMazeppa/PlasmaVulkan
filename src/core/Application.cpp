@@ -505,6 +505,7 @@ void Application::printStatusUpdate() {
     std::cout << "  Time Scale: " << m_timeScale << std::endl;
     std::cout << "  Repulsive Gravity: " << (m_repulsiveGravity ? "ENABLED" : "DISABLED") << std::endl;
     std::cout << "  Energy Injection: " << m_energyInjection << std::endl;
+    std::cout << "  Angular Momentum Boost: " << m_particleSystem->getAngularMomentumBoost() << std::endl;
     
     glm::vec3 gravCenter = m_particleSystem->getGravityCenter();
     std::cout << "  Gravity Center: (" << gravCenter.x << ", " << gravCenter.y << ", " << gravCenter.z << ")" << std::endl;
@@ -717,6 +718,7 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "  [ / ]: Decrease/Increase time scale (0.1x to 5.0x)" << std::endl;
         std::cout << "  N: Toggle attraction/repulsion gravity" << std::endl;
         std::cout << "  I/U: Increase/Decrease energy injection" << std::endl;
+        std::cout << "  J/K: Decrease/Increase angular momentum boost" << std::endl;
         std::cout << "Shape Constraints:" << std::endl;
         std::cout << "  F1: No constraints (open space)" << std::endl;
         std::cout << "  F2: Spherical boundary" << std::endl;
@@ -816,6 +818,21 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         // Decrease energy injection
         app->m_energyInjection = std::max(0.0f, app->m_energyInjection - 0.1f);
         app->printParameterChange("Energy Injection", app->m_energyInjection);
+    }
+    // Angular momentum boost controls for better particle distribution
+    else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Decrease angular momentum boost
+        float currentBoost = app->m_particleSystem->getAngularMomentumBoost();
+        float newBoost = std::max(0.0f, currentBoost - 0.1f);
+        app->m_particleSystem->setAngularMomentumBoost(newBoost);
+        app->printParameterChange("Angular Momentum Boost", newBoost);
+    }
+    else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Increase angular momentum boost
+        float currentBoost = app->m_particleSystem->getAngularMomentumBoost();
+        float newBoost = std::min(3.0f, currentBoost + 0.1f);
+        app->m_particleSystem->setAngularMomentumBoost(newBoost);
+        app->printParameterChange("Angular Momentum Boost", newBoost);
     }
     // Shape constraint controls (moved to function keys to avoid SPH conflicts)
     else if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
