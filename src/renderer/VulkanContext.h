@@ -38,7 +38,7 @@ struct SwapChainSupportDetails {
  */
 class VulkanContext {
 public:
-    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr int MAX_FRAMES_IN_FLIGHT = 3; // Match swapchain image count
     
     explicit VulkanContext(GLFWwindow* window, bool enableValidation = true);
     ~VulkanContext();

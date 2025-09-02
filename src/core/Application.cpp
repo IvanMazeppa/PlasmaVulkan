@@ -24,26 +24,35 @@ void Application::run() {
 
     while (m_isRunning && !glfwWindowShouldClose(m_window)) {
         auto currentTime = std::chrono::high_resolution_clock::now();
-        float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(
+        float actualDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(
             currentTime - lastTime).count();
         lastTime = currentTime;
         
-        // Cap deltaTime to prevent physics instability
-        // This ensures consistent behavior regardless of framerate
-        const float maxDeltaTime = 1.0f / 30.0f; // 30 FPS minimum
-        deltaTime = std::min(deltaTime, maxDeltaTime);
+        // Accumulator-based fixed timestep physics
+        const float fixedTimeStep = 1.0f / 60.0f; // 60Hz physics simulation
+        m_physicsAccumulator += actualDeltaTime;
         
-        // Apply time scale for slow motion / fast forward
-        deltaTime *= m_timeScale;
+        // Only update physics when enough time has accumulated
+        m_shouldUpdatePhysics = false;
+        if (m_physicsAccumulator >= fixedTimeStep) {
+            m_shouldUpdatePhysics = true;
+            m_currentPhysicsDeltaTime = fixedTimeStep * m_timeScale;
+            m_physicsAccumulator -= fixedTimeStep;
+            
+            // Prevent spiral of death - cap accumulator
+            if (m_physicsAccumulator > fixedTimeStep * 4.0f) {
+                m_physicsAccumulator = 0.0f;
+            }
+        }
 
         glfwPollEvents();
 
-        update(deltaTime);
+        update(m_currentPhysicsDeltaTime); // Physics will only update when flag is set
         render();
 
-        // Calculate FPS
+        // Calculate FPS using actual frame time (not physics time)
         m_frameCount++;
-        m_frameTime += deltaTime;
+        m_frameTime += actualDeltaTime; // Use real frame deltaTime for accurate FPS
         if (m_frameTime >= 1.0f) {
             m_fps = m_frameCount / m_frameTime;
             m_frameCount = 0;
@@ -52,7 +61,7 @@ void Application::run() {
         }
         
         // Enhanced console display - periodic status updates
-        m_statusUpdateTimer += deltaTime;
+        m_statusUpdateTimer += actualDeltaTime; // Use real time for UI updates
         if (m_statusUpdateTimer >= 3.0f && m_showOSD) {  // Every 3 seconds
             printStatusUpdate();
             m_statusUpdateTimer = 0.0f;
@@ -175,8 +184,10 @@ void Application::createCommandBuffers() {
 }
 
 void Application::update(float deltaTime) {
-    // Update total time
-    m_totalTime += deltaTime;
+    // Update total time only when physics updates
+    if (m_shouldUpdatePhysics) {
+        m_totalTime += deltaTime;
+    }
     
     // Apply repulsive gravity if enabled
     if (m_particleSystem) {
@@ -350,8 +361,9 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     );
 
     // Update particles BEFORE beginning rendering (compute must be outside render pass)
-    if (m_particleSystem) {
-        m_particleSystem->update(commandBuffer, 0.016f, m_totalTime); // Fixed timestep for now
+    // Only update physics when the accumulator says we should
+    if (m_particleSystem && m_shouldUpdatePhysics) {
+        m_particleSystem->update(commandBuffer, m_currentPhysicsDeltaTime, m_totalTime); // Use actual physics timestep
         
         // Update volumetric density grid from particles (if enabled)
         if (m_volumetricMode && m_volumeRenderer) {
@@ -617,8 +629,8 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             app->m_particleSystem->setGravityStrength(newGravity);
             app->printParameterChange("Gravity Strength", newGravity);
         } else {
-            // Increase gravity
-            float newGravity = std::min(5.0f, app->m_particleSystem->getGravityStrength() + 0.1f);
+            // Increase gravity - much higher cap for stronger attraction
+            float newGravity = std::min(20.0f, app->m_particleSystem->getGravityStrength() + 0.1f);
             app->m_particleSystem->setGravityStrength(newGravity);
             app->printParameterChange("Gravity Strength", newGravity);
         }

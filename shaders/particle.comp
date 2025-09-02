@@ -186,28 +186,40 @@ void main() {
     // Apply forces
     vec3 acceleration = gravityForce + orbitalCorrection;
 
-    // REALISTIC 3D NOISE-BASED TURBULENCE
-    // Multi-octave noise for natural-looking turbulence patterns
-    vec3 noisePos = p.position * 0.1 + vec3(push.time * 0.1);
+    // CURL NOISE TURBULENCE - Creates local vortices and eddies
+    // Based on 2025 research: curl of a potential field creates divergence-free flow
     
-    // 3D Simplex-like noise using multiple sine waves at different frequencies
-    vec3 turbulence1 = vec3(
-        sin(noisePos.x * 3.14) * cos(noisePos.y * 2.71) * sin(noisePos.z * 1.41),
-        cos(noisePos.x * 2.71) * sin(noisePos.y * 3.14) * cos(noisePos.z * 1.73),
-        sin(noisePos.x * 1.73) * sin(noisePos.y * 1.41) * cos(noisePos.z * 2.71)
-    );
+    // Scale position for different vortex sizes
+    vec3 curlPos = p.position * 0.08 + vec3(push.time * 0.03);
     
-    // Higher frequency detail layer
-    vec3 noisePos2 = p.position * 0.3 + vec3(push.time * 0.15);
-    vec3 turbulence2 = vec3(
-        sin(noisePos2.x * 7.1) * cos(noisePos2.y * 6.3) * sin(noisePos2.z * 5.7),
-        cos(noisePos2.x * 6.3) * sin(noisePos2.y * 7.1) * cos(noisePos2.z * 4.9),
-        sin(noisePos2.x * 5.7) * sin(noisePos2.y * 4.9) * cos(noisePos2.z * 6.3)
-    ) * 0.3;
+    // Generate 3D potential field using smooth noise
+    float epsilon = 0.05;
     
-    // Combine octaves for realistic turbulence
-    vec3 combinedTurbulence = (turbulence1 + turbulence2) * push.turbulenceStrength;
-    acceleration += combinedTurbulence;
+    // Sample potential at 6 points for curl calculation
+    float px1 = sin(curlPos.x + epsilon) * cos(curlPos.y * 1.7) * sin(curlPos.z * 2.3);
+    float px2 = sin(curlPos.x - epsilon) * cos(curlPos.y * 1.7) * sin(curlPos.z * 2.3);
+    float py1 = sin(curlPos.x) * cos((curlPos.y + epsilon) * 1.7) * sin(curlPos.z * 2.3);
+    float py2 = sin(curlPos.x) * cos((curlPos.y - epsilon) * 1.7) * sin(curlPos.z * 2.3);
+    float pz1 = sin(curlPos.x) * cos(curlPos.y * 1.7) * sin((curlPos.z + epsilon) * 2.3);
+    float pz2 = sin(curlPos.x) * cos(curlPos.y * 1.7) * sin((curlPos.z - epsilon) * 2.3);
+    
+    // Calculate curl (creates rotating flow field)
+    vec3 curl;
+    curl.x = (pz1 - pz2) / (2.0 * epsilon) - (py1 - py2) / (2.0 * epsilon);
+    curl.y = (px1 - px2) / (2.0 * epsilon) - (pz1 - pz2) / (2.0 * epsilon);
+    curl.z = (py1 - py2) / (2.0 * epsilon) - (px1 - px2) / (2.0 * epsilon);
+    
+    // Add smaller scale eddies for detail
+    vec3 curlPos2 = p.position * 0.25 + vec3(push.time * 0.08);
+    curl += vec3(
+        sin(curlPos2.y * 5.1) * cos(curlPos2.z * 4.3),
+        sin(curlPos2.z * 5.1) * cos(curlPos2.x * 4.3), 
+        sin(curlPos2.x * 5.1) * cos(curlPos2.y * 4.3)
+    ) * 0.2;
+    
+    // Apply vortex turbulence
+    vec3 vortexForce = curl * push.turbulenceStrength * 0.5;
+    acceleration += vortexForce;
 
     // Update velocity with damping
     p.velocity += acceleration * push.deltaTime;
@@ -268,9 +280,9 @@ void main() {
         // Much gentler heating for stable colors across all modes
         float densityBoost = min(p.density * 0.1, 0.05); // Much smaller density effect
         
-        // Rare extreme conditions for white hot cores
-        float extremeVelocity = max(0.0, (speed - 1.5) * 0.2); // Only very high velocities
-        float extremeShear = max(0.0, (shearHeating - 0.3) * 0.3); // Only extreme shear
+        // Extreme conditions for white hot cores - more achievable thresholds
+        float extremeVelocity = max(0.0, (speed - 1.0) * 0.3); // High velocities contribute more
+        float extremeShear = max(0.0, (shearHeating - 0.2) * 0.4); // Lower threshold for shear
         
         // Combine heating sources - much more conservative
         float baseTemp = shearHeating + viscousHeating + 0.05;
@@ -279,7 +291,7 @@ void main() {
         
         // Very gradual temperature evolution to maintain stable colors
         p.temperature = mix(p.temperature, newTemp, 0.02);
-        p.temperature = clamp(p.temperature, 0.05, 0.85); // Cap at 85% - white very rare
+        p.temperature = clamp(p.temperature, 0.05, 1.0); // Allow full range for white hot cores
         
         // Gentler density profile
         float normalizedRadius = max(distance / 10.0, 0.1);
@@ -293,17 +305,20 @@ void main() {
         float baseTemp = speed * 0.08 + 0.05; // Conservative base
         
         // Extreme velocity bonus for white hot cores
-        float extremeVelocity = max(0.0, (speed - 1.8) * 0.3); // Only very high speeds
+        float extremeVelocity = max(0.0, (speed - 1.2) * 0.4); // More achievable threshold
         
         // Distance-based heating (closer = hotter, but capped)
-        float proximityHeat = max(0.0, (3.0 - distance) * 0.05); // Gentle proximity bonus
+        float proximityHeat = max(0.0, (3.0 - distance) * 0.08); // Stronger proximity bonus
+        
+        // Density accumulation bonus for white hot cores
+        float densityBonus = min(p.density * 0.15, 0.1); // Density contributes to heat
         
         // Combine for final temperature
-        float newTemp = baseTemp + extremeVelocity + proximityHeat;
+        float newTemp = baseTemp + extremeVelocity + proximityHeat + densityBonus;
         
         // Gradual temperature evolution
         p.temperature = mix(p.temperature, newTemp, 0.03);
-        p.temperature = clamp(p.temperature, 0.05, 0.85); // Same cap as accretion mode
+        p.temperature = clamp(p.temperature, 0.05, 1.0); // Allow full range for white hot cores
         
         // Standard density
         p.density = 1.0 / (distance * 0.1 + 1.0);
