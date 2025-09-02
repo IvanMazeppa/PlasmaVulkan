@@ -13,45 +13,49 @@ layout(location = 1) out float fragIntensity;
 layout(push_constant) uniform PushConstants {
     mat4 viewProj;
     float particleSize;
-    float _padding[3];
+    float softParticleFactor;
+    vec2 screenSize;
 } push;
 
 void main() {
     // Transform position
     gl_Position = push.viewProj * vec4(inPosition, 1.0);
     
-    // Set point size based on distance and particle size
+    // Set point size based on distance and particle size - enhanced for volumetric effect
     float distance = length(inPosition);
-    gl_PointSize = push.particleSize * (20.0 / (distance + 1.0)); // Larger base size
-    gl_PointSize = clamp(gl_PointSize, 2.0, 20.0); // Bigger range
+    gl_PointSize = push.particleSize * (25.0 / (distance + 1.0)); // Much larger for volume
+    gl_PointSize = clamp(gl_PointSize, 4.0, 40.0); // Bigger range for smooth overlap
     
     // ORBITAL VELOCITY-BASED TEMPERATURE MODEL
     // Use persistent temperature from compute shader instead of distance-based calculation
     float normalizedTemp = clamp(inTemperature, 0.0, 1.0);
     
-    // Blackbody radiation color mapping - proper physics-based spectrum
-    // Based on 2025 research: stable temperature tracking prevents white-out
-    if (normalizedTemp < 0.1) {
-        // Very cool: Deep red-brown (outer disk regions)
+    // Enhanced blackbody radiation color mapping - ALL MODES
+    // White hot cores only at EXTREME density/velocity conditions
+    if (normalizedTemp < 0.15) {
+        // Very cool: Deep red-brown
         fragColor = vec3(0.4, 0.05, 0.0);
-    } else if (normalizedTemp < 0.2) {
-        // Cool: Red (stable orbital regions)
+    } else if (normalizedTemp < 0.3) {
+        // Cool: Red
         fragColor = vec3(0.8, 0.1, 0.0);
-    } else if (normalizedTemp < 0.35) {
-        // Moderate cool: Red-orange (mid-disk)
+    } else if (normalizedTemp < 0.45) {
+        // Moderate cool: Red-orange
         fragColor = vec3(1.0, 0.25, 0.0);
-    } else if (normalizedTemp < 0.5) {
-        // Moderate: Orange (active regions)
+    } else if (normalizedTemp < 0.6) {
+        // Moderate: Orange
         fragColor = vec3(1.0, 0.5, 0.05);
-    } else if (normalizedTemp < 0.65) {
-        // Moderate hot: Yellow-orange (high shear zones)
+    } else if (normalizedTemp < 0.75) {
+        // Moderate hot: Yellow-orange
         fragColor = vec3(1.0, 0.7, 0.1);
-    } else if (normalizedTemp < 0.8) {
-        // Hot: Yellow (viscous heating zones)
+    } else if (normalizedTemp < 0.88) {
+        // Hot: Yellow
         fragColor = vec3(1.0, 0.9, 0.2);
+    } else if (normalizedTemp < 0.96) {
+        // Very hot: Yellow-white (rare - high velocity/density)
+        fragColor = vec3(1.0, 0.95, 0.7);
     } else {
-        // Very hot: Yellow-white (extreme shear/viscous dissipation)
-        fragColor = vec3(1.0, 0.95, 0.6);
+        // WHITE HOT: Pure white (EXTREME conditions only)
+        fragColor = vec3(1.0, 1.0, 1.0);
     }
     
     // Stable intensity based on temperature

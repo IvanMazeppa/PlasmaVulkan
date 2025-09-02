@@ -492,6 +492,7 @@ void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, floa
         pushConstants.constraintThickness = m_constraintThickness;
         pushConstants.blackHoleMass = m_blackHoleMass;
         pushConstants.alphaViscosity = m_alphaViscosity;
+        pushConstants.angularMomentumBoost = m_angularMomentumBoost;
         
         vkCmdPushConstants(commandBuffer, m_computePipelineLayout,
             VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pushConstants);
@@ -513,7 +514,9 @@ void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, floa
         0, 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
-void ParticleSystem::render(VkCommandBuffer commandBuffer, const glm::mat4& viewProj) {
+void ParticleSystem::render(VkCommandBuffer commandBuffer, const glm::mat4& viewProj, 
+                           VkImageView depthImageView, const glm::vec2& screenSize,
+                           float softParticleFactor) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
     
     // Set viewport and scissor
@@ -534,7 +537,9 @@ void ParticleSystem::render(VkCommandBuffer commandBuffer, const glm::mat4& view
     // Push constants
     GraphicsPushConstants pushConstants{};
     pushConstants.viewProj = viewProj;
-    pushConstants.particleSize = 0.5f; // Much larger particles for visibility
+    pushConstants.particleSize = 2.0f; // Much larger particles for volumetric effect
+    pushConstants.softParticleFactor = softParticleFactor;
+    pushConstants.screenSize = screenSize;
     
     vkCmdPushConstants(commandBuffer, m_graphicsPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GraphicsPushConstants), &pushConstants);

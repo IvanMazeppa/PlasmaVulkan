@@ -37,6 +37,7 @@ public:
         float constraintThickness; // For disc thickness, torus tube radius
         float blackHoleMass;       // In solar masses for accretion disk
         float alphaViscosity;      // Shakura-Sunyaev α parameter
+        float angularMomentumBoost; // Boost orbital velocity for stable, spread-out orbits
     };
     
     // Push constants for SPH shader
@@ -55,7 +56,8 @@ public:
     struct GraphicsPushConstants {
         glm::mat4 viewProj;
         float particleSize;
-        float _padding[3];
+        float softParticleFactor;
+        glm::vec2 screenSize;
     };
     
     ParticleSystem(VulkanContext* context, uint32_t particleCount = 100000);
@@ -65,7 +67,10 @@ public:
     void update(VkCommandBuffer commandBuffer, float deltaTime, float time);
     
     // Render particles
-    void render(VkCommandBuffer commandBuffer, const glm::mat4& viewProj);
+    void render(VkCommandBuffer commandBuffer, const glm::mat4& viewProj, 
+               VkImageView depthImageView = VK_NULL_HANDLE, 
+               const glm::vec2& screenSize = glm::vec2(1920, 1080),
+               float softParticleFactor = 0.1f);
     
     // SPH controls
     void setSPHMode(bool enabled) { m_sphMode = enabled; }
@@ -112,6 +117,9 @@ public:
     
     void setAlphaViscosity(float alpha) { m_alphaViscosity = alpha; }
     float getAlphaViscosity() const { return m_alphaViscosity; }
+    
+    void setAngularMomentumBoost(float boost) { m_angularMomentumBoost = boost; }
+    float getAngularMomentumBoost() const { return m_angularMomentumBoost; }
     
 private:
     void createParticleBuffer();
@@ -181,6 +189,7 @@ private:
     // Accretion disk physics
     float m_blackHoleMass = 1.0f;                // Black hole mass in solar masses
     float m_alphaViscosity = 0.1f;               // Shakura-Sunyaev α parameter
+    float m_angularMomentumBoost = 1.0f;         // Orbital velocity boost for stable orbits
 };
 
 } // namespace plasma
