@@ -8,7 +8,7 @@
 namespace plasma {
 
 ParticleSystem::ParticleSystem(VulkanContext* context, uint32_t particleCount)
-    : m_context(context), m_particleCount(particleCount), m_activeParticleCount(particleCount) {
+    : m_context(context), m_particleCount(particleCount), m_activeParticleCount(1000000) { // Start with 1M particles
     
     std::cout << "Creating particle system with " << particleCount << " particles..." << std::endl;
     
@@ -53,7 +53,7 @@ void ParticleSystem::createParticleBuffer() {
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
     if (vkAllocateMemory(m_context->getDevice(), &allocInfo, nullptr, &m_particleBufferMemory) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate particle buffer memory!");
@@ -451,12 +451,51 @@ void ParticleSystem::initializeParticles() {
         particles[i].density = 1.0f;
     }
     
-    // Copy to GPU buffer
+    // Copy to GPU buffer using staging buffer
+    VkDeviceSize bufferSize = sizeof(Particle) * m_particleCount;
+    
+    // Create staging buffer
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = bufferSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    vkCreateBuffer(m_context->getDevice(), &bufferInfo, nullptr, &stagingBuffer);
+    
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(m_context->getDevice(), stagingBuffer, &memRequirements);
+    
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    
+    vkAllocateMemory(m_context->getDevice(), &allocInfo, nullptr, &stagingBufferMemory);
+    vkBindBufferMemory(m_context->getDevice(), stagingBuffer, stagingBufferMemory, 0);
+    
+    // Map and copy data to staging buffer
     void* data;
-    vkMapMemory(m_context->getDevice(), m_particleBufferMemory, 0, 
-        sizeof(Particle) * m_particleCount, 0, &data);
-    memcpy(data, particles.data(), sizeof(Particle) * m_particleCount);
-    vkUnmapMemory(m_context->getDevice(), m_particleBufferMemory);
+    vkMapMemory(m_context->getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, particles.data(), bufferSize);
+    vkUnmapMemory(m_context->getDevice(), stagingBufferMemory);
+    
+    // Copy from staging buffer to device buffer
+    VkCommandBuffer commandBuffer = m_context->beginSingleTimeCommands();
+    
+    VkBufferCopy copyRegion{};
+    copyRegion.size = bufferSize;
+    vkCmdCopyBuffer(commandBuffer, stagingBuffer, m_particleBuffer, 1, &copyRegion);
+    
+    m_context->endSingleTimeCommands(commandBuffer);
+    
+    // Cleanup staging buffer
+    vkDestroyBuffer(m_context->getDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(m_context->getDevice(), stagingBufferMemory, nullptr);
 }
 
 void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, float time) {

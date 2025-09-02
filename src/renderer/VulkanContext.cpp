@@ -505,12 +505,22 @@ VkSurfaceFormatKHR VulkanContext::chooseSwapSurfaceFormat(const std::vector<VkSu
 }
 
 VkPresentModeKHR VulkanContext::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+    // Prefer unlimited fps modes for maximum performance
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+            std::cout << "Using VK_PRESENT_MODE_IMMEDIATE_KHR for maximum performance" << std::endl;
+            return availablePresentMode;
+        }
+    }
+    
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            std::cout << "Using VK_PRESENT_MODE_MAILBOX_KHR for high performance" << std::endl;
             return availablePresentMode;
         }
     }
 
+    std::cout << "Falling back to VK_PRESENT_MODE_FIFO_KHR (V-Sync enabled)" << std::endl;
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 

@@ -81,7 +81,10 @@ private:
     // Frame management
     uint32_t m_currentFrame = 0;
     std::chrono::high_resolution_clock::time_point m_startTime;
+    float m_currentPhysicsDeltaTime = 0.016f; // Current physics timestep
     float m_totalTime = 0.0f;
+    float m_physicsAccumulator = 0.0f; // Accumulator for fixed timestep physics
+    bool m_shouldUpdatePhysics = false; // Flag to indicate if physics should update this frame
     
     // Timing
     float m_frameTime = 0.0f;
@@ -130,7 +133,7 @@ private:
     bool m_middleMousePressed = false; // For panning
     
     // Performance optimization  
-    uint32_t m_fullParticleCount = 1000000; // 1 million particles! (4x increase from 250k)
+    uint32_t m_fullParticleCount = 2000000; // 2 million particles - performance balance
     uint32_t m_sphParticleCount = 25000;    // Increased SPH for better fluid dynamics
     
     // Volumetric rendering

@@ -33,7 +33,11 @@
       "Bash(grep:*)",
       "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build build/windows-debug --target shaders --config Debug)",
       "Bash(find:*)",
-      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build build/windows-debug --target PlasmaVulkan --config Debug)"
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build build/windows-debug --target PlasmaVulkan --config Debug)",
+      "WebFetch(domain:thebookofshaders.com)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target PlasmaVulkan --config Release)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build cmake-build-debug-visual-studio --target PlasmaVulkan --config Release)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target shaders --config Release)"
     ],
     "deny": [],
     "ask": []
