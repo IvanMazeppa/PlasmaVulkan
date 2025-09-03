@@ -32,12 +32,16 @@ public:
         glm::vec3 gravityCenter;   // Center of gravity attraction
         float turbulenceStrength;  // Noise/chaos factor
         float dampingFactor;       // Velocity damping
-        uint32_t constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK
+        uint32_t constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK, 5=GALAXY_COLLISION
         float constraintRadius;    // Main radius for all shapes
         float constraintThickness; // For disc thickness, torus tube radius
         float blackHoleMass;       // In solar masses for accretion disk
         float alphaViscosity;      // Shakura-Sunyaev α parameter
         float angularMomentumBoost; // Boost orbital velocity for stable, spread-out orbits
+        // Galaxy collision parameters
+        glm::vec3 gravityCenter2;   // Second galaxy center
+        float blackHoleMass2;       // Second galaxy black hole mass
+        uint32_t dualGalaxyMode;    // 0=single galaxy, 1=dual galaxy mode
     };
     
     // Push constants for SPH shader
@@ -121,6 +125,16 @@ public:
     void setAngularMomentumBoost(float boost) { m_angularMomentumBoost = boost; }
     float getAngularMomentumBoost() const { return m_angularMomentumBoost; }
     
+    // Galaxy collision parameters
+    void setDualGalaxyMode(bool enabled) { m_dualGalaxyMode = enabled; }
+    bool getDualGalaxyMode() const { return m_dualGalaxyMode; }
+    
+    void setGravityCenter2(const glm::vec3& center) { m_gravityCenter2 = center; }
+    glm::vec3 getGravityCenter2() const { return m_gravityCenter2; }
+    
+    void setBlackHoleMass2(float mass) { m_blackHoleMass2 = mass; }
+    float getBlackHoleMass2() const { return m_blackHoleMass2; }
+    
 private:
     void createParticleBuffer();
     void createComputePipeline();
@@ -190,6 +204,11 @@ private:
     float m_blackHoleMass = 1.0f;                // Black hole mass in solar masses
     float m_alphaViscosity = 0.1f;               // Shakura-Sunyaev α parameter
     float m_angularMomentumBoost = 1.0f;         // Orbital velocity boost for stable orbits
+    
+    // Galaxy collision physics
+    glm::vec3 m_gravityCenter2 = {10.0f, 0.0f, 0.0f}; // Second galaxy center (offset for collision)
+    float m_blackHoleMass2 = 1.0f;               // Second galaxy black hole mass
+    bool m_dualGalaxyMode = false;               // Enable dual galaxy collision mode
 };
 
 } // namespace plasma

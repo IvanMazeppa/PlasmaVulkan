@@ -38,6 +38,21 @@ public:
     // Accessors
     VmaAllocator getAllocator() const { return m_allocator; }
     
+    // Setters for initial configuration (call before run())
+    void setActiveParticleCount(uint32_t count);
+    void setGravityStrength(float strength);
+    void setTurbulenceStrength(float strength);
+    void setDampingFactor(float factor);
+    void setAngularMomentumBoost(float boost);
+    void setTimeScale(float scale);
+    void setConstraintShape(int shape);
+    void setBlackHoleMass(float mass);
+    void setGravityCenter(const glm::vec3& center);
+    void setDualGalaxyMode(bool enabled);
+    void setGravityCenter2(const glm::vec3& center);
+    void setBlackHoleMass2(float mass);
+    void setCameraPosition(float distance, const glm::vec3& target);
+    
 protected:
     virtual void update(float deltaTime);
     virtual void render();
