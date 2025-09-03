@@ -78,6 +78,85 @@ void Application::stop() {
     m_isRunning = false;
 }
 
+// Setter implementations for initial configuration
+void Application::setActiveParticleCount(uint32_t count) {
+    if (m_particleSystem) {
+        m_particleSystem->setActiveParticleCount(count);
+    }
+}
+
+void Application::setGravityStrength(float strength) {
+    if (m_particleSystem) {
+        m_particleSystem->setGravityStrength(strength);
+    }
+}
+
+void Application::setTurbulenceStrength(float strength) {
+    if (m_particleSystem) {
+        m_particleSystem->setTurbulenceStrength(strength);
+    }
+}
+
+void Application::setDampingFactor(float factor) {
+    if (m_particleSystem) {
+        m_particleSystem->setDampingFactor(factor);
+    }
+}
+
+void Application::setAngularMomentumBoost(float boost) {
+    if (m_particleSystem) {
+        m_particleSystem->setAngularMomentumBoost(boost);
+    }
+}
+
+void Application::setTimeScale(float scale) {
+    m_timeScale = scale;
+}
+
+void Application::setConstraintShape(int shape) {
+    m_constraintShape = static_cast<ConstraintShape>(shape);
+    if (m_particleSystem) {
+        m_particleSystem->setConstraintShape(static_cast<uint32_t>(shape));
+    }
+}
+
+void Application::setBlackHoleMass(float mass) {
+    if (m_particleSystem) {
+        m_particleSystem->setBlackHoleMass(mass);
+    }
+}
+
+void Application::setGravityCenter(const glm::vec3& center) {
+    if (m_particleSystem) {
+        m_particleSystem->setGravityCenter(center);
+    }
+}
+
+void Application::setDualGalaxyMode(bool enabled) {
+    if (m_particleSystem) {
+        m_particleSystem->setDualGalaxyMode(enabled);
+    }
+}
+
+void Application::setGravityCenter2(const glm::vec3& center) {
+    if (m_particleSystem) {
+        m_particleSystem->setGravityCenter2(center);
+    }
+}
+
+void Application::setBlackHoleMass2(float mass) {
+    if (m_particleSystem) {
+        m_particleSystem->setBlackHoleMass2(mass);
+    }
+}
+
+void Application::setCameraPosition(float distance, const glm::vec3& target) {
+    m_cameraDistance = distance;
+    m_cameraTarget = target;
+    m_cameraTheta = 0.0f; // Reset rotation
+    m_cameraPhi = 0.0f;   // Reset elevation
+}
+
 void Application::initWindow() {
     glfwInit();
 
@@ -529,6 +608,9 @@ void Application::printStatusUpdate() {
         case ConstraintShape::SPHERE: std::cout << "SPHERE (R=" << m_constraintRadius << ")"; break;
         case ConstraintShape::DISC:   std::cout << "DISC (R=" << m_constraintRadius << " T=" << m_constraintThickness << ")"; break;
         case ConstraintShape::TORUS:  std::cout << "TORUS (Major=" << m_constraintRadius << " Minor=" << m_constraintThickness << ")"; break;
+        case ConstraintShape::ACCRETION_DISK: 
+            std::cout << "ACCRETION DISK (BH=" << (m_particleSystem ? m_particleSystem->getBlackHoleMass() : 1.0f) << " M☉)"; 
+            break;
     }
     std::cout << std::endl;
     std::cout << "  Wireframe: " << (m_showWireframe ? "ENABLED" : "DISABLED") << std::endl;
@@ -739,7 +821,8 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "  W: Toggle wireframe display" << std::endl;
         std::cout << "  +/-: Increase/Decrease constraint size" << std::endl;
         std::cout << "Camera Controls:" << std::endl;
-        std::cout << "  Mouse: Orbit camera" << std::endl;
+        std::cout << "  Left Mouse: Orbit camera" << std::endl;
+        std::cout << "  Right Mouse: Pan camera" << std::endl;
         std::cout << "  Wheel: Zoom in/out (0.5-200 units)" << std::endl;
         std::cout << "  Middle Mouse: Pan camera target" << std::endl;
     }
@@ -969,7 +1052,7 @@ void Application::mouseButtonCallback(GLFWwindow* window, int button, int action
         } else if (action == GLFW_RELEASE) {
             app->m_mousePressed = false;
         }
-    } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
+    } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
         if (action == GLFW_PRESS) {
             app->m_middleMousePressed = true;
             glfwGetCursorPos(window, &app->m_lastMouseX, &app->m_lastMouseY);

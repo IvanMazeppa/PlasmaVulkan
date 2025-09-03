@@ -1,0 +1,22 @@
+Build Backup #002
+Date: September 3, 2025
+Description: High performance with device-local memory, menu system, fixed timestep physics
+
+Key Features:
+- Device-local GPU memory (59x performance improvement)
+- Fixed timestep physics (60Hz independent of framerate)
+- Console menu with 7 presets + custom settings
+- 1000+ FPS with 1M particles on RTX 4060 Ti
+- Accretion disk physics
+- Advanced camera controls
+- Real-time parameter adjustment
+
+Performance Milestones:
+- 17 FPS → 1004 FPS (1M particles)
+- Physics decoupled from render framerate
+- No startup pause
+- Smooth mouse controls
+
+Known Issues:
+- Validation layer warning (cosmetic)
+- VMA allocator disabled (needs investigation)

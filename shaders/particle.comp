@@ -22,12 +22,16 @@ layout(push_constant) uniform PushConstants {
     vec3 gravityCenter;
     float turbulenceStrength;
     float dampingFactor;
-    uint constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK
+    uint constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK, 5=GALAXY_COLLISION
     float constraintRadius;
     float constraintThickness;
     float blackHoleMass;  // In solar masses
     float alphaViscosity; // Shakura-Sunyaev alpha parameter
     float angularMomentumBoost; // Boost orbital velocity for stable orbits
+    // Galaxy collision parameters
+    vec3 gravityCenter2;   // Second galaxy center
+    float blackHoleMass2;  // Second galaxy black hole mass
+    uint dualGalaxyMode;   // 0=single galaxy, 1=dual galaxy mode
 } push;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -109,23 +113,61 @@ void main() {
 
     Particle p = particleBuffer.particles[id];
 
-    // Calculate force towards center
-    vec3 toCenter = push.gravityCenter - p.position;
-    float distance = length(toCenter);
-
-    // Prevent division by zero and singularity
-    distance = max(distance, 0.1);
+    vec3 gravityForce = vec3(0.0);
+    vec3 toCenter = vec3(0.0);
+    float distance = 0.0;
     
-    vec3 gravityForce;
+    if (push.dualGalaxyMode == 1u) {
+        // GALAXY COLLISION MODE - particles feel gravity from both centers
+        
+        // Determine which galaxy this particle belongs to (for initialization purposes)
+        uint particleGalaxy = (id < push.particleCount / 2u) ? 0u : 1u;
+        
+        // Calculate gravity from Galaxy A center
+        vec3 toCenter1 = push.gravityCenter - p.position;
+        float distance1 = max(length(toCenter1), 0.1);
+        float gravityMag1 = push.gravityStrength * push.blackHoleMass / (distance1 * distance1 + 1.0);
+        vec3 gravityForce1 = normalize(toCenter1) * gravityMag1;
+        
+        // Calculate gravity from Galaxy B center  
+        vec3 toCenter2 = push.gravityCenter2 - p.position;
+        float distance2 = max(length(toCenter2), 0.1);
+        float gravityMag2 = push.gravityStrength * push.blackHoleMass2 / (distance2 * distance2 + 1.0);
+        vec3 gravityForce2 = normalize(toCenter2) * gravityMag2;
+        
+        // Total gravitational force is sum of both
+        gravityForce = gravityForce1 + gravityForce2;
+        
+        // Use primary galaxy center for orbital calculations
+        toCenter = (particleGalaxy == 0u) ? toCenter1 : toCenter2;
+        distance = (particleGalaxy == 0u) ? distance1 : distance2;
+        
+    } else {
+        // SINGLE GALAXY MODE - standard behavior
+        
+        // Calculate force towards center
+        toCenter = push.gravityCenter - p.position;
+        distance = length(toCenter);
+
+        // Prevent division by zero and singularity
+        distance = max(distance, 0.1);
+        
+        // Standard Newtonian gravity (will be refined below based on constraint mode)
+        float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0);
+        gravityForce = normalize(toCenter) * gravityMagnitude;
+    }
+    
+    // Apply specific gravity model based on constraint mode
     float ISCO = 3.0; // Innermost stable circular orbit at 3 Schwarzschild radii
     
-    if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+    // Refine gravity calculation for special modes (single galaxy only)
+    if (push.constraintShape == 4u && push.dualGalaxyMode == 0u) { // ACCRETION_DISK mode (single galaxy only)
         // Paczynski-Wiita pseudo-Newtonian potential
         // Mimics relativistic effects near black hole
         float r_s = 0.5 * push.blackHoleMass; // Schwarzschild radius (scaled down)
         float effectiveRadius = max(distance - r_s, 0.5);
         
-        // Gentler gravity with better falloff
+        // Override with black hole gravity model
         float gravityMagnitude = push.gravityStrength * push.blackHoleMass / (effectiveRadius * effectiveRadius + 1.0);
         gravityForce = normalize(toCenter) * gravityMagnitude * 0.3; // Reduced strength
         
@@ -136,12 +178,8 @@ void main() {
             gravityForce *= sinkFactor;
             p.temperature = mix(p.temperature, 2.0, 0.01); // Gradual heating
         }
-    } else {
-        // Standard Newtonian gravity for other modes
-        float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0);
-        gravityForce = normalize(toCenter) * gravityMagnitude;
-        
-        // Add repulsion when too close to center (prevents singularity/slingshot)
+    } else if (push.dualGalaxyMode == 0u) {
+        // Add repulsion when too close to center (prevents singularity/slingshot) - single galaxy only
         if (distance < 1.0) {
             float repulsionStrength = 2.0 * (1.0 - distance);
             gravityForce -= normalize(toCenter) * repulsionStrength;

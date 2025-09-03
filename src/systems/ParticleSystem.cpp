@@ -416,24 +416,34 @@ void ParticleSystem::initializeParticles() {
     std::uniform_real_distribution<float> heightDist(-0.5f, 0.5f);
     
     for (uint32_t i = 0; i < m_particleCount; i++) {
+        // Determine which galaxy this particle belongs to
+        bool isGalaxyB = (m_dualGalaxyMode && i >= m_particleCount / 2);
+        glm::vec3 galaxyCenter = isGalaxyB ? m_gravityCenter2 : m_gravityCenter;
+        
         // Create a more cloud-like distribution with varying density
         float theta = angleDist(gen);
         float phi = acos(1.0f - 2.0f * radiusDist(gen)); // Proper spherical distribution
         
-        // Use a power function for radius to create density variation
-        float r = pow(radiusDist(gen), 0.5f) * 6.0f; // Denser in center, sparse at edges
+        // Use a power function for radius to create density variation  
+        // In dual galaxy mode, make each galaxy more compact for better visibility
+        float galaxyRadius = m_dualGalaxyMode ? 6.0f : 6.0f; // Keep galaxies compact for visibility
+        float r = pow(radiusDist(gen), 0.5f) * galaxyRadius; // Denser in center, sparse at edges
         
         // Add some disc bias for accretion disc tendency
         float discBias = 1.0f - abs(heightDist(gen)) * 0.3f;
         
-        particles[i].position = glm::vec3(
+        // Create relative position around galaxy center
+        glm::vec3 relativePos = glm::vec3(
             r * sin(phi) * cos(theta) * discBias,
             r * cos(phi) * heightDist(gen) * 2.0f, // Flatter distribution
             r * sin(phi) * sin(theta) * discBias
         );
         
-        // Give particles some initial orbital velocity
-        glm::vec3 toCenter = -particles[i].position;
+        // Position relative to galaxy center
+        particles[i].position = relativePos + galaxyCenter;
+        
+        // Give particles initial orbital velocity around their galaxy center
+        glm::vec3 toCenter = galaxyCenter - particles[i].position;
         if (length(toCenter) > 0.1f) {
             glm::vec3 tangent = normalize(cross(toCenter, glm::vec3(0, 1, 0)));
             float orbitalSpeed = sqrt(2.0f / (length(toCenter) + 1.0f)) * 0.5f;
@@ -532,6 +542,10 @@ void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, floa
         pushConstants.blackHoleMass = m_blackHoleMass;
         pushConstants.alphaViscosity = m_alphaViscosity;
         pushConstants.angularMomentumBoost = m_angularMomentumBoost;
+        // Galaxy collision parameters
+        pushConstants.gravityCenter2 = m_gravityCenter2;
+        pushConstants.blackHoleMass2 = m_blackHoleMass2;
+        pushConstants.dualGalaxyMode = m_dualGalaxyMode ? 1u : 0u;
         
         vkCmdPushConstants(commandBuffer, m_computePipelineLayout,
             VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pushConstants);
