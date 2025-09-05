@@ -30,32 +30,31 @@ void main() {
     // Use persistent temperature from compute shader instead of distance-based calculation
     float normalizedTemp = clamp(inTemperature, 0.0, 1.0);
     
-    // Enhanced blackbody radiation color mapping - ALL MODES
-    // White hot cores only at EXTREME density/velocity conditions
+    // Enhanced blackbody radiation color mapping - from cool to hot
     if (normalizedTemp < 0.15) {
-        // Very cool: Deep red-brown
-        fragColor = vec3(0.4, 0.05, 0.0);
+        // Very cool: Deep blue (new for galaxy collision visualization)
+        fragColor = vec3(0.1, 0.3, 0.9);
     } else if (normalizedTemp < 0.3) {
-        // Cool: Red
-        fragColor = vec3(0.8, 0.1, 0.0);
+        // Cool: Cyan-blue
+        fragColor = vec3(0.2, 0.6, 1.0);
     } else if (normalizedTemp < 0.45) {
-        // Moderate cool: Red-orange
-        fragColor = vec3(1.0, 0.25, 0.0);
+        // Moderate cool: Cyan
+        fragColor = vec3(0.3, 0.8, 0.9);
     } else if (normalizedTemp < 0.6) {
-        // Moderate: Orange
-        fragColor = vec3(1.0, 0.5, 0.05);
+        // Moderate: White-yellow
+        fragColor = vec3(0.9, 0.9, 0.6);
     } else if (normalizedTemp < 0.75) {
         // Moderate hot: Yellow-orange
         fragColor = vec3(1.0, 0.7, 0.1);
     } else if (normalizedTemp < 0.88) {
-        // Hot: Yellow
-        fragColor = vec3(1.0, 0.9, 0.2);
+        // Hot: Orange
+        fragColor = vec3(1.0, 0.5, 0.05);
     } else if (normalizedTemp < 0.96) {
-        // Very hot: Yellow-white (rare - high velocity/density)
-        fragColor = vec3(1.0, 0.95, 0.7);
+        // Very hot: Red-orange
+        fragColor = vec3(1.0, 0.25, 0.0);
     } else {
-        // WHITE HOT: Pure white (EXTREME conditions only)
-        fragColor = vec3(1.0, 1.0, 1.0);
+        // WHITE HOT: Pure red (EXTREME conditions only)
+        fragColor = vec3(1.0, 0.1, 0.0);
     }
     
     // Stable intensity based on temperature

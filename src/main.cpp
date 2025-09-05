@@ -30,9 +30,10 @@ void printMenu() {
     std::cout << "  5. Protoplanetary Disk\n";
     std::cout << "  6. Galaxy Collision (Dual Gravity)\n";
     std::cout << "  7. Quasar Jets (High Energy)\n";
-    std::cout << "  8. Custom Settings\n";
-    std::cout << "  9. Start with Current Settings\n\n";
-    std::cout << "Enter choice (1-9): ";
+    std::cout << "  8. Volumetric Plasma (Swirling Energy)\n";
+    std::cout << "  9. Custom Settings\n";
+    std::cout << "  10. Start with Current Settings\n\n";
+    std::cout << "Enter choice (1-10): ";
 }
 
 SimulationPreset getPreset(int choice) {
@@ -58,6 +59,9 @@ SimulationPreset getPreset(int choice) {
         case 7: // Quasar Jets
             return {"Quasar Jets", "Active galactic nucleus with relativistic jets",
                     1500000, 1.5f, 0.05f, 0.996f, 4.0f, 1.2f, true, 20.0f};
+        case 8: // Volumetric Plasma
+            return {"Volumetric Plasma", "Swirling energy field with volumetric rendering",
+                    150000, 0.4f, 0.1f, 0.995f, 1.5f, 1.0f, false, 2.0f};
         default: // Custom
             return {"Custom", "User-defined parameters",
                     1000000, 0.6f, 0.0f, 0.999f, 1.0f, 1.0f, false, 1.0f};
@@ -114,18 +118,18 @@ int main(int argc, char* argv[]) {
         std::string input;
         std::getline(std::cin, input);
         
-        int choice = 9; // Default to current settings
+        int choice = 10; // Default to current settings
         if (!input.empty()) {
             choice = std::stoi(input);
         }
         
         SimulationPreset preset = getPreset(choice);
         
-        if (choice == 8) { // Custom settings
+        if (choice == 9) { // Custom settings
             getCustomSettings(preset);
         }
         
-        if (choice != 9) {
+        if (choice != 10) {
             std::cout << "\n=== STARTING SIMULATION ===\n";
             std::cout << "Preset: " << preset.name << "\n";
             std::cout << preset.description << "\n";
@@ -137,7 +141,7 @@ int main(int argc, char* argv[]) {
         plasma::Application app("Plasma VK - Volumetric Particle Renderer", 1920, 1080);
         
         // Apply preset settings if not using defaults
-        if (choice != 9) {
+        if (choice != 10) {
             app.setActiveParticleCount(preset.particleCount);
             app.setGravityStrength(preset.gravity);
             app.setTurbulenceStrength(preset.turbulence);
@@ -146,11 +150,12 @@ int main(int argc, char* argv[]) {
             app.setTimeScale(preset.timeScale);
             
             if (choice == 6) { // Galaxy Collision preset
-                app.setDualGalaxyMode(true);
-                app.setGravityCenter(glm::vec3(-6.0f, 0.0f, 1.0f));  // Galaxy A (much closer, slight offset)
-                app.setGravityCenter2(glm::vec3(6.0f, 0.0f, -1.0f)); // Galaxy B (much closer, slight offset collision course)
+                // Set galaxy centers FIRST before enabling dual galaxy mode
+                app.setGravityCenter(glm::vec3(-20.0f, 0.0f, 5.0f));  // Galaxy A (Milky Way position)
+                app.setGravityCenter2(glm::vec3(20.0f, 0.0f, -5.0f)); // Galaxy B (Andromeda position, collision course)
                 app.setBlackHoleMass(3.0f);   // Milky Way-sized black hole
                 app.setBlackHoleMass2(4.0f);  // Slightly larger Andromeda-sized black hole
+                app.setDualGalaxyMode(true);  // Enable dual galaxy mode AFTER setting centers
                 
                 // Position camera at collision center (midpoint between galaxies)
                 glm::vec3 collisionCenter = glm::vec3(0.0f, 0.0f, 0.0f); // Midpoint between galaxies
@@ -158,6 +163,14 @@ int main(int argc, char* argv[]) {
                 
                 std::cout << "Galaxy collision mode enabled - Milky Way vs Andromeda!" << std::endl;
                 std::cout << "Initial separation: 12 units | Camera at 25 units distance" << std::endl;
+            } else if (choice == 8) { // Volumetric Plasma preset
+                // Enable volumetric rendering mode for swirling plasma effect
+                app.enableVolumetricMode(true);
+                app.setConstraintShape(0); // Open space for free-form plasma swirls
+                app.setCameraPosition(15.0f, glm::vec3(0.0f, 0.0f, 0.0f));
+                
+                std::cout << "Volumetric Plasma mode enabled - Swirling energy field!" << std::endl;
+                std::cout << "Optimized for 150k particles at high performance" << std::endl;
             } else if (preset.accretionDisk) {
                 app.setConstraintShape(4); // ACCRETION_DISK
                 app.setBlackHoleMass(preset.blackHoleMass);

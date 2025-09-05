@@ -117,30 +117,49 @@ void main() {
     vec3 toCenter = vec3(0.0);
     float distance = 0.0;
     
+    // DUAL GALAXY COLLISION MODE - Two distinct gravitational systems
     if (push.dualGalaxyMode == 1u) {
-        // GALAXY COLLISION MODE - particles feel gravity from both centers
         
-        // Determine which galaxy this particle belongs to (for initialization purposes)
-        uint particleGalaxy = (id < push.particleCount / 2u) ? 0u : 1u;
+        // Determine which galaxy this particle belongs to
+        // CRITICAL FIX: Explicit calculation to ensure proper galaxy assignment
+        uint halfParticles = push.particleCount / 2u;
+        uint particleGalaxy = (id < halfParticles) ? 0u : 1u;
         
-        // Calculate gravity from Galaxy A center
+        // Calculate gravity from Galaxy A (Milky Way) center
         vec3 toCenter1 = push.gravityCenter - p.position;
         float distance1 = max(length(toCenter1), 0.1);
-        float gravityMag1 = push.gravityStrength * push.blackHoleMass / (distance1 * distance1 + 1.0);
+        float gravityMag1 = push.gravityStrength * push.blackHoleMass / (distance1 * distance1 + 0.1);
         vec3 gravityForce1 = normalize(toCenter1) * gravityMag1;
         
-        // Calculate gravity from Galaxy B center  
+        // Calculate gravity from Galaxy B (Andromeda) center  
         vec3 toCenter2 = push.gravityCenter2 - p.position;
         float distance2 = max(length(toCenter2), 0.1);
-        float gravityMag2 = push.gravityStrength * push.blackHoleMass2 / (distance2 * distance2 + 1.0);
+        float gravityMag2 = push.gravityStrength * push.blackHoleMass2 / (distance2 * distance2 + 0.1);
         vec3 gravityForce2 = normalize(toCenter2) * gravityMag2;
         
-        // Total gravitational force is sum of both
-        gravityForce = gravityForce1 + gravityForce2;
+        // DEBUG: Force Galaxy B to have stronger gravity for testing
+        if (particleGalaxy == 1u) {
+            gravityMag2 = gravityMag2 * 2.0; // Double Galaxy B gravity for visibility
+            gravityForce2 = normalize(toCenter2) * gravityMag2;
+        }
         
-        // Use primary galaxy center for orbital calculations
-        toCenter = (particleGalaxy == 0u) ? toCenter1 : toCenter2;
-        distance = (particleGalaxy == 0u) ? distance1 : distance2;
+        // CRITICAL FIX: Each particle primarily orbits its own galaxy
+        // Strong gravity from own galaxy, very weak tidal influence from other galaxy
+        if (particleGalaxy == 0u) {
+            // Galaxy A particle - strong pull from Galaxy A, minimal from Galaxy B
+            gravityForce = gravityForce1 + gravityForce2 * 0.05; // Only 5% influence from other galaxy
+            toCenter = toCenter1;
+            distance = distance1;
+            // Galaxy A particles - use velocity-based temperature (disabled debug colors)
+            // p.temperature = 0.05 + 0.15 * (distance1 / 15.0); // DISABLED: Debug blue colors
+        } else {
+            // Galaxy B particle - strong pull from Galaxy B, minimal from Galaxy A  
+            gravityForce = gravityForce2 + gravityForce1 * 0.05; // Only 5% influence from other galaxy
+            toCenter = toCenter2;
+            distance = distance2;
+            // Galaxy B particles - use velocity-based temperature (disabled debug colors)
+            // p.temperature = 0.75 + 0.20 * (distance2 / 15.0); // DISABLED: Debug orange colors
+        }
         
     } else {
         // SINGLE GALAXY MODE - standard behavior
@@ -152,7 +171,7 @@ void main() {
         // Prevent division by zero and singularity
         distance = max(distance, 0.1);
         
-        // Standard Newtonian gravity (will be refined below based on constraint mode)
+        // Standard Newtonian gravity
         float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0);
         gravityForce = normalize(toCenter) * gravityMagnitude;
     }
@@ -187,38 +206,71 @@ void main() {
     }
 
     // Calculate proper orbital velocity (perpendicular to radius)
-    vec3 tangent = cross(normalize(toCenter), vec3(0.0, 1.0, 0.0));
-    if (length(tangent) < 0.1) {
-        tangent = cross(normalize(toCenter), vec3(1.0, 0.0, 0.0));
-    }
-    tangent = normalize(tangent);
-
-    vec3 orbitalCorrection;
-    if (push.constraintShape == 4u) { // ACCRETION_DISK mode
-        // Keplerian orbital velocity with relativistic correction
-        float r_s = 0.5 * push.blackHoleMass;
-        float keplerianSpeed = sqrt(push.gravityStrength * push.blackHoleMass / (distance + 0.5));
+    vec3 orbitalCorrection = vec3(0.0);
+    
+    if (push.dualGalaxyMode == 1u) {
+        // DUAL GALAXY MODE - Each particle orbits its own galaxy center
+        uint particleGalaxy = (id < push.particleCount / 2u) ? 0u : 1u;
         
-        // Smoother orbital velocity targeting
-        float targetOrbitalSpeed = keplerianSpeed * 0.7; // Reduced for stability
+        // Get the correct galaxy center for this particle
+        vec3 ownGalaxyCenter = (particleGalaxy == 0u) ? push.gravityCenter : push.gravityCenter2;
+        float ownGalaxyMass = (particleGalaxy == 0u) ? push.blackHoleMass : push.blackHoleMass2;
         
-        // Much gentler α-viscosity for slower inward spiral
-        float viscousForce = push.alphaViscosity * 0.01; // Reduced by 10x
-        vec3 radialDrift = -normalize(toCenter) * viscousForce;
+        // Calculate orbital physics relative to own galaxy center
+        vec3 toOwnCenter = ownGalaxyCenter - p.position;
+        float ownDistance = max(length(toOwnCenter), 0.1);
         
-        float currentSpeed = length(p.velocity);
-        orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02 + radialDrift;
+        // Orbital tangent around own galaxy
+        vec3 tangent = cross(normalize(toOwnCenter), vec3(0.0, 1.0, 0.0));
+        if (length(tangent) < 0.1) {
+            tangent = cross(normalize(toOwnCenter), vec3(1.0, 0.0, 0.0));
+        }
+        tangent = normalize(tangent);
         
-        // Apply angular momentum boost for better particle distribution
+        // Keplerian orbital speed for own galaxy
+        float targetOrbitalSpeed = sqrt(push.gravityStrength * ownGalaxyMass / (ownDistance + 1.0)) * 0.8;
+        float currentOrbitalSpeed = dot(p.velocity, tangent);
+        
+        // Apply orbital correction to maintain stable orbit around own galaxy
+        orbitalCorrection = tangent * (targetOrbitalSpeed - currentOrbitalSpeed) * 0.05;
+        
+        // Add angular momentum boost for stable galaxy structure
         orbitalCorrection += tangent * push.angularMomentumBoost * 0.1;
-    } else {
-        // Standard orbital correction for other modes with angular momentum boost
-        float currentSpeed = length(p.velocity);
-        float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
-        orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02;
         
-        // Apply angular momentum boost for better particle distribution in ALL modes
-        orbitalCorrection += tangent * push.angularMomentumBoost * 0.08;
+    } else {
+        // SINGLE GALAXY MODE - Original orbital physics
+        vec3 tangent = cross(normalize(toCenter), vec3(0.0, 1.0, 0.0));
+        if (length(tangent) < 0.1) {
+            tangent = cross(normalize(toCenter), vec3(1.0, 0.0, 0.0));
+        }
+        tangent = normalize(tangent);
+
+        if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+            // Keplerian orbital velocity with relativistic correction
+            float r_s = 0.5 * push.blackHoleMass;
+            float keplerianSpeed = sqrt(push.gravityStrength * push.blackHoleMass / (distance + 0.5));
+            
+            // Smoother orbital velocity targeting
+            float targetOrbitalSpeed = keplerianSpeed * 0.7; // Reduced for stability
+            
+            // Much gentler α-viscosity for slower inward spiral
+            float viscousForce = push.alphaViscosity * 0.01; // Reduced by 10x
+            vec3 radialDrift = -normalize(toCenter) * viscousForce;
+            
+            float currentSpeed = length(p.velocity);
+            orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02 + radialDrift;
+            
+            // Apply angular momentum boost for better particle distribution
+            orbitalCorrection += tangent * push.angularMomentumBoost * 0.1;
+        } else {
+            // Standard orbital correction for other modes with angular momentum boost
+            float currentSpeed = length(p.velocity);
+            float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
+            orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02;
+            
+            // Apply angular momentum boost for better particle distribution in ALL modes
+            orbitalCorrection += tangent * push.angularMomentumBoost * 0.08;
+        }
     }
 
     // Apply forces

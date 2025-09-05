@@ -94,7 +94,7 @@ void ParticleSystem::createComputePipeline() {
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(ComputePushConstants);
+    pushConstantRange.size = 84; // Fixed size to match shader expectation (84 bytes)
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -508,6 +508,11 @@ void ParticleSystem::initializeParticles() {
     vkFreeMemory(m_context->getDevice(), stagingBufferMemory, nullptr);
 }
 
+void ParticleSystem::reinitializeParticles() {
+    // Simply call the existing initialization method to recreate particles with current settings
+    initializeParticles();
+}
+
 void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, float time) {
     if (m_sphMode) {
         // Use SPH compute pipeline
@@ -546,9 +551,18 @@ void ParticleSystem::update(VkCommandBuffer commandBuffer, float deltaTime, floa
         pushConstants.gravityCenter2 = m_gravityCenter2;
         pushConstants.blackHoleMass2 = m_blackHoleMass2;
         pushConstants.dualGalaxyMode = m_dualGalaxyMode ? 1u : 0u;
+        pushConstants.padding[0] = 0; // Initialize padding
+        
+        // Debug output for blue color issue
+        static int debugCounter = 0;
+        if (debugCounter++ % 600 == 0) { // Every 10 seconds at 60fps
+            std::cout << "[PARTICLE DEBUG] Dual galaxy mode: " << (m_dualGalaxyMode ? "ENABLED" : "DISABLED") 
+                      << ", Gravity: " << m_gravityStrength 
+                      << ", Active: " << m_activeParticleCount << std::endl;
+        }
         
         vkCmdPushConstants(commandBuffer, m_computePipelineLayout,
-            VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pushConstants);
+            VK_SHADER_STAGE_COMPUTE_BIT, 0, 84, &pushConstants); // Fixed size to match pipeline layout
     }
     
     // Dispatch with 64 particles per workgroup

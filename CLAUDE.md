@@ -67,12 +67,17 @@ cmake --build cmake-build-debug-visual-studio --target shaders
 ## Project Guardrails & Context (September 2025)
 
 ### Critical Project Awareness
-- **Current Date**: September 1, 2025
+- **Current Date**: September 4, 2025
 - **Vulkan Version**: 1.4.321.1 SDK (latest release, modern dynamic rendering, no render passes)
 - **Architecture**: Vulkan 1.4 compute shaders with modern C++20
 - **Performance Target**: 1000+ FPS with 250,000 particles achieved
 - **MCP Vulkan Database**: Full Vulkan 1.4 API documentation server available
 - **Vulkan Search Guide**: VULKAN_SEARCH_GUIDE.md provides usage instructions
+
+### 🚨 CRITICAL SESSION CONTEXT FILES - MUST READ AT START
+1. **VOLUMETRIC_PLASMA_SESSION_SEPTEMBER_4_2025.md** - Latest session summary
+2. **DUAL_GALAXY_DEBUG_SESSION_SUMMARY.md** - Dual galaxy debugging context
+3. **PROJECT_HANDOVER_SEPTEMBER_2025.md** - Full project state documentation
 
 ### Development Philosophy
 - **Defensive Security Only**: No malicious code creation or credential harvesting
@@ -80,6 +85,33 @@ cmake --build cmake-build-debug-visual-studio --target shaders
 - **No Proactive Documentation**: Only create docs when explicitly requested
 - **Memory Consistency**: Keep development plan and progress in active memory
 - **Build Directory**: Always use `cmake-build-debug-visual-studio` (not `build/windows-debug`)
+
+### 🚨 CRITICAL BACKUP PROTOCOL - MUST FOLLOW
+When creating backups, ALWAYS include ALL components to prevent mysterious shader/color issues:
+
+**Complete Backup Contents:**
+1. **Compiled Binary**: `cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe`
+2. **Compiled Shaders**: `cmake-build-debug-visual-studio/Debug/shaders/*.spv`
+3. **Source Shaders**: `shaders/*.comp`, `shaders/*.vert`, `shaders/*.frag` 
+4. **Critical Source Files**: 
+   - `src/core/Application.cpp` & `src/core/Application.h`
+   - `src/systems/ParticleSystem.cpp` & `src/systems/ParticleSystem.h`
+   - `src/systems/VolumeRenderer.cpp` & `src/systems/VolumeRenderer.h`
+   - `src/main.cpp`
+5. **Build Configuration**: `CMakeLists.txt`, `vcpkg.json`
+
+**Backup Command Template:**
+```bash
+mkdir -p build_backups/XXX_description/
+cp cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe build_backups/XXX_description/
+cp -r cmake-build-debug-visual-studio/Debug/shaders build_backups/XXX_description/
+cp -r shaders build_backups/XXX_description/source_shaders
+cp -r src build_backups/XXX_description/
+cp CMakeLists.txt vcpkg.json build_backups/XXX_description/
+echo "Backup info and state" > build_backups/XXX_description/info.txt
+```
+
+**Why This Matters**: Shader/binary version mismatches cause mysterious color changes. Complete backups prevent context loss.
 
 ### Vulkan 1.4 API Usage & MCP Integration
 - **API Version**: Always prefer Vulkan 1.4 features and extensions
@@ -89,7 +121,9 @@ cmake --build cmake-build-debug-visual-studio --target shaders
   - `mcp__vulkan_db__browse_vulkan_hierarchy` - Browse API by category
   - `mcp__vulkan_db__vulkan_quick_reference` - API statistics and overview
 - **Research Protocol**: When implementing Vulkan features, use MCP tools to find Vulkan 1.4 improvements
-- **CRITICAL: Training Data Gap**: My training data predates Vulkan 1.4 (released early 2025), so ALWAYS use web search + MCP tools for 1.4 features and current techniques (September 2025)
+- **🚨 CRITICAL: Training Data Gap**: My training data predates Vulkan 1.4 (released early 2025), so ALWAYS use web search + MCP tools for 1.4 features and current techniques (September 2025)
+- **🚨 MCP REQUIRED**: MUST use MCP Vulkan database server for ALL Vulkan 1.4 API questions - do NOT rely on training data
+- **🚨 WEB SEARCH ESSENTIAL**: Regular web searches for "Vulkan 1.4" features required due to training cutoff
 - **Documentation**: Consult VULKAN_SEARCH_GUIDE.md for MCP server usage patterns
 
 ### Current Project State

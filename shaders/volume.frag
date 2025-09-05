@@ -55,61 +55,57 @@ float sampleDensity(vec3 worldPos) {
     return texture(densityTexture, texCoord).r * push.densityScale;
 }
 
-// Dramatically cooler color temperature mapping for stable visuals
-vec3 blackbodyColor(float temperature) {
-    // MUCH more conservative temperature scaling
-    float t = clamp(temperature * 5.0, 0.0, 1.0); // Amplify the weak signal
+// VIBRANT plasma color mapping - no more grey smoke!
+vec3 plasmaColor(float temperature) {
+    // BALANCED temperature scaling for dramatic but visible plasma effect
+    float t = clamp(temperature * 12.0, 0.0, 1.0); // More reasonable scaling
     
     vec3 color;
     
-    // Extended color range with emphasis on cooler colors
-    if (t < 0.2) {
-        // Very cold - nearly black to dark red
-        color = vec3(0.05, 0.0, 0.0) * t / 0.2;
-    } else if (t < 0.35) {
-        // Cold - dark red to red
-        float factor = (t - 0.2) / 0.15;
-        color = mix(vec3(0.05, 0.0, 0.0), vec3(0.4, 0.05, 0.0), factor);
-    } else if (t < 0.5) {
-        // Cool - red to red-orange
-        float factor = (t - 0.35) / 0.15;
-        color = mix(vec3(0.4, 0.05, 0.0), vec3(0.7, 0.15, 0.0), factor);
-    } else if (t < 0.65) {
-        // Moderate - red-orange to orange
-        float factor = (t - 0.5) / 0.15;
-        color = mix(vec3(0.7, 0.15, 0.0), vec3(0.9, 0.3, 0.0), factor);
+    // Vibrant plasma color progression: deep blue → cyan → magenta → orange → white-hot
+    if (t < 0.15) {
+        // Deep space plasma - electric blue
+        float factor = t / 0.15;
+        color = mix(vec3(0.0, 0.05, 0.3), vec3(0.0, 0.3, 0.8), factor);
+    } else if (t < 0.3) {
+        // Cold plasma - blue to cyan
+        float factor = (t - 0.15) / 0.15;
+        color = mix(vec3(0.0, 0.3, 0.8), vec3(0.0, 0.7, 1.0), factor);
+    } else if (t < 0.45) {
+        // Energized plasma - cyan to magenta
+        float factor = (t - 0.3) / 0.15;
+        color = mix(vec3(0.0, 0.7, 1.0), vec3(0.8, 0.2, 1.0), factor);
+    } else if (t < 0.6) {
+        // Hot plasma - magenta to orange
+        float factor = (t - 0.45) / 0.15;
+        color = mix(vec3(0.8, 0.2, 1.0), vec3(1.0, 0.4, 0.0), factor);
     } else if (t < 0.75) {
-        // Warm - orange to yellow-orange
-        float factor = (t - 0.65) / 0.1;
-        color = mix(vec3(0.9, 0.3, 0.0), vec3(1.0, 0.5, 0.1), factor);
-    } else if (t < 0.85) {
-        // Hot - yellow-orange to yellow
-        float factor = (t - 0.75) / 0.1;
-        color = mix(vec3(1.0, 0.5, 0.1), vec3(1.0, 0.8, 0.2), factor);
-    } else if (t < 0.95) {
-        // Very hot - yellow to yellow-white
-        float factor = (t - 0.85) / 0.1;
-        color = mix(vec3(1.0, 0.8, 0.2), vec3(1.0, 0.95, 0.6), factor);
+        // Very hot plasma - orange to yellow
+        float factor = (t - 0.6) / 0.15;
+        color = mix(vec3(1.0, 0.4, 0.0), vec3(1.0, 0.9, 0.0), factor);
+    } else if (t < 0.9) {
+        // Extreme plasma - yellow to white-hot
+        float factor = (t - 0.75) / 0.15;
+        color = mix(vec3(1.0, 0.9, 0.0), vec3(1.0, 1.0, 0.9), factor);
     } else {
-        // Extremely hot - yellow-white (rarely reached)
-        color = vec3(1.0, 0.95, 0.6);
+        // White-hot core - pure energy
+        color = vec3(1.2, 1.2, 1.0); // Slightly over-saturated for glow
     }
     
-    // Much gentler intensity with a dim base
-    float intensity = 0.1 + t * 0.5; // Dimmer overall
+    // BALANCED intensity scaling for vibrant but controlled colors
+    float intensity = 0.2 + t * 1.2; // Moderate base + reasonable scaling
     
     return color * intensity;
 }
 
-// Radial temperature model for volume rendering
+// Enhanced plasma temperature model
 vec3 temperatureToColor(float density) {
-    if (density < 0.01) return vec3(0.0);
+    if (density < 0.001) return vec3(0.0);
     
-    // Use density as temperature proxy but with radial enhancement
-    // Scale density to match particle radial model
-    float enhancedDensity = density * 2.0; // Boost for visibility
+    // BALANCED density scaling for visible plasma without overexposure
+    float enhancedDensity = density * 4.0; // 2x boost for visibility
     
-    return blackbodyColor(enhancedDensity);
+    return plasmaColor(enhancedDensity);
 }
 
 // Alternative: Direct radial temperature (if we can pass world position)
@@ -164,17 +160,17 @@ void main() {
         // Sample density at current position
         float density = sampleDensity(rayPos);
         
-        if (density > 0.005) {
-            // Calculate color and opacity contribution
+        if (density > 0.001) { // Lower threshold for more plasma visibility
+            // Calculate vibrant plasma color
             vec3 sampleColor = temperatureToColor(density);
-            float sampleAlpha = density * 0.05; // Balanced opacity for plasma effect
+            float sampleAlpha = density * 0.1; // Controlled opacity for balanced plasma effect
             
-            // Alpha blending (front-to-back)
+            // Enhanced alpha blending with plasma glow
             color += sampleColor * sampleAlpha * (1.0 - alpha);
             alpha += sampleAlpha * (1.0 - alpha);
             
             // Early termination if sufficiently opaque
-            if (alpha > 0.8) break;
+            if (alpha > 0.9) break;
         }
         
         // Step forward along the ray
