@@ -52,6 +52,8 @@ public:
     void setGravityCenter2(const glm::vec3& center);
     void setBlackHoleMass2(float mass);
     void setCameraPosition(float distance, const glm::vec3& target);
+    void enableVolumetricMode(bool enabled);
+    void enableBloomMode(bool enabled);
     
 protected:
     virtual void update(float deltaTime);
@@ -64,6 +66,12 @@ private:
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void recreateSwapChain();
     void cleanup();
+    
+    // Bloom post-processing methods
+    void createBloomPipeline();
+    void createBloomResources();  
+    void cleanupBloomResources();
+    void renderBloomPass(VkCommandBuffer commandBuffer);
     
     // Enhanced console display
     void updateWindowTitle();
@@ -92,6 +100,29 @@ private:
     // Systems
     std::unique_ptr<ParticleSystem> m_particleSystem;
     std::unique_ptr<VolumeRenderer> m_volumeRenderer;
+    
+    // Bloom post-processing pipeline
+    VkRenderPass m_bloomRenderPass = VK_NULL_HANDLE;
+    VkPipeline m_bloomBrightPipeline = VK_NULL_HANDLE;
+    VkPipeline m_bloomBlurPipeline = VK_NULL_HANDLE; 
+    VkPipeline m_bloomCombinePipeline = VK_NULL_HANDLE;
+    VkPipelineLayout m_bloomPipelineLayout = VK_NULL_HANDLE;
+    
+    // Bloom framebuffers and textures
+    VkImage m_hdrColorImage = VK_NULL_HANDLE;
+    VkImageView m_hdrColorImageView = VK_NULL_HANDLE;
+    VkImage m_bloomBrightImage = VK_NULL_HANDLE;
+    VkImageView m_bloomBrightImageView = VK_NULL_HANDLE;
+    VkImage m_bloomBlurImage = VK_NULL_HANDLE;
+    VkImageView m_bloomBlurImageView = VK_NULL_HANDLE;
+    VkFramebuffer m_hdrFramebuffer = VK_NULL_HANDLE;
+    VkFramebuffer m_bloomBrightFramebuffer = VK_NULL_HANDLE;
+    VkFramebuffer m_bloomBlurFramebuffer = VK_NULL_HANDLE;
+    
+    VkSampler m_bloomSampler = VK_NULL_HANDLE;
+    VkDescriptorSet m_bloomDescriptorSets[3] = {VK_NULL_HANDLE}; // bright, blur, combine
+    VkDescriptorSetLayout m_bloomDescriptorLayout = VK_NULL_HANDLE;
+    VkDescriptorPool m_bloomDescriptorPool = VK_NULL_HANDLE;
     
     // Frame management
     uint32_t m_currentFrame = 0;
@@ -153,6 +184,13 @@ private:
     
     // Volumetric rendering
     bool m_volumetricMode = false;
+    
+    // Bloom post-processing
+    bool m_bloomEnabled = true;              // Enable bloom glow for plasma
+    float m_bloomThreshold = 0.8f;           // Brightness threshold
+    float m_bloomIntensity = 1.5f;           // Glow intensity
+    float m_bloomStrength = 0.6f;            // Final blend strength
+    float m_exposure = 1.2f;                 // HDR exposure
     
     // State
     bool m_isRunning = false;

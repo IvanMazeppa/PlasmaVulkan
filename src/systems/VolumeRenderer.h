@@ -23,10 +23,10 @@ public:
     struct VolumeParams {
         glm::vec3 gridOrigin = glm::vec3(-10.0f, -10.0f, -10.0f);
         float voxelSize = 0.5f;                    // Size of each voxel (larger = less detail, better performance)
-        glm::uvec3 gridDimensions = glm::uvec3(32, 32, 32);  // 32³ grid for better performance
-        float splatRadius = 1.2f;                  // Particle influence radius (smaller = sharper)
-        uint32_t maxRaySteps = 32;                 // Ray marching steps (minimal for performance)
-        float rayStepSize = 0.6f;                  // Step size for ray marching (larger = faster)
+        glm::uvec3 gridDimensions = glm::uvec3(48, 48, 24);  // 48x48x24 for better performance while maintaining quality
+        float splatRadius = 0.8f;                  // Particle influence radius (reduced for sharper definition)
+        uint32_t maxRaySteps = 64;                 // Ray marching steps (increased for detail)
+        float rayStepSize = 0.3f;                  // Step size for ray marching (smaller = finer detail)
         float densityScale = 0.8f;                 // Density visualization scale (balanced)
     };
     

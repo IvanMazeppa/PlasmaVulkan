@@ -18,6 +18,11 @@ set(SHADER_SOURCES
     density_splat.comp
     volume.vert
     volume.frag
+    # Bloom post-processing shaders
+    fullscreen.vert
+    bloom_bright.frag
+    bloom_blur.frag
+    bloom_combine.frag
     # sph.comp           # Complex SPH - TODO later
     # spatial_hash.comp  # Spatial hashing - TODO later
 )

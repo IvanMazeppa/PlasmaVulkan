@@ -42,6 +42,7 @@ public:
         glm::vec3 gravityCenter2;   // Second galaxy center
         float blackHoleMass2;       // Second galaxy black hole mass
         uint32_t dualGalaxyMode;    // 0=single galaxy, 1=dual galaxy mode
+        uint32_t padding[1];        // Padding to align to 84 bytes total
     };
     
     // Push constants for SPH shader
@@ -126,8 +127,12 @@ public:
     float getAngularMomentumBoost() const { return m_angularMomentumBoost; }
     
     // Galaxy collision parameters
-    void setDualGalaxyMode(bool enabled) { m_dualGalaxyMode = enabled; }
+    void setDualGalaxyMode(bool enabled) { 
+        m_dualGalaxyMode = enabled; 
+        if (enabled) reinitializeParticles(); // Reinitialize when enabling dual galaxy mode
+    }
     bool getDualGalaxyMode() const { return m_dualGalaxyMode; }
+    void reinitializeParticles(); // Public method to reinitialize particles
     
     void setGravityCenter2(const glm::vec3& center) { m_gravityCenter2 = center; }
     glm::vec3 getGravityCenter2() const { return m_gravityCenter2; }

@@ -41,7 +41,14 @@
       "Bash(chmod:*)",
       "Bash(./backup_build.sh:*)",
       "Bash(bash:*)",
-      "Read(/mnt/c/**)"
+      "Read(/mnt/c/**)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target clean)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target shaders)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build . --target shaders)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe --build cmake-build-debug-visual-studio --target shaders --config Debug)",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" -B cmake-build-debug-visual-studio -S . -G \"Visual Studio 17 2022\" -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake)",
+      "Bash(rm:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
