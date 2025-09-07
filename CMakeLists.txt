@@ -14,6 +14,12 @@ option(ENABLE_VALIDATION "Enable Vulkan validation layers" ON)
 option(ENABLE_PROFILING "Enable Tracy profiling" OFF)
 option(USE_MESH_SHADERS "Use mesh shaders if available" ON)
 
+# If a Vulkan SDK path is provided via environment, hint CMake before find_package
+if(DEFINED ENV{VULKAN_SDK} AND EXISTS "$ENV{VULKAN_SDK}")
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{VULKAN_SDK}")
+    message(STATUS "VULKAN_SDK detected at: $ENV{VULKAN_SDK}")
+endif()
+
 # Find packages via vcpkg
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -40,6 +46,15 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${Vulkan_INCLUDE_DIRS}
 )
+
+# Also add Vulkan SDK include directory if environment variable is set
+if(DEFINED ENV{VULKAN_SDK})
+    if(EXISTS "$ENV{VULKAN_SDK}/Include")
+        target_include_directories(${PROJECT_NAME} PRIVATE "$ENV{VULKAN_SDK}/Include")
+    elseif(EXISTS "$ENV{VULKAN_SDK}/include")
+        target_include_directories(${PROJECT_NAME} PRIVATE "$ENV{VULKAN_SDK}/include")
+    endif()
+endif()
 
 # Compile definitions
 target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -76,6 +91,21 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     spdlog::spdlog
     $<$<BOOL:${ENABLE_PROFILING}>:Tracy::TracyClient>
 )
+
+# Optionally add Vulkan SDK lib directory to the link search path
+if(DEFINED ENV{VULKAN_SDK})
+    if(WIN32)
+        if(EXISTS "$ENV{VULKAN_SDK}/Lib")
+            target_link_directories(${PROJECT_NAME} PRIVATE "$ENV{VULKAN_SDK}/Lib")
+        endif()
+    else()
+        if(EXISTS "$ENV{VULKAN_SDK}/lib")
+            target_link_directories(${PROJECT_NAME} PRIVATE "$ENV{VULKAN_SDK}/lib")
+        elseif(EXISTS "$ENV{VULKAN_SDK}/Lib")
+            target_link_directories(${PROJECT_NAME} PRIVATE "$ENV{VULKAN_SDK}/Lib")
+        endif()
+    endif()
+endif()
 
 # Compiler warnings
 if(MSVC)

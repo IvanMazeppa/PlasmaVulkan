@@ -29,6 +29,9 @@
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": "E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "VCPKG_TARGET_TRIPLET": "x64-windows"
+            },
+            "environment": {
+                "VULKAN_SDK": "E:/VulkanSDK/1.4.321.1"
             }
         },
         {
@@ -61,6 +64,9 @@
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": "/mnt/e/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "VCPKG_TARGET_TRIPLET": "x64-linux"
+            },
+            "environment": {
+                "VULKAN_SDK": "/mnt/e/vulkansdk"
             }
         },
         {

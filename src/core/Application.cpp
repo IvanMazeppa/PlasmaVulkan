@@ -5,8 +5,13 @@
 #include <chrono>
 #include <iomanip>
 #include <cstdlib>
+#include <cstring>
+#include <sys/stat.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 namespace plasma {
 
@@ -346,14 +351,13 @@ void Application::render() {
         &fence, VK_TRUE, UINT64_MAX);
 
     // Acquire next image
-    uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(
         m_vulkanContext->getDevice(),
         m_vulkanContext->getSwapChain(),
         UINT64_MAX,
         m_vulkanContext->getImageAvailableSemaphore(m_currentFrame),
         VK_NULL_HANDLE,
-        &imageIndex
+        &m_currentImageIndex
     );
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -367,7 +371,7 @@ void Application::render() {
 
     // Record command buffer
     vkResetCommandBuffer(m_commandBuffers[m_currentFrame], 0);
-    recordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex);
+    recordCommandBuffer(m_commandBuffers[m_currentFrame], m_currentImageIndex);
 
     // Submit command buffer using Synchronization2
     VkSemaphoreSubmitInfo waitSemaphoreInfo{};
@@ -408,7 +412,7 @@ void Application::render() {
     VkSwapchainKHR swapChains[] = {m_vulkanContext->getSwapChain()};
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pImageIndices = &m_currentImageIndex;
 
     result = vkQueuePresentKHR(m_vulkanContext->getPresentQueue(), &presentInfo);
 
@@ -1013,24 +1017,83 @@ void Application::enableBloomMode(bool enabled) {
 }
 
 // Recording system implementation
-void Application::startRecording(uint32_t maxFrames) {
+void Application::startRecording(uint32_t maxFrames, bool highQuality) {
     if (m_recordingActive) {
         std::cout << "Already recording!" << std::endl;
         return;
     }
     
+    // Find next available session number
+    m_recordingSessionNumber = 0;
+    while (true) {
+        std::string testDir = m_recordingBaseDir + std::string(3 - std::to_string(m_recordingSessionNumber).length(), '0') + std::to_string(m_recordingSessionNumber) + "/";
+        
+        // Check if directory exists
+        #ifdef _WIN32
+            // Windows: Use dir command to check if directory exists
+            std::string checkCmd = "if exist \"" + testDir + "\" (exit 1) else (exit 0)";
+            int result = std::system(checkCmd.c_str());
+            if (result == 0) {
+                break; // Directory doesn't exist, use this number
+            }
+        #else
+            struct stat st;
+            if (stat(testDir.c_str(), &st) != 0) {
+                break; // Directory doesn't exist, use this number
+            }
+        #endif
+        m_recordingSessionNumber++;
+        
+        // Safety check to prevent infinite loop
+        if (m_recordingSessionNumber > 999) {
+            std::cerr << "Error: Too many recording sessions!" << std::endl;
+            break;
+        }
+    }
+    
+    // Create numbered subfolder for this recording session
+    m_recordingOutputDir = m_recordingBaseDir + std::string(3 - std::to_string(m_recordingSessionNumber).length(), '0') + std::to_string(m_recordingSessionNumber) + "/";
+    
     m_recordingMaxFrames = maxFrames;
     m_recordingFrame = 0;
     m_recordingActive = true;
+    m_recordingHighQuality = highQuality;
+    
+    // Enhanced quality mode for offline rendering
+    if (highQuality && m_particleSystem) {
+        // Store original settings for restoration
+        m_recordingOriginalParticleCount = m_particleSystem->getActiveParticleCount();
+        
+        // Increase particle count for higher quality
+        uint32_t hqParticleCount = std::min(500000u, m_recordingOriginalParticleCount * 2);
+        m_particleSystem->setActiveParticleCount(hqParticleCount);
+        
+        // Enable volumetric mode if not already enabled
+        if (!m_volumetricMode) {
+            enableVolumetricMode(true);
+        }
+        
+        // Enhance bloom for better visuals
+        m_bloomIntensity = std::min(2.5f, m_bloomIntensity * 1.5f);
+        m_bloomStrength = std::min(1.0f, m_bloomStrength * 1.2f);
+        
+        std::cout << "  High Quality Mode: " << hqParticleCount << " particles, volumetrics enabled" << std::endl;
+    }
+    
+    // Reset simulation for perfect loops if enabled
+    if (m_recordingLoop && m_particleSystem) {
+        m_particleSystem->reinitializeParticles();
+        std::cout << "  Simulation reset for seamless loop" << std::endl;
+    }
     
     // Create output directory (platform specific)
     #ifdef _WIN32
-        std::system(("mkdir " + m_recordingOutputDir + " 2>nul").c_str());
+        std::system(("mkdir \"" + m_recordingOutputDir + "\" 2>nul || echo Directory creation attempted").c_str());
     #else
-        std::system(("mkdir -p " + m_recordingOutputDir).c_str());
+        std::system(("mkdir -p \"" + m_recordingOutputDir + "\"").c_str());
     #endif
     
-    std::cout << "\n[RECORDING] Started" << std::endl;
+    std::cout << "\n[RECORDING] Started - Session #" << m_recordingSessionNumber << std::endl;
     std::cout << "  Frames: " << maxFrames << " (" << (maxFrames / 60.0f) << " seconds at 60fps)" << std::endl;
     std::cout << "  Output: " << m_recordingOutputDir << std::endl;
     std::cout << "  Fixed timestep: " << m_recordingFixedTimestep << "s" << std::endl;
@@ -1049,29 +1112,195 @@ void Application::stopRecording() {
         return;
     }
     
+    // Restore original settings if high quality mode was used
+    if (m_recordingHighQuality && m_particleSystem) {
+        m_particleSystem->setActiveParticleCount(m_recordingOriginalParticleCount);
+        
+        // Restore bloom settings
+        m_bloomIntensity = 1.5f;  // Original default
+        m_bloomStrength = 0.6f;   // Original default
+        
+        std::cout << "  High quality settings restored" << std::endl;
+    }
+    
     m_recordingActive = false;
+    m_recordingHighQuality = false;
     std::cout << "\n[RECORDING] Stopped" << std::endl;
     std::cout << "  Captured " << m_recordingFrame << " frames" << std::endl;
     std::cout << "  Output directory: " << m_recordingOutputDir << std::endl;
+    
+    // Automatically create video from the PNG sequence
+    if (m_recordingFrame > 0) {
+        createVideoFromFrames();
+    }
 }
 
 void Application::captureFrame() {
     if (!m_recordingActive) return;
     
-    // TODO: Implement frame capture to PNG
-    // For now, just increment frame counter
+    // Optimize performance - only capture every 2nd frame to halve the work
+    if (m_recordingFrame % 2 != 0) {
+        m_recordingFrame++;
+        return;
+    }
+    
+    // Create filename with zero-padded frame number  
+    std::string filename = m_recordingOutputDir + "frame_" + 
+                          std::string(6 - std::to_string(m_recordingFrame).length(), '0') + 
+                          std::to_string(m_recordingFrame) + ".png";
+    
+    // Get current swap chain image info
+    VkExtent2D extent = m_vulkanContext->getSwapChainExtent();
+    VkFormat swapChainFormat = m_vulkanContext->getSwapChainImageFormat();
+    VkImage swapChainImage = m_vulkanContext->getSwapChainImage(m_currentImageIndex);
+    
+    // Create a simple staging buffer using standard Vulkan (avoid VMA complexity)
+    VkDeviceSize imageSize = extent.width * extent.height * 4; // RGBA
+    VkDevice device = m_vulkanContext->getDevice();
+    
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    
+    // Create buffer
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = imageSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &stagingBuffer) != VK_SUCCESS) {
+        std::cerr << "Failed to create staging buffer!" << std::endl;
+        m_recordingFrame++;
+        return;
+    }
+    
+    // Allocate memory
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, stagingBuffer, &memRequirements);
+    
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    
+    // Find host-visible memory type
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(m_vulkanContext->getPhysicalDevice(), &memProperties);
+    
+    uint32_t memoryTypeIndex = UINT32_MAX;
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((memRequirements.memoryTypeBits & (1 << i)) && 
+            (memProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))) {
+            memoryTypeIndex = i;
+            break;
+        }
+    }
+    
+    if (memoryTypeIndex == UINT32_MAX) {
+        std::cerr << "Failed to find suitable memory type!" << std::endl;
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        m_recordingFrame++;
+        return;
+    }
+    
+    allocInfo.memoryTypeIndex = memoryTypeIndex;
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &stagingBufferMemory) != VK_SUCCESS ||
+        vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0) != VK_SUCCESS) {
+        std::cerr << "Failed to allocate/bind buffer memory!" << std::endl;
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        m_recordingFrame++;
+        return;
+    }
+    
+    // Quick copy operation with proper layout transition
+    VkCommandBuffer commandBuffer = m_vulkanContext->beginSingleTimeCommands();
+    
+    // Transition to transfer source layout
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = swapChainImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Copy image to buffer
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {extent.width, extent.height, 1};
+    
+    vkCmdCopyImageToBuffer(commandBuffer, swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                          stagingBuffer, 1, &region);
+    
+    // Transition back to present layout
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.dstAccessMask = 0;
+    
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    m_vulkanContext->endSingleTimeCommands(commandBuffer);
+    
+    // Map memory and save PNG with color format fix
+    void* data;
+    if (vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data) == VK_SUCCESS) {
+        // Fix BGRA -> RGBA color channels for correct colors
+        std::vector<uint8_t> pixels(imageSize);
+        uint8_t* srcPixels = static_cast<uint8_t*>(data);
+        
+        if (swapChainFormat == VK_FORMAT_B8G8R8A8_SRGB || swapChainFormat == VK_FORMAT_B8G8R8A8_UNORM) {
+            // Convert BGRA to RGBA (fix grey spheres issue)
+            for (size_t i = 0; i < imageSize; i += 4) {
+                pixels[i] = srcPixels[i + 2];     // R = B
+                pixels[i + 1] = srcPixels[i + 1]; // G = G  
+                pixels[i + 2] = srcPixels[i];     // B = R
+                pixels[i + 3] = srcPixels[i + 3]; // A = A
+            }
+        } else {
+            // Direct copy for RGBA formats
+            std::memcpy(pixels.data(), srcPixels, imageSize);
+        }
+        
+        if (stbi_write_png(filename.c_str(), extent.width, extent.height, 4, pixels.data(), extent.width * 4)) {
+            // Only print progress every 60 frames to reduce console spam
+            if (m_recordingFrame % 60 == 0) {
+                float progress = (float)m_recordingFrame / (float)m_recordingMaxFrames * 100.0f;
+                std::cout << "[RECORDING] " << std::fixed << std::setprecision(1) 
+                         << progress << "% (" << m_recordingFrame << "/" << m_recordingMaxFrames << ")" << std::endl;
+            }
+        }
+        vkUnmapMemory(device, stagingBufferMemory);
+    }
+    
+    // Cleanup
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    
     m_recordingFrame++;
     
     // Auto-stop when max frames reached
     if (m_recordingFrame >= m_recordingMaxFrames) {
         stopRecording();
-    }
-    
-    // Progress indicator every 60 frames (1 second)
-    if (m_recordingFrame % 60 == 0) {
-        float progress = (float)m_recordingFrame / m_recordingMaxFrames * 100.0f;
-        std::cout << "[RECORDING] Frame " << m_recordingFrame << "/" << m_recordingMaxFrames 
-                  << " (" << std::fixed << std::setprecision(1) << progress << "%)" << std::endl;
+        std::cout << "[RECORDING] Completed! " << m_recordingFrame << " PNG files saved to " 
+                 << m_recordingOutputDir << std::endl;
     }
 }
 
@@ -1084,6 +1313,66 @@ void Application::setRecordingParameters(uint32_t maxFrames, float timestep, boo
     std::cout << "  Max frames: " << maxFrames << " (" << (maxFrames * timestep) << "s)" << std::endl;
     std::cout << "  Timestep: " << timestep << "s (" << (1.0f/timestep) << " fps)" << std::endl;
     std::cout << "  Loop mode: " << (loop ? "ON" : "OFF") << std::endl;
+}
+
+void Application::createVideoFromFrames() {
+    std::cout << "\n[VIDEO] Creating video from recorded frames..." << std::endl;
+    std::cout << "[VIDEO] Session folder: " << m_recordingOutputDir << std::endl;
+    std::cout << "[VIDEO] Session number: " << m_recordingSessionNumber << std::endl;
+    
+    // Generate output video filename with sequential numbering
+    std::string videoFilename = m_recordingBaseDir + "video_" + 
+                               std::string(3 - std::to_string(m_recordingSessionNumber).length(), '0') + 
+                               std::to_string(m_recordingSessionNumber) + ".mp4";
+    
+    // Build ffmpeg command for video creation
+    std::string ffmpegCmd;
+    #ifdef _WIN32
+        // Windows command - create file list since glob is not supported
+        std::string sessionFolder = std::string(3 - std::to_string(m_recordingSessionNumber).length(), '0') + 
+                                  std::to_string(m_recordingSessionNumber);
+        
+        // Create a temporary file list for ffmpeg (works without glob support)
+        std::string fileListPath = m_recordingOutputDir + "filelist.txt";
+        std::ofstream fileList(fileListPath);
+        
+        // List all PNG files in the directory
+        for (uint32_t i = 0; i < m_recordingFrame; i += 2) { // Only even frames
+            std::string frameName = "frame_" + std::string(6 - std::to_string(i).length(), '0') + std::to_string(i) + ".png";
+            fileList << "file '" << frameName << "'\n";
+        }
+        fileList.close();
+        
+        // Use concat demuxer with file list
+        ffmpegCmd = "ffmpeg -y -f concat -safe 0 -r 15 -i \"" + fileListPath + 
+                   "\" -c:v libx264 -pix_fmt yuv420p -crf 18 \"" + 
+                   m_recordingBaseDir + "video_" + sessionFolder + ".mp4\"";
+        
+        std::cout << "[VIDEO] Running ffmpeg with file list..." << std::endl;
+        std::cout << "[VIDEO] Command: " << ffmpegCmd << std::endl;
+    #else
+        // Linux/Unix command
+        ffmpegCmd = "cd \"" + m_recordingOutputDir + "\" && ffmpeg -y -framerate 15 -pattern_type glob -i 'frame_*.png' "
+                   "-c:v libx264 -pix_fmt yuv420p -crf 18 '../video_" + 
+                   std::string(3 - std::to_string(m_recordingSessionNumber).length(), '0') + 
+                   std::to_string(m_recordingSessionNumber) + ".mp4' 2>/dev/null";
+    #endif
+    
+    // Execute ffmpeg command
+    std::cout << "[VIDEO] Executing command..." << std::endl;
+    int result = std::system(ffmpegCmd.c_str());
+    
+    std::cout << "[VIDEO] Command returned: " << result << std::endl;
+    
+    if (result == 0) {
+        std::cout << "[VIDEO] Successfully created: " << videoFilename << std::endl;
+        std::cout << "[VIDEO] PNG sequence preserved in: " << m_recordingOutputDir << std::endl;
+    } else {
+        std::cerr << "[VIDEO] Failed to create video (return code: " << result << ")" << std::endl;
+        std::cerr << "[VIDEO] Manual command to try:" << std::endl;
+        std::cerr << "  " << ffmpegCmd << std::endl;
+        std::cerr << "[VIDEO] Make sure ffmpeg is installed and in PATH." << std::endl;
+    }
 }
 
 // Static callback functions
@@ -1438,12 +1727,24 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
     // Recording controls (F key)
     else if (key == GLFW_KEY_F && action == GLFW_PRESS) {
         if (!app->isRecording()) {
-            // Start recording - default 5 second loop
-            app->startRecording(300); // 300 frames = 5 seconds at 60fps
+            if (mods & GLFW_MOD_SHIFT) {
+                // High quality recording mode
+                app->startRecording(300, true); // 300 frames, high quality
+                std::cout << "  HIGH QUALITY recording mode activated!" << std::endl;
+            } else {
+                // Standard recording mode
+                app->startRecording(300); // 300 frames = 5 seconds at 60fps
+            }
         } else {
             // Stop recording
             app->stopRecording();
         }
+    }
+    // Loop mode toggle (L key)
+    else if (key == GLFW_KEY_L && action == GLFW_PRESS) {
+        app->m_recordingLoop = !app->m_recordingLoop;
+        std::cout << "[RECORDING] Loop mode: " << (app->m_recordingLoop ? "ON" : "OFF") 
+                  << " (resets simulation when recording starts)" << std::endl;
     }
     // Relativistic jet controls (A key)
     else if (key == GLFW_KEY_A && action == GLFW_PRESS) {

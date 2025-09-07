@@ -56,11 +56,12 @@ public:
     void enableBloomMode(bool enabled);
     
     // Recording system methods
-    void startRecording(uint32_t maxFrames = 300);
+    void startRecording(uint32_t maxFrames = 300, bool highQuality = false);
     void stopRecording();
     void captureFrame();
     bool isRecording() const { return m_recordingActive; }
     void setRecordingParameters(uint32_t maxFrames, float timestep, bool loop);
+    void createVideoFromFrames();
     
 protected:
     virtual void update(float deltaTime);
@@ -133,6 +134,7 @@ private:
     
     // Frame management
     uint32_t m_currentFrame = 0;
+    uint32_t m_currentImageIndex = 0; // Current swap chain image index
     std::chrono::high_resolution_clock::time_point m_startTime;
     float m_currentPhysicsDeltaTime = 0.016f; // Current physics timestep
     float m_totalTime = 0.0f;
@@ -205,8 +207,12 @@ private:
     uint32_t m_recordingFrame = 0;           // Current frame number
     uint32_t m_recordingMaxFrames = 300;     // Total frames (5s at 60fps)
     float m_recordingFixedTimestep = 1.0f / 60.0f; // Fixed timestep for consistent output
-    std::string m_recordingOutputDir = "recording/"; // Output directory
+    std::string m_recordingBaseDir = "recording/"; // Base recording directory
+    std::string m_recordingOutputDir = "recording/"; // Current output directory
+    uint32_t m_recordingSessionNumber = 0;   // Sequential session counter
     bool m_recordingLoop = true;             // Reset simulation for seamless loops
+    bool m_recordingHighQuality = false;     // High quality mode with more particles and effects
+    uint32_t m_recordingOriginalParticleCount = 0; // Store original count for restoration
     
     // State
     bool m_isRunning = false;

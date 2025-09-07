@@ -61,10 +61,14 @@
 
 ## Recording System
 - **F** - Toggle recording (start/stop 5-second loop at 60fps)
+- **Shift+F** - High quality recording (2x particles, volumetrics, enhanced bloom)
+- **L** - Toggle loop mode (resets simulation when recording starts)
+
+## Relativistic Jets
+- **A** - Toggle relativistic jets on/off
 
 ## Available Keys for New Features
 The following keys are currently unbound and available:
-- **L** - Available  
 - **S** - Available
 - **Y** - Available
 - **Z** - Available
