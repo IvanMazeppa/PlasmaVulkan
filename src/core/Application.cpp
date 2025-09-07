@@ -3,6 +3,8 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
+#include <iomanip>
+#include <cstdlib>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -49,8 +51,22 @@ void Application::run() {
 
         glfwPollEvents();
 
-        update(m_currentPhysicsDeltaTime); // Physics will only update when flag is set
-        render();
+        // Recording mode: use fixed timestep for consistent output
+        if (m_recordingActive) {
+            // Force fixed timestep physics for recording
+            m_currentPhysicsDeltaTime = m_recordingFixedTimestep;
+            m_shouldUpdatePhysics = true; // Always update in recording mode
+            
+            update(m_currentPhysicsDeltaTime);
+            render();
+            
+            // Capture frame after rendering
+            captureFrame();
+        } else {
+            // Normal real-time mode
+            update(m_currentPhysicsDeltaTime); // Physics will only update when flag is set
+            render();
+        }
 
         // Calculate FPS using actual frame time (not physics time)
         m_frameCount++;
@@ -996,6 +1012,80 @@ void Application::enableBloomMode(bool enabled) {
     std::cout << "Bloom mode: " << (enabled ? "ENABLED" : "DISABLED") << std::endl;
 }
 
+// Recording system implementation
+void Application::startRecording(uint32_t maxFrames) {
+    if (m_recordingActive) {
+        std::cout << "Already recording!" << std::endl;
+        return;
+    }
+    
+    m_recordingMaxFrames = maxFrames;
+    m_recordingFrame = 0;
+    m_recordingActive = true;
+    
+    // Create output directory (platform specific)
+    #ifdef _WIN32
+        std::system(("mkdir " + m_recordingOutputDir + " 2>nul").c_str());
+    #else
+        std::system(("mkdir -p " + m_recordingOutputDir).c_str());
+    #endif
+    
+    std::cout << "\n[RECORDING] Started" << std::endl;
+    std::cout << "  Frames: " << maxFrames << " (" << (maxFrames / 60.0f) << " seconds at 60fps)" << std::endl;
+    std::cout << "  Output: " << m_recordingOutputDir << std::endl;
+    std::cout << "  Fixed timestep: " << m_recordingFixedTimestep << "s" << std::endl;
+    std::cout << "  Loop mode: " << (m_recordingLoop ? "ON" : "OFF") << std::endl;
+    
+    // Reset simulation for consistent start
+    if (m_recordingLoop && m_particleSystem) {
+        // TODO: Add particle system reset method
+        std::cout << "  Resetting simulation state for loop..." << std::endl;
+    }
+}
+
+void Application::stopRecording() {
+    if (!m_recordingActive) {
+        std::cout << "Not recording!" << std::endl;
+        return;
+    }
+    
+    m_recordingActive = false;
+    std::cout << "\n[RECORDING] Stopped" << std::endl;
+    std::cout << "  Captured " << m_recordingFrame << " frames" << std::endl;
+    std::cout << "  Output directory: " << m_recordingOutputDir << std::endl;
+}
+
+void Application::captureFrame() {
+    if (!m_recordingActive) return;
+    
+    // TODO: Implement frame capture to PNG
+    // For now, just increment frame counter
+    m_recordingFrame++;
+    
+    // Auto-stop when max frames reached
+    if (m_recordingFrame >= m_recordingMaxFrames) {
+        stopRecording();
+    }
+    
+    // Progress indicator every 60 frames (1 second)
+    if (m_recordingFrame % 60 == 0) {
+        float progress = (float)m_recordingFrame / m_recordingMaxFrames * 100.0f;
+        std::cout << "[RECORDING] Frame " << m_recordingFrame << "/" << m_recordingMaxFrames 
+                  << " (" << std::fixed << std::setprecision(1) << progress << "%)" << std::endl;
+    }
+}
+
+void Application::setRecordingParameters(uint32_t maxFrames, float timestep, bool loop) {
+    m_recordingMaxFrames = maxFrames;
+    m_recordingFixedTimestep = timestep;
+    m_recordingLoop = loop;
+    
+    std::cout << "Recording parameters updated:" << std::endl;
+    std::cout << "  Max frames: " << maxFrames << " (" << (maxFrames * timestep) << "s)" << std::endl;
+    std::cout << "  Timestep: " << timestep << "s (" << (1.0f/timestep) << " fps)" << std::endl;
+    std::cout << "  Loop mode: " << (loop ? "ON" : "OFF") << std::endl;
+}
+
 // Static callback functions
 void Application::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
@@ -1015,10 +1105,11 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         
         if (!currentMode) {
             std::cout << "SPH Mode ENABLED - Fluid physics active!" << std::endl;
-            std::cout << "Reducing particles to " << app->m_sphParticleCount << " for performance..." << std::endl;
+            std::cout << "Current particles: " << app->m_particleSystem->getActiveParticleCount() << std::endl;
+            std::cout << "Use P/Shift+P to adjust particle count (25k-250k recommended for SPH)" << std::endl;
             
-            // Switch to SPH particle count for performance
-            app->m_particleSystem->setActiveParticleCount(app->m_sphParticleCount);
+            // Keep current particle count - user can adjust with P/Shift+P
+            // No automatic reduction anymore
             
             // Set more stable SPH parameters
             app->m_particleSystem->setSPHParameters(
@@ -1030,10 +1121,9 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             );
         } else {
             std::cout << "SPH Mode DISABLED - Back to orbital physics" << std::endl;
-            std::cout << "Restoring full particle count..." << std::endl;
+            std::cout << "Current particles: " << app->m_particleSystem->getActiveParticleCount() << std::endl;
             
-            // Switch back to full particle count for orbital physics
-            app->m_particleSystem->setActiveParticleCount(app->m_fullParticleCount);
+            // Keep current particle count - no automatic changes
         }
     }
     else if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
@@ -1343,6 +1433,42 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
     }
     else if (key == GLFW_KEY_B && action == GLFW_PRESS) {
         app->enableBloomMode(!app->m_bloomEnabled);
+        app->updateWindowTitle();
+    }
+    // Recording controls (F key)
+    else if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        if (!app->isRecording()) {
+            // Start recording - default 5 second loop
+            app->startRecording(300); // 300 frames = 5 seconds at 60fps
+        } else {
+            // Stop recording
+            app->stopRecording();
+        }
+    }
+    // Relativistic jet controls (A key)
+    else if (key == GLFW_KEY_A && action == GLFW_PRESS) {
+        // Toggle relativistic jets using a separate flag and adjusting black hole mass
+        // Track jet state separately from black hole mass
+        static bool jetsEnabled = false;
+        jetsEnabled = !jetsEnabled;
+        
+        if (jetsEnabled) {
+            // Enable jets - ensure black hole mass is sufficient
+            if (app->m_blackHoleMass < 2.0f) {
+                app->m_blackHoleMass = 2.0f; // Minimum mass for jets
+            }
+            app->m_particleSystem->setBlackHoleMass(app->m_blackHoleMass);
+            std::cout << "\n[RELATIVISTIC JETS] ENABLED" << std::endl;
+            std::cout << "  Black hole mass: " << app->m_blackHoleMass << " solar masses" << std::endl;
+            std::cout << "  Jets emerge from poles when central density is high" << std::endl;
+            std::cout << "  Jet strength proportional to accretion rate" << std::endl;
+        } else {
+            // Disable jets - reduce black hole mass to below jet threshold
+            app->m_blackHoleMass = 0.3f; // Below 0.5 threshold, no jets
+            app->m_particleSystem->setBlackHoleMass(app->m_blackHoleMass);
+            std::cout << "\n[RELATIVISTIC JETS] DISABLED" << std::endl;
+            std::cout << "  Black hole mass reduced to " << app->m_blackHoleMass << " solar masses" << std::endl;
+        }
         app->updateWindowTitle();
     }
     // Black hole mass controls (M/N keys)

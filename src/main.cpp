@@ -40,7 +40,7 @@ SimulationPreset getPreset(int choice) {
     switch(choice) {
         case 1: // Stellar Formation
             return {"Stellar Formation", "Star-forming nebula with gravitational collapse",
-                    1000000, 0.6f, 0.0f, 0.999f, 1.0f, 1.0f, false, 1.0f};
+                    1000000, 0.6f, 0.0f, 0.999f, 1.0f, 1.0f, false, 0.3f}; // Low BH mass, no jets
         case 2: // Galaxy Spiral Arms
             return {"Galaxy Spiral", "Rotating galaxy with spiral arm formation",
                     1500000, 0.8f, 0.0f, 0.999f, 2.5f, 1.0f, true, 3.0f};
@@ -171,9 +171,13 @@ int main(int argc, char* argv[]) {
                 
                 std::cout << "Volumetric Plasma mode enabled - Swirling energy field!" << std::endl;
                 std::cout << "Optimized for 150k particles at high performance" << std::endl;
-            } else if (preset.accretionDisk) {
+            }
+            
+            // Always set black hole mass from preset (affects jet strength)
+            app.setBlackHoleMass(preset.blackHoleMass);
+            
+            if (preset.accretionDisk) {
                 app.setConstraintShape(4); // ACCRETION_DISK
-                app.setBlackHoleMass(preset.blackHoleMass);
             }
         }
         

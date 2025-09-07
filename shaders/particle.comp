@@ -311,15 +311,101 @@ void main() {
     vec3 vortexForce = curl * push.turbulenceStrength * 0.5;
     acceleration += vortexForce;
 
+    // RELATIVISTIC JET SYSTEM
+    // Jets emerge from poles when central density is high
+    if (distance < 2.0) { // Only affect particles near the center
+        // Calculate central density (simplified - count nearby particles)
+        float centralDensity = 0.0;
+        
+        // Sample density in central region (approximation using particle's own density)
+        // In real implementation, would sample neighboring particles
+        centralDensity = p.density * (2.0 - distance); // Higher density closer to center
+        
+        // Jet emission criteria:
+        // 1. High central density (accretion disk is feeding black hole)
+        // 2. Particle is near poles (aligned with Y axis)
+        // 3. Random chance for particle ejection
+        
+        float polarAlignment = abs(p.position.y) / max(length(p.position.xz), 0.1);
+        bool nearPole = polarAlignment > 1.0; // Particle is above/below the disk
+        
+        // Jet strength proportional to central density AND black hole mass
+        // Jets only active when we have significant black hole mass
+        float jetActivity = push.blackHoleMass > 0.5 ? 1.0 : 0.0; // Binary: jets ON or OFF
+        float jetStrength = centralDensity * 5.0 * jetActivity; // Scale factor for jet power
+        jetStrength = clamp(jetStrength, 0.0, 10.0);
+        
+        // Relativistic jet ejection
+        if (nearPole && centralDensity > 0.8) {
+            // Determine if particle should be ejected
+            float ejectionProbability = jetStrength * 0.02 * push.deltaTime; // Doubled probability
+            float random = fract(sin(float(id) * 12.9898 + push.time) * 43758.5453);
+            
+            if (random < ejectionProbability) {
+                // EJECT! Accelerate to EXTREME relativistic speeds along pole
+                vec3 jetDirection = vec3(0.0, sign(p.position.y), 0.0);
+                
+                // Add slight spiral for magnetic field effect (reduced for straighter jets)
+                float spiral = push.time * 0.5 + float(id) * 0.05;
+                jetDirection.x = cos(spiral) * 0.05; // Less spiral
+                jetDirection.z = sin(spiral) * 0.05; // Less spiral
+                jetDirection = normalize(jetDirection);
+                
+                // EXTREME relativistic velocity - much faster for extended jets
+                float jetSpeed = 20.0 + jetStrength * 10.0; // 20-30 units - VERY fast
+                p.velocity = jetDirection * jetSpeed;
+                
+                // Mark as extremely hot (white/blue-white)
+                p.temperature = 0.95 + random * 0.05; // Near maximum temperature
+                p.density = 2.0; // High energy density
+            }
+        }
+        
+        // Collimation effect - keep jets narrow but allow them to extend far
+        if (length(p.velocity) > 15.0 && abs(p.position.y) > 2.0) {
+            // Particle is in jet - apply gentle magnetic collimation
+            float radialDist = length(p.position.xz);
+            if (radialDist > 2.0) { // Allow wider jets
+                // Gentle push back toward axis
+                vec2 radialDir = normalize(p.position.xz);
+                vec2 collimationForce = -radialDir * (radialDist - 2.0) * 0.5; // Much gentler
+                p.velocity.xz += collimationForce * push.deltaTime;
+            }
+            
+            // IMPORTANT: Maintain jet velocity - resist damping
+            float jetVelMag = length(p.velocity);
+            if (jetVelMag > 15.0) {
+                // Boost to maintain speed against damping
+                p.velocity *= 1.02; // Counter damping for jet particles
+            }
+        }
+    }
+
     // Update velocity with damping
     p.velocity += acceleration * push.deltaTime;
-    p.velocity *= push.dampingFactor;
     
-    // Clamp velocity to prevent extreme speeds - MUCH slower for stable orbits
-    float maxSpeed = 2.0; // Reduced from 5.0
+    // Check if particle is in a jet (very high velocity)
     float velMagnitude = length(p.velocity);
-    if (velMagnitude > maxSpeed) {
-        p.velocity = normalize(p.velocity) * maxSpeed;
+    bool isJetParticle = velMagnitude > 15.0;
+    
+    if (isJetParticle) {
+        // JET PARTICLES - minimal damping, maintain extreme speeds
+        p.velocity *= 0.995; // Very slight damping for jets
+        
+        // Allow extreme speeds for jets (up to 50 units)
+        float maxJetSpeed = 50.0;
+        if (velMagnitude > maxJetSpeed) {
+            p.velocity = normalize(p.velocity) * maxJetSpeed;
+        }
+    } else {
+        // NORMAL PARTICLES - standard damping and speed limits
+        p.velocity *= push.dampingFactor;
+        
+        // Clamp velocity to prevent extreme speeds - MUCH slower for stable orbits
+        float maxSpeed = 2.0; // Reduced from 5.0
+        if (velMagnitude > maxSpeed) {
+            p.velocity = normalize(p.velocity) * maxSpeed;
+        }
     }
     
     // Add slight particle repulsion to prevent complete overlap

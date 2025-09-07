@@ -1,0 +1,14 @@
+name: Enhanced Vulkan Docs MCP Server
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: Enhanced Vulkan Docs MCP Server
+    command: python
+    args:
+      - D:\\Users\\dilli\\AndroidStudioProjects\\plasma_vk\\markdown\\Vulkan Docs\\vulkan_mcp_fixed_final.py
+      - 127.0.0.1:1128
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: "utf-8"
+      VULKAN_DOCS_ROOT: "D:\\Users\\dilli\\AndroidStudioProjects\\plasma_vk\\markdown\\vulkan_offline_mirror"
+      VULKAN_MCP_DB: "D:\\Users\\dilli\\AndroidStudioProjects\\plasma_vk\\markdown\\Vulkan Docs\\vulkan_docs.db"

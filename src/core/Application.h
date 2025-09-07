@@ -55,6 +55,13 @@ public:
     void enableVolumetricMode(bool enabled);
     void enableBloomMode(bool enabled);
     
+    // Recording system methods
+    void startRecording(uint32_t maxFrames = 300);
+    void stopRecording();
+    void captureFrame();
+    bool isRecording() const { return m_recordingActive; }
+    void setRecordingParameters(uint32_t maxFrames, float timestep, bool loop);
+    
 protected:
     virtual void update(float deltaTime);
     virtual void render();
@@ -191,6 +198,15 @@ private:
     float m_bloomIntensity = 1.5f;           // Glow intensity
     float m_bloomStrength = 0.6f;            // Final blend strength
     float m_exposure = 1.2f;                 // HDR exposure
+    
+    // Recording system for asset creation
+    bool m_recordingEnabled = false;         // Recording mode available
+    bool m_recordingActive = false;          // Currently recording
+    uint32_t m_recordingFrame = 0;           // Current frame number
+    uint32_t m_recordingMaxFrames = 300;     // Total frames (5s at 60fps)
+    float m_recordingFixedTimestep = 1.0f / 60.0f; // Fixed timestep for consistent output
+    std::string m_recordingOutputDir = "recording/"; // Output directory
+    bool m_recordingLoop = true;             // Reset simulation for seamless loops
     
     // State
     bool m_isRunning = false;
