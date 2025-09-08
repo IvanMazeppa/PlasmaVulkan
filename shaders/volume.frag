@@ -36,6 +36,20 @@ vec3 getRayDirection(vec2 screenPos) {
     return normalize(worldPos.xyz - push.cameraPos);
 }
 
+// Compute AABB intersection with the volume grid
+bool intersectVolume(vec3 ro, vec3 rd, out float tmin, out float tmax) {
+    vec3 boxMin = push.gridOrigin;
+    vec3 boxMax = push.gridOrigin + vec3(push.voxelSize) * vec3(push.gridDimensions);
+    vec3 invD = 1.0 / rd;
+    vec3 t0 = (boxMin - ro) * invD;
+    vec3 t1 = (boxMax - ro) * invD;
+    vec3 tsmaller = min(t0, t1);
+    vec3 tbigger  = max(t0, t1);
+    tmin = max(0.0, max(max(tsmaller.x, tsmaller.y), tsmaller.z));
+    tmax = min(tbigger.x, min(tbigger.y, tbigger.z));
+    return tmax > tmin;
+}
+
 // Convert world position to texture coordinates [0,1]
 vec3 worldToTexture(vec3 worldPos) {
     vec3 localPos = worldPos - push.gridOrigin;
@@ -55,55 +69,63 @@ float sampleDensity(vec3 worldPos) {
     return texture(densityTexture, texCoord).r * push.densityScale;
 }
 
-// VIBRANT plasma color mapping - no more grey smoke!
+// Estimate gradient for simple shading
+vec3 densityGradient(vec3 worldPos) {
+    float h = push.voxelSize; // step equal to voxel size
+    float dx = sampleDensity(worldPos + vec3(h,0,0)) - sampleDensity(worldPos - vec3(h,0,0));
+    float dy = sampleDensity(worldPos + vec3(0,h,0)) - sampleDensity(worldPos - vec3(0,h,0));
+    float dz = sampleDensity(worldPos + vec3(0,0,h)) - sampleDensity(worldPos - vec3(0,0,h));
+    return vec3(dx, dy, dz) / (2.0 * h);
+}
+
+// Plasma color mapping matching particle shader's orange-red scheme
 vec3 plasmaColor(float temperature) {
-    // BALANCED temperature scaling for dramatic but visible plasma effect
-    float t = clamp(temperature * 12.0, 0.0, 1.0); // More reasonable scaling
+    float t = clamp(temperature, 0.0, 1.0);
     
     vec3 color;
     
-    // Vibrant plasma color progression: deep blue → cyan → magenta → orange → white-hot
-    if (t < 0.15) {
-        // Deep space plasma - electric blue
-        float factor = t / 0.15;
-        color = mix(vec3(0.0, 0.05, 0.3), vec3(0.0, 0.3, 0.8), factor);
-    } else if (t < 0.3) {
-        // Cold plasma - blue to cyan
-        float factor = (t - 0.15) / 0.15;
-        color = mix(vec3(0.0, 0.3, 0.8), vec3(0.0, 0.7, 1.0), factor);
-    } else if (t < 0.45) {
-        // Energized plasma - cyan to magenta
-        float factor = (t - 0.3) / 0.15;
-        color = mix(vec3(0.0, 0.7, 1.0), vec3(0.8, 0.2, 1.0), factor);
-    } else if (t < 0.6) {
-        // Hot plasma - magenta to orange
-        float factor = (t - 0.45) / 0.15;
-        color = mix(vec3(0.8, 0.2, 1.0), vec3(1.0, 0.4, 0.0), factor);
-    } else if (t < 0.75) {
-        // Very hot plasma - orange to yellow
-        float factor = (t - 0.6) / 0.15;
-        color = mix(vec3(1.0, 0.4, 0.0), vec3(1.0, 0.9, 0.0), factor);
-    } else if (t < 0.9) {
-        // Extreme plasma - yellow to white-hot
-        float factor = (t - 0.75) / 0.15;
-        color = mix(vec3(1.0, 0.9, 0.0), vec3(1.0, 1.0, 0.9), factor);
+    // Pure red-orange-yellow-white plasma progression (no pink tones)
+    if (t < 0.2) {
+        // Deep red to bright red
+        float factor = t / 0.2;
+        color = mix(vec3(0.4, 0.0, 0.0), vec3(0.8, 0.0, 0.0), factor);
+    } else if (t < 0.35) {
+        // Bright red to red-orange
+        float factor = (t - 0.2) / 0.15;
+        color = mix(vec3(0.8, 0.0, 0.0), vec3(1.0, 0.2, 0.0), factor);
+    } else if (t < 0.5) {
+        // Red-orange to pure orange
+        float factor = (t - 0.35) / 0.15;
+        color = mix(vec3(1.0, 0.2, 0.0), vec3(1.0, 0.5, 0.0), factor);
+    } else if (t < 0.65) {
+        // Orange to yellow-orange
+        float factor = (t - 0.5) / 0.15;
+        color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.7, 0.0), factor);
+    } else if (t < 0.8) {
+        // Yellow-orange to bright yellow
+        float factor = (t - 0.65) / 0.15;
+        color = mix(vec3(1.0, 0.7, 0.0), vec3(1.0, 0.95, 0.0), factor);
+    } else if (t < 0.98) {
+        // Yellow to warm white (narrower white range)
+        float factor = (t - 0.8) / 0.18;
+        color = mix(vec3(1.0, 0.95, 0.0), vec3(1.0, 1.0, 0.85), factor);
     } else {
-        // White-hot core - pure energy
-        color = vec3(1.2, 1.2, 1.0); // Slightly over-saturated for glow
+        // Very limited white-hot core (only at extreme values)
+        color = vec3(1.0, 1.0, 0.9);
     }
     
-    // BALANCED intensity scaling for vibrant but controlled colors
-    float intensity = 0.2 + t * 1.2; // Moderate base + reasonable scaling
+    // Moderate intensity for volumetric rendering
+    float intensity = 0.5 + t * 0.8;
     
     return color * intensity;
 }
 
-// Enhanced plasma temperature model
+// Enhanced plasma temperature model for volumetric rendering
 vec3 temperatureToColor(float density) {
     if (density < 0.001) return vec3(0.0);
     
-    // BALANCED density scaling for visible plasma without overexposure
-    float enhancedDensity = density * 4.0; // 2x boost for visibility
+    // Much lower scaling to keep colors in deep red-orange range  
+    float enhancedDensity = density * 0.05; // Very low to avoid pink/white saturation
     
     return plasmaColor(enhancedDensity);
 }
@@ -147,36 +169,50 @@ vec3 radialTemperatureColor(vec3 worldPos, float density) {
 }
 
 void main() {
-    // Generate ray from camera through this pixel
-    vec3 rayDir = getRayDirection(fragCoord);
-    vec3 rayPos = push.cameraPos;
-    
-    // Ray marching accumulation
+    // Generate ray
+    vec3 rd = getRayDirection(fragCoord);
+    vec3 ro = push.cameraPos;
+
+    // Intersect with volume bounds
+    float t0, t1;
+    if (!intersectVolume(ro, rd, t0, t1)) {
+        fragColor = vec4(0.0);
+        return;
+    }
+
+    // Jitter start to reduce banding (hash on pixel)
+    float hash = fract(sin(dot(fragCoord, vec2(12.9898,78.233))) * 43758.5453);
+    float t = t0 + hash * push.stepSize;
+
+    // Accumulation
     vec3 color = vec3(0.0);
     float alpha = 0.0;
-    
-    // March through the volume
-    for (uint step = 0; step < push.maxSteps; step++) {
-        // Sample density at current position
-        float density = sampleDensity(rayPos);
-        
-        if (density > 0.001) { // Lower threshold for more plasma visibility
-            // Calculate vibrant plasma color
-            vec3 sampleColor = temperatureToColor(density);
-            float sampleAlpha = density * 0.1; // Controlled opacity for balanced plasma effect
-            
-            // Enhanced alpha blending with plasma glow
-            color += sampleColor * sampleAlpha * (1.0 - alpha);
-            alpha += sampleAlpha * (1.0 - alpha);
-            
-            // Early termination if sufficiently opaque
-            if (alpha > 0.9) break;
+
+    // Adaptive step parameters
+    float baseStep = push.stepSize;
+
+    for (uint i = 0u; i < push.maxSteps && t < t1 && alpha < 0.98; ++i) {
+        vec3 pos = ro + rd * t;
+        float dens = sampleDensity(pos);
+
+        // Empty-space skipping: take larger steps when empty
+        float stepMul = (dens < 0.002) ? 4.0 : ((dens < 0.01) ? 2.0 : 1.0);
+
+        if (dens > 0.001) {
+            // Color from density
+            vec3 c = temperatureToColor(dens);
+            // Simple edge lighting using gradient and view dir
+            vec3 N = normalize(densityGradient(pos) + 1e-5);
+            float viewDot = clamp(dot(-rd, N) * 0.5 + 0.5, 0.0, 1.0);
+            c *= mix(0.8, 1.3, viewDot); // emphasize thin features
+
+            float a = dens * 0.1;
+            color += (1.0 - alpha) * c * a;
+            alpha += (1.0 - alpha) * a;
         }
-        
-        // Step forward along the ray
-        rayPos += rayDir * push.stepSize;
+
+        t += baseStep * stepMul;
     }
-    
-    // Output final color
+
     fragColor = vec4(color, alpha);
 }

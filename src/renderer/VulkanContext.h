@@ -74,6 +74,9 @@ public:
     const VkPhysicalDeviceFeatures& getDeviceFeatures() const { return m_deviceFeatures; }
     const QueueFamilyIndices& getQueueFamilyIndices() const { return m_queueFamilyIndices; }
     
+    // Capabilities
+    bool supportsShaderAtomicFloat() const { return m_supportsAtomicFloat; }
+    
     // Command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -134,6 +137,7 @@ private:
     // Device properties
     VkPhysicalDeviceProperties m_deviceProperties{};
     VkPhysicalDeviceFeatures m_deviceFeatures{};
+    bool m_supportsAtomicFloat = false; // VK_EXT_shader_atomic_float
     
     // Configuration
     bool m_enableValidation;

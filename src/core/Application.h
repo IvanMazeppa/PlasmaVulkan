@@ -135,6 +135,7 @@ private:
     // Frame management
     uint32_t m_currentFrame = 0;
     uint32_t m_currentImageIndex = 0; // Current swap chain image index
+    uint32_t m_totalFramesRendered = 0; // Total frames rendered since startup
     std::chrono::high_resolution_clock::time_point m_startTime;
     float m_currentPhysicsDeltaTime = 0.016f; // Current physics timestep
     float m_totalTime = 0.0f;
@@ -193,6 +194,7 @@ private:
     
     // Volumetric rendering
     bool m_volumetricMode = false;
+    bool m_volumetricHighQuality = false;  // Ultra-high quality mode for recording
     
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma
@@ -216,6 +218,12 @@ private:
     
     // State
     bool m_isRunning = false;
+
+    // GPU profiling (timestamps)
+    VkQueryPool m_timestampQueryPool = VK_NULL_HANDLE;
+    double m_gpuDensityMs = 0.0;
+    double m_gpuRaymarchMs = 0.0;
+    bool m_gpuProfilingEnabled = false; // Disabled to prevent query pool issues
 };
 
 } // namespace plasma

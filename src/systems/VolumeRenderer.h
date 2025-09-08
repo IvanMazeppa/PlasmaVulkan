@@ -19,15 +19,28 @@ class VulkanContext;
  */
 class VolumeRenderer {
 public:
-    // Volume grid parameters
+    // Volume grid parameters  
     struct VolumeParams {
-        glm::vec3 gridOrigin = glm::vec3(-10.0f, -10.0f, -10.0f);
-        float voxelSize = 0.5f;                    // Size of each voxel (larger = less detail, better performance)
-        glm::uvec3 gridDimensions = glm::uvec3(48, 48, 24);  // 48x48x24 for better performance while maintaining quality
-        float splatRadius = 0.8f;                  // Particle influence radius (reduced for sharper definition)
-        uint32_t maxRaySteps = 64;                 // Ray marching steps (increased for detail)
-        float rayStepSize = 0.3f;                  // Step size for ray marching (smaller = finer detail)
-        float densityScale = 0.8f;                 // Density visualization scale (balanced)
+        glm::vec3 gridOrigin = glm::vec3(-15.0f, -15.0f, -15.0f);
+        float voxelSize = 0.25f;                   // Much finer voxels for high detail
+        glm::uvec3 gridDimensions = glm::uvec3(120, 120, 120);  // 8x increase from 50³ to 120³
+        float splatRadius = 1.0f;                  
+        uint32_t maxRaySteps = 128;                // Double the ray steps
+        float rayStepSize = 0.2f;                  // Finer ray steps
+        float densityScale = 0.7f;                 // Slightly reduced to prevent white dominance
+        
+        // Ultra-high quality settings for recording mode
+        static VolumeParams getRecordingQuality() {
+            VolumeParams params;
+            params.gridOrigin = glm::vec3(-18.0f, -18.0f, -18.0f);  // Larger coverage
+            params.voxelSize = 0.12f;              // 2x smaller than standard for ultra-fine detail
+            params.gridDimensions = glm::uvec3(300, 300, 300);  // 27M voxels - cinematic quality!
+            params.splatRadius = 1.5f;             // Smoother splatting for cinematic look
+            params.maxRaySteps = 256;              // 2x more ray steps than standard
+            params.rayStepSize = 0.1f;             // Very fine ray marching
+            params.densityScale = 0.5f;            // Lower to maintain color range at high resolution
+            return params;
+        }
     };
     
     // Push constants for density splatting
@@ -60,11 +73,14 @@ public:
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});
     ~VolumeRenderer();
     
+    // Update quality settings dynamically
+    void setRecordingQuality(bool enable);
+    
     // Update density grid from particle data
     void updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount);
     
-    // Render volumetric effect
-    void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos);
+    // Render volumetric effect with optional quality override
+    void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, bool highQuality = false);
     
     // Parameter controls
     void setVolumeParams(const VolumeParams& params) { m_params = params; }
@@ -100,6 +116,9 @@ private:
     VkShaderModule m_densitySplatShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeVertShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeFragShader = VK_NULL_HANDLE;
+    
+    // Mode selection
+    bool m_useAtomicScatter = false; // use per-particle atomic image adds when available
     
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);

@@ -457,7 +457,8 @@ void ParticleSystem::initializeParticles() {
             velDist(gen) * 0.2f
         );
         
-        particles[i].temperature = 0.5f + radiusDist(gen) * 0.5f;
+        // Initialize with plasma orange-red temperature range (0.75-0.88 = yellow-orange to orange)
+        particles[i].temperature = 0.75f + radiusDist(gen) * 0.13f;
         particles[i].density = 1.0f;
     }
     

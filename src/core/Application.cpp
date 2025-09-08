@@ -249,6 +249,18 @@ void Application::initVulkan() {
     createCommandBuffers();
 
     std::cout << "Vulkan initialized successfully!" << std::endl;
+
+    // Create a timestamp query pool for simple GPU profiling
+    if (m_gpuProfilingEnabled) {
+        VkQueryPoolCreateInfo qp{};
+        qp.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        qp.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        qp.queryCount = VulkanContext::MAX_FRAMES_IN_FLIGHT * 4; // 4 queries per frame
+        if (vkCreateQueryPool(m_vulkanContext->getDevice(), &qp, nullptr, &m_timestampQueryPool) != VK_SUCCESS) {
+            std::cerr << "Warning: Failed to create timestamp query pool; GPU profiling disabled" << std::endl;
+            m_gpuProfilingEnabled = false;
+        }
+    }
     
     // Create particle system
     try {
@@ -350,6 +362,30 @@ void Application::render() {
     vkWaitForFences(m_vulkanContext->getDevice(), 1,
         &fence, VK_TRUE, UINT64_MAX);
 
+    // After waiting, collect GPU timestamps for the frame that just finished
+    // Only try to get results after we've rendered enough frames to populate queries
+    if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE && m_totalFramesRendered > VulkanContext::MAX_FRAMES_IN_FLIGHT) {
+        uint32_t base = m_currentFrame * 4;
+        uint64_t timestamps[4] = {0,0,0,0};
+        VkResult qr = vkGetQueryPoolResults(
+            m_vulkanContext->getDevice(),
+            m_timestampQueryPool,
+            base,
+            4,
+            sizeof(timestamps),
+            timestamps,
+            sizeof(uint64_t),
+            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+        if (qr == VK_SUCCESS) {
+            double periodNs = static_cast<double>(m_vulkanContext->getDeviceProperties().limits.timestampPeriod);
+            m_gpuDensityMs   = (timestamps[1] - timestamps[0]) * periodNs / 1.0e6;
+            m_gpuRaymarchMs  = (timestamps[3] - timestamps[2]) * periodNs / 1.0e6;
+            if (m_frameCount % 60 == 0) {
+                std::cout << "[GPU] density=" << m_gpuDensityMs << " ms, raymarch=" << m_gpuRaymarchMs << " ms" << std::endl;
+            }
+        }
+    }
+
     // Acquire next image
     VkResult result = vkAcquireNextImageKHR(
         m_vulkanContext->getDevice(),
@@ -424,6 +460,7 @@ void Application::render() {
     }
 
     m_currentFrame = (m_currentFrame + 1) % VulkanContext::MAX_FRAMES_IN_FLIGHT;
+    m_totalFramesRendered++; // Increment total frames counter for query pool safety
 }
 
 void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -487,7 +524,17 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             // Update density grid from particle data
             VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
             uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
+            // Write GPU timestamp around compute dispatch
+            if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
+                uint32_t base = m_currentFrame * 4;
+                vkCmdResetQueryPool(commandBuffer, m_timestampQueryPool, base, 4);
+                vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 0);
+            }
             m_volumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
+            if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
+                uint32_t base = m_currentFrame * 4;
+                vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 1);
+            }
         }
     }
 
@@ -518,7 +565,15 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         
         if (m_volumetricMode && m_volumeRenderer) {
             // Render volumetric effect
-            m_volumeRenderer->render(commandBuffer, viewProj, cameraPos);
+            if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
+                uint32_t base = m_currentFrame * 4;
+                vkCmdWriteTimestamp2(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, m_timestampQueryPool, base + 2);
+            }
+            m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, m_volumetricHighQuality);
+            if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
+                uint32_t base = m_currentFrame * 4;
+                vkCmdWriteTimestamp2(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, m_timestampQueryPool, base + 3);
+            }
         } else {
             // Render particles (drawing only, physics already updated)
             m_particleSystem->render(commandBuffer, viewProj);
@@ -679,6 +734,10 @@ void Application::printParameterChange(const std::string& paramName, float value
 }
 
 void Application::cleanup() {
+    if (m_timestampQueryPool != VK_NULL_HANDLE && m_vulkanContext) {
+        vkDestroyQueryPool(m_vulkanContext->getDevice(), m_timestampQueryPool, nullptr);
+        m_timestampQueryPool = VK_NULL_HANDLE;
+    }
     cleanupBloomResources();
     
     if (m_allocator) {
@@ -1564,13 +1623,26 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "  Middle Mouse: Pan camera target" << std::endl;
     }
     // Volumetric rendering toggle
-    else if (key == GLFW_KEY_V && action == GLFW_PRESS) {
+    else if (key == GLFW_KEY_V && action == GLFW_PRESS && !(mods & GLFW_MOD_CONTROL)) {
         app->m_volumetricMode = !app->m_volumetricMode;
+        app->m_volumetricHighQuality = false; // Disable high quality when toggling normal mode
         if (app->m_volumetricMode) {
             std::cout << "[MODE] Volumetric rendering ENABLED - 3D plasma glow!" << std::endl;
             std::cout << "       Particles → Volume → Ray march pipeline active" << std::endl;
         } else {
             std::cout << "[MODE] Volumetric rendering DISABLED - Back to particle rendering" << std::endl;
+        }
+        app->updateWindowTitle();
+    }
+    // High-quality volumetric mode (Ctrl+V)
+    else if (key == GLFW_KEY_V && action == GLFW_PRESS && (mods & GLFW_MOD_CONTROL)) {
+        app->m_volumetricHighQuality = !app->m_volumetricHighQuality;
+        app->m_volumetricMode = app->m_volumetricHighQuality; // Enable volumetric when high quality is on
+        if (app->m_volumetricHighQuality) {
+            std::cout << "[MODE] High-quality volumetric rendering ENABLED!" << std::endl;
+            std::cout << "       Enhanced resolution for better quality" << std::endl;
+        } else {
+            std::cout << "[MODE] High-quality volumetric rendering DISABLED" << std::endl;
         }
         app->updateWindowTitle();
     }

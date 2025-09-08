@@ -477,24 +477,24 @@ void main() {
         // ENHANCED STANDARD MODE TEMPERATURE - same white hot capability
         float speed = length(p.velocity);
         
-        // Base temperature from velocity
-        float baseTemp = speed * 0.08 + 0.05; // Conservative base
+        // ENHANCED ORBITAL DYNAMICS for target image colors
+        float orbitalSpeed = length(p.velocity);
         
-        // Extreme velocity bonus for white hot cores
-        float extremeVelocity = max(0.0, (speed - 1.2) * 0.4); // More achievable threshold
+        // Base temperature shifts based on orbital dynamics
+        float baseTemp = 0.4 + orbitalSpeed * 0.3; // Moderate base range
         
-        // Distance-based heating (closer = hotter, but capped)
-        float proximityHeat = max(0.0, (3.0 - distance) * 0.08); // Stronger proximity bonus
+        // Distance creates strong red-orange outer regions (inverted - farther = redder)
+        float distanceTemp = (distance > 2.0) ? (distance - 2.0) * 0.15 : 0.0; // Strong outer heating
         
-        // Density accumulation bonus for white hot cores
-        float densityBonus = min(p.density * 0.15, 0.1); // Density contributes to heat
+        // Density creates concentrated white cores (smaller effect)
+        float densityTemp = min(p.density * 0.15, 0.25); // Reduced white core size
         
-        // Combine for final temperature
-        float newTemp = baseTemp + extremeVelocity + proximityHeat + densityBonus;
+        // Combine with emphasis on distance-based coloring
+        float newTemp = baseTemp + distanceTemp + densityTemp;
         
         // Gradual temperature evolution
         p.temperature = mix(p.temperature, newTemp, 0.03);
-        p.temperature = clamp(p.temperature, 0.05, 1.0); // Allow full range for white hot cores
+        p.temperature = clamp(p.temperature, 0.05, 1.0); // Full range for dramatic gradient like target
         
         // Standard density
         p.density = 1.0 / (distance * 0.1 + 1.0);

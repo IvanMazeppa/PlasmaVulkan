@@ -55,7 +55,8 @@
 
 ## Display Options
 - **O** - Toggle on-screen display (OSD) status updates
-- **V** - Toggle volumetric rendering mode
+- **V** - Toggle standard volumetric rendering mode (3D plasma glow, 128³ voxels, real-time performance)
+- **Ctrl+V** - START CINEMATIC RECORDING MODE (400³ voxels, 512 ray steps, auto-records)
 - **R** - Reset simulation
 - **Shift+R** - Initialize particles in disk formation
 

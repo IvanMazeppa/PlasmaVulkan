@@ -149,6 +149,9 @@ int main(int argc, char* argv[]) {
             app.setAngularMomentumBoost(preset.angularMomentum);
             app.setTimeScale(preset.timeScale);
             
+            // CRITICAL: Disable dual galaxy mode for all presets by default
+            app.setDualGalaxyMode(false);
+            
             if (choice == 6) { // Galaxy Collision preset
                 // Set galaxy centers FIRST before enabling dual galaxy mode
                 app.setGravityCenter(glm::vec3(-20.0f, 0.0f, 5.0f));  // Galaxy A (Milky Way position)

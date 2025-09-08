@@ -167,6 +167,23 @@ void VulkanContext::createLogicalDevice() {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    // Query device extensions and mark optional capabilities
+    uint32_t extCount = 0;
+    vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, nullptr);
+    std::vector<VkExtensionProperties> extProps(extCount);
+    if (extCount > 0) {
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, extProps.data());
+    }
+
+    auto hasExtension = [&](const char* name) {
+        for (const auto& ep : extProps) {
+            if (std::strcmp(ep.extensionName, name) == 0) return true;
+        }
+        return false;
+    };
+
+    m_supportsAtomicFloat = hasExtension(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+
     // Enable Vulkan 1.4 features
     VkPhysicalDeviceVulkan14Features vk14Features{};
     vk14Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
@@ -186,9 +203,17 @@ void VulkanContext::createLogicalDevice() {
     vk12Features.timelineSemaphore = VK_TRUE;
     vk12Features.bufferDeviceAddress = VK_TRUE;
 
+    // Optional: atomic float features
+    VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloat{};
+    atomicFloat.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+    atomicFloat.pNext = &vk12Features; // will be rewired into the pNext chain below
+    atomicFloat.shaderImageFloat32AtomicAdd = m_supportsAtomicFloat ? VK_TRUE : VK_FALSE;
+    atomicFloat.shaderBufferFloat32AtomicAdd = m_supportsAtomicFloat ? VK_TRUE : VK_FALSE;
+
     VkPhysicalDeviceFeatures2 deviceFeatures{};
     deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    deviceFeatures.pNext = &vk12Features;
+    // If atomic float is supported, put it at the head of the chain; otherwise skip it
+    deviceFeatures.pNext = m_supportsAtomicFloat ? (void*)&atomicFloat : (void*)&vk12Features;
     deviceFeatures.features.geometryShader = VK_TRUE;
     deviceFeatures.features.tessellationShader = VK_TRUE;
 
@@ -205,6 +230,10 @@ void VulkanContext::createLogicalDevice() {
         // Dynamic rendering is core in Vulkan 1.3, not an extension
         // Mesh shader extension can be added conditionally if supported
     };
+
+    if (m_supportsAtomicFloat) {
+        deviceExtensions.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+    }
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();

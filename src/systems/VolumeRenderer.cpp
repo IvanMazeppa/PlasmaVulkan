@@ -13,7 +13,10 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
     
     std::cout << "Creating volume renderer..." << std::endl;
     std::cout << "Grid: " << m_params.gridDimensions.x << "x" << m_params.gridDimensions.y << "x" << m_params.gridDimensions.z << std::endl;
+    std::cout << "Density splat mode: " << (m_useAtomicScatter ? "per-particle atomic scatter" : "voxel gather (fallback)") << std::endl;
     
+    m_useAtomicScatter = m_context->supportsShaderAtomicFloat();
+
     createDensityGrid();
     createDensitySplatPipeline();
     createVolumeRenderPipeline();
@@ -109,8 +112,13 @@ void VolumeRenderer::createDensityGrid() {
 }
 
 void VolumeRenderer::createDensitySplatPipeline() {
-    // Load density splat compute shader
-    auto computeShaderCode = readFile("shaders/density_splat.comp.spv");
+    // Load density splat compute shader (choose optimal implementation)
+    // If VK_EXT_shader_atomic_float is supported, use per-particle atomic scatter which is O(N * r^3)
+    // Otherwise, fall back to voxel-gather (O(V * N))
+    const char* splatPath = m_useAtomicScatter ?
+        "shaders/density_splat_scatter.comp.spv" :
+        "shaders/density_splat.comp.spv";
+    auto computeShaderCode = readFile(splatPath);
     
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -356,11 +364,9 @@ void VolumeRenderer::createDescriptorSets() {
 }
 
 void VolumeRenderer::updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount) {
-    // Clear density grid first
+    // 1) Clear density image to zero each frame to avoid accumulation artifacts
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = m_densityImage;
@@ -369,11 +375,31 @@ void VolumeRenderer::updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuf
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
+
+    // Previous layout might be SHADER_READ_ONLY_OPTIMAL from last frame; we don't need its contents.
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    VkClearColorValue zero{}; // all zeros
+    VkImageSubresourceRange clearRange{};
+    clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    clearRange.baseMipLevel = 0;
+    clearRange.levelCount = 1;
+    clearRange.baseArrayLayer = 0;
+    clearRange.layerCount = 1;
+    vkCmdClearColorImage(cmd, m_densityImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &zero, 1, &clearRange);
+
+    // Transition to GENERAL for compute writes
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
-        0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
     
     // Push descriptors directly to command buffer (Vulkan 1.4)
     VkDescriptorBufferInfo bufferInfo{};
@@ -417,11 +443,18 @@ void VolumeRenderer::updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuf
     vkCmdPushConstants(cmd, m_densitySplatPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 
         0, sizeof(DensityPushConstants), &pushConstants);
     
-    // Dispatch in 4x4x4 workgroups
-    uint32_t groupsX = (m_params.gridDimensions.x + 3) / 4;
-    uint32_t groupsY = (m_params.gridDimensions.y + 3) / 4;
-    uint32_t groupsZ = (m_params.gridDimensions.z + 3) / 4;
-    vkCmdDispatch(cmd, groupsX, groupsY, groupsZ);
+    // Dispatch
+    if (m_useAtomicScatter) {
+        // Per-particle scatter: 128 threads per group
+        uint32_t groups = (particleCount + 127u) / 128u;
+        vkCmdDispatch(cmd, groups, 1, 1);
+    } else {
+        // Fallback voxel-gather: 4x4x4 workgroups over the volume
+        uint32_t groupsX = (m_params.gridDimensions.x + 3) / 4;
+        uint32_t groupsY = (m_params.gridDimensions.y + 3) / 4;
+        uint32_t groupsZ = (m_params.gridDimensions.z + 3) / 4;
+        vkCmdDispatch(cmd, groupsX, groupsY, groupsZ);
+    }
     
     // Barrier for volume rendering
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -433,7 +466,7 @@ void VolumeRenderer::updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuf
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos) {
+void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, bool highQuality) {
     // Set dynamic viewport and scissor
     VkExtent2D extent = m_context->getSwapChainExtent();
     
@@ -471,16 +504,25 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipelineLayout, 
         0, 1, &descriptorWrite);
     
-    // Push constants for ray marching
+    // Push constants for ray marching with quality override
     VolumePushConstants pushConstants{};
     pushConstants.viewProjInv = glm::inverse(viewProj);
     pushConstants.cameraPos = cameraPos;
     pushConstants.gridOrigin = m_params.gridOrigin;
     pushConstants.voxelSize = m_params.voxelSize;
     pushConstants.gridDimensions = m_params.gridDimensions;
-    pushConstants.maxSteps = m_params.maxRaySteps;
-    pushConstants.stepSize = m_params.rayStepSize;
-    pushConstants.densityScale = m_params.densityScale;
+    
+    // Override ray marching quality for high-quality mode
+    if (highQuality) {
+        VolumeParams hqParams = VolumeParams::getRecordingQuality();
+        pushConstants.maxSteps = hqParams.maxRaySteps;     // 256 instead of 128
+        pushConstants.stepSize = hqParams.rayStepSize;     // 0.1 instead of 0.2  
+        pushConstants.densityScale = hqParams.densityScale; // 0.5 instead of 0.7
+    } else {
+        pushConstants.maxSteps = m_params.maxRaySteps;
+        pushConstants.stepSize = m_params.rayStepSize;
+        pushConstants.densityScale = m_params.densityScale;
+    }
     
     vkCmdPushConstants(cmd, m_volumePipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 
         0, sizeof(VolumePushConstants), &pushConstants);

@@ -16,6 +16,7 @@ set(SHADER_SOURCES
     particle.frag
     sph_simple.comp
     density_splat.comp
+    density_splat_scatter.comp
     volume.vert
     volume.frag
     # Bloom post-processing shaders
