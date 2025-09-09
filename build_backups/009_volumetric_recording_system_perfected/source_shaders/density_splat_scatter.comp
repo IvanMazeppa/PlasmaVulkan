@@ -1,0 +1,84 @@
+#version 450
+
+// Per-particle density splat using atomic image adds
+// Requires VK_EXT_shader_atomic_float (image float32 atomic add)
+
+#extension GL_EXT_shader_atomic_float : require
+
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// Push constants (same layout as gather pass)
+layout(push_constant) uniform PushConstants {
+    vec3 gridOrigin;       // World space origin of volume grid
+    float voxelSize;       // Size of each voxel in world units
+    uvec3 gridDimensions;  // Grid resolution (e.g., 64x64x64)
+    uint particleCount;    // Number of active particles to process
+    float splatRadius;     // Radius of influence for each particle
+    float _padding1;
+    float _padding2;
+    float _padding3;
+} push;
+
+// Input particles
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+// Output density grid
+layout(r32f, binding = 1) uniform image3D densityGrid;
+
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+// World position of a grid cell center
+vec3 gridToWorld(ivec3 gridPos) {
+    return push.gridOrigin + (vec3(gridPos) + vec3(0.5)) * push.voxelSize;
+}
+
+bool inBounds(ivec3 p) {
+    return all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, ivec3(push.gridDimensions)));
+}
+
+float gaussianFalloff(float dist, float radius) {
+    if (dist > radius) return 0.0;
+    float n = dist / radius;
+    // Sharper than the gather pass to preserve structure
+    return exp(-2.0 * n * n);
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= push.particleCount) return;
+
+    Particle p = particleBuffer.particles[id];
+
+    // Compute voxel-space sphere bounds
+    vec3 rel = (p.position - push.gridOrigin) / push.voxelSize; // voxel coords (float)
+    int r = int(ceil(push.splatRadius / push.voxelSize));
+    ivec3 center = ivec3(floor(rel));
+
+    ivec3 minP = center - ivec3(r);
+    ivec3 maxP = center + ivec3(r);
+
+    for (int z = minP.z; z <= maxP.z; ++z) {
+        for (int y = minP.y; y <= maxP.y; ++y) {
+            for (int x = minP.x; x <= maxP.x; ++x) {
+                ivec3 gp = ivec3(x, y, z);
+                if (!inBounds(gp)) continue;
+
+                vec3 wpos = gridToWorld(gp);
+                float d = length(wpos - p.position);
+                float w = gaussianFalloff(d, push.splatRadius);
+                if (w > 0.0001) {
+                    // Accumulate density using atomic add
+                    imageAtomicAdd(densityGrid, gp, w * p.density);
+                }
+            }
+        }
+    }
+}
+

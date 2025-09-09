@@ -29,29 +29,16 @@ public:
         float rayStepSize = 0.2f;                  // Finer ray steps
         float densityScale = 0.7f;                 // Slightly reduced to prevent white dominance
         
-        // HIGH QUALITY settings for realtime high-quality mode (Shift+V)
-        static VolumeParams getHighQuality() {
+        // MAXIMUM QUALITY settings for recording-only mode
+        static VolumeParams getRecordingQuality() {
             VolumeParams params;
-            params.gridOrigin = glm::vec3(-15.0f, -15.0f, -15.0f);  
-            params.voxelSize = 0.2f;               // Good detail balance
-            params.gridDimensions = glm::uvec3(150, 150, 150);  // 1.25x increase for realtime HQ
-            params.splatRadius = 1.2f;             // Smooth splatting
-            params.maxRaySteps = 256;              // Double standard ray steps
-            params.rayStepSize = 0.1f;             // Finer ray marching
-            params.densityScale = 0.6f;            // Prevent white dominance
-            return params;
-        }
-        
-        // ULTRA-HIGH QUALITY settings for recording-only mode (Ctrl+V)
-        static VolumeParams getUltraRecordingQuality() {
-            VolumeParams params;
-            params.gridOrigin = glm::vec3(-20.0f, -20.0f, -20.0f);  // Larger coverage
-            params.voxelSize = 0.08f;              // Ultra-fine detail
-            params.gridDimensions = glm::uvec3(500, 500, 500);  // MASSIVE resolution grid
-            params.splatRadius = 2.0f;             // Maximum smooth splatting
-            params.maxRaySteps = 1024;             // EXTREME ray steps - recording only!
-            params.rayStepSize = 0.02f;            // Ultra-fine ray marching - recording only!
-            params.densityScale = 0.3f;            // Very low for maximum color range
+            params.gridOrigin = glm::vec3(-18.0f, -18.0f, -18.0f);  
+            params.voxelSize = 0.12f;              // Fine detail 
+            params.gridDimensions = glm::uvec3(300, 300, 300);  // High resolution grid
+            params.splatRadius = 1.5f;             // Smooth splatting
+            params.maxRaySteps = 512;              // MAXIMUM ray steps - recording only!
+            params.rayStepSize = 0.05f;            // Ultra-fine ray marching - recording only!
+            params.densityScale = 0.4f;            // Even lower for maximum color range
             return params;
         }
     };
@@ -92,15 +79,8 @@ public:
     // Update density grid from particle data
     void updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount);
     
-    // Quality levels for volumetric rendering
-    enum class QualityLevel {
-        Standard,    // V key - normal quality
-        High,        // Shift+V - high quality but realtime
-        Ultra        // Ctrl+V - ultra quality for recording only
-    };
-    
-    // Render volumetric effect with quality level
-    void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, QualityLevel quality = QualityLevel::Standard);
+    // Render volumetric effect with optional quality override
+    void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, bool highQuality = false);
     
     // Parameter controls
     void setVolumeParams(const VolumeParams& params) { m_params = params; }

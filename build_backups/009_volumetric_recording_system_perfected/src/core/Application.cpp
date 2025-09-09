@@ -569,14 +569,7 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, m_timestampQueryPool, base + 2);
             }
-            // Determine quality level based on mode flags
-            VolumeRenderer::QualityLevel quality = VolumeRenderer::QualityLevel::Standard;
-            if (m_volumetricUltraQuality) {
-                quality = VolumeRenderer::QualityLevel::Ultra;
-            } else if (m_volumetricHighQuality) {
-                quality = VolumeRenderer::QualityLevel::High;
-            }
-            m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
+            m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, m_volumetricHighQuality);
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, m_timestampQueryPool, base + 3);
@@ -1629,11 +1622,10 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "  Wheel: Zoom in/out (0.5-200 units)" << std::endl;
         std::cout << "  Middle Mouse: Pan camera target" << std::endl;
     }
-    // Volumetric rendering toggle (V - standard mode)
-    else if (key == GLFW_KEY_V && action == GLFW_PRESS && !(mods & (GLFW_MOD_CONTROL | GLFW_MOD_SHIFT))) {
+    // Volumetric rendering toggle
+    else if (key == GLFW_KEY_V && action == GLFW_PRESS && !(mods & GLFW_MOD_CONTROL)) {
         app->m_volumetricMode = !app->m_volumetricMode;
-        app->m_volumetricHighQuality = false;   // Disable high quality when toggling normal mode
-        app->m_volumetricUltraQuality = false;  // Disable ultra quality when toggling normal mode
+        app->m_volumetricHighQuality = false; // Disable high quality when toggling normal mode
         if (app->m_volumetricMode) {
             std::cout << "[MODE] Volumetric rendering ENABLED - 3D plasma glow!" << std::endl;
             std::cout << "       Particles → Volume → Ray march pipeline active" << std::endl;
@@ -1642,40 +1634,23 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         }
         app->updateWindowTitle();
     }
-    // High-quality volumetric mode (Shift+V - realtime HQ)
-    else if (key == GLFW_KEY_V && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT) && !(mods & GLFW_MOD_CONTROL)) {
-        if (!app->m_volumetricHighQuality) {
-            app->m_volumetricHighQuality = true;
-            app->m_volumetricUltraQuality = false; // Disable ultra quality
-            app->m_volumetricMode = true;
-            std::cout << "[MODE] HIGH-QUALITY Volumetric rendering ENABLED!" << std::endl;
-            std::cout << "       256 ray steps, 0.1 step size - Still realtime capable" << std::endl;
-        } else {
-            app->m_volumetricHighQuality = false;
-            std::cout << "[MODE] HIGH-QUALITY Volumetric rendering DISABLED!" << std::endl;
-        }
-        app->updateWindowTitle();
-    }
     // Ultra-high quality volumetric recording mode (Ctrl+V) - Auto-starts recording
     else if (key == GLFW_KEY_V && action == GLFW_PRESS && (mods & GLFW_MOD_CONTROL)) {
-        if (!app->m_volumetricUltraQuality) {
-            // Enable ultra-high quality and start recording automatically
-            app->m_volumetricUltraQuality = true;
-            app->m_volumetricHighQuality = false; // Disable high quality
+        if (!app->m_volumetricHighQuality) {
+            // Enable ultra-high quality and start recording
+            app->m_volumetricHighQuality = true;
             app->m_volumetricMode = true;
             app->startRecording();
             
             std::cout << "[RECORDING] ULTRA-HIGH QUALITY Volumetric Recording STARTED!" << std::endl;
-            std::cout << "            500³ voxel grid, 1024 ray steps, 0.02 step size - MAXIMUM QUALITY!" << std::endl;
-            std::cout << "            Performance will be very low - recording only mode!" << std::endl;
+            std::cout << "            512 ray steps, 0.05 step size - MAXIMUM QUALITY" << std::endl;
+            std::cout << "            Recording will auto-stop after sequence" << std::endl;
         } else {
-            // Stop recording and disable ultra-high quality mode
+            // Stop recording and disable high-quality mode
             app->stopRecording();
-            app->m_volumetricUltraQuality = false;
+            app->m_volumetricHighQuality = false;
             app->m_volumetricMode = false;
-            
-            std::cout << "[RECORDING] ULTRA-HIGH QUALITY Volumetric Recording COMPLETED!" << std::endl;
-            std::cout << "            Video saved with maximum cinematic quality!" << std::endl;
+            std::cout << "[RECORDING] Ultra-high quality volumetric recording COMPLETED!" << std::endl;
         }
         app->updateWindowTitle();
     }

@@ -466,7 +466,7 @@ void VolumeRenderer::updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuf
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, QualityLevel quality) {
+void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, bool highQuality) {
     // Set dynamic viewport and scissor
     VkExtent2D extent = m_context->getSwapChainExtent();
     
@@ -512,27 +512,16 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     pushConstants.voxelSize = m_params.voxelSize;
     pushConstants.gridDimensions = m_params.gridDimensions;
     
-    // Apply quality settings
-    switch (quality) {
-        case QualityLevel::High: {
-            VolumeParams hqParams = VolumeParams::getHighQuality();
-            pushConstants.maxSteps = hqParams.maxRaySteps;     // 256 ray steps
-            pushConstants.stepSize = hqParams.rayStepSize;     // 0.1 step size
-            pushConstants.densityScale = hqParams.densityScale; // 0.6 density scale
-            break;
-        }
-        case QualityLevel::Ultra: {
-            VolumeParams uhqParams = VolumeParams::getUltraRecordingQuality();
-            pushConstants.maxSteps = uhqParams.maxRaySteps;     // 1024 ray steps - EXTREME!
-            pushConstants.stepSize = uhqParams.rayStepSize;     // 0.02 step size - ULTRA-FINE!
-            pushConstants.densityScale = uhqParams.densityScale; // 0.3 density scale
-            break;
-        }
-        default: // QualityLevel::Standard
-            pushConstants.maxSteps = m_params.maxRaySteps;      // 128 ray steps
-            pushConstants.stepSize = m_params.rayStepSize;      // 0.2 step size
-            pushConstants.densityScale = m_params.densityScale; // 0.7 density scale
-            break;
+    // Override ray marching quality for high-quality mode
+    if (highQuality) {
+        VolumeParams hqParams = VolumeParams::getRecordingQuality();
+        pushConstants.maxSteps = hqParams.maxRaySteps;     // 256 instead of 128
+        pushConstants.stepSize = hqParams.rayStepSize;     // 0.1 instead of 0.2  
+        pushConstants.densityScale = hqParams.densityScale; // 0.5 instead of 0.7
+    } else {
+        pushConstants.maxSteps = m_params.maxRaySteps;
+        pushConstants.stepSize = m_params.rayStepSize;
+        pushConstants.densityScale = m_params.densityScale;
     }
     
     vkCmdPushConstants(cmd, m_volumePipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 

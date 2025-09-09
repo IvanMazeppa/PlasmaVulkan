@@ -1,0 +1,21 @@
+{
+  "name": "plasmavulkan",
+  "version": "1.0.0",
+  "dependencies": [
+    "vulkan",
+    "glfw3",
+    "glm",
+    "volk",
+    "vulkan-memory-allocator",
+    "vk-bootstrap",
+    "spdlog",
+    "stb"
+  ],
+  "builtin-baseline": "6ecbbbdf31cba47aafa7cf6189b1e73e10ac61f8",
+  "overrides": [
+    {
+      "name": "vulkan",
+      "version": "1.3.268.0"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+#pragma once
+
+#include "Window.h"
+#include "Timer.h"
+#include "renderer/VulkanContext.h"
+#include "renderer/Swapchain.h"
+#include "systems/ParticleSystem.h"
+#include "systems/Camera.h"
+
+#include <memory>
+#include <vector>
+
+namespace PlasmaVulkan {
+
+/**
+ * Main application class that orchestrates all systems.
+ * 
+ * This class follows the "Facade" pattern - it provides a simple
+ * interface to the complex Vulkan subsystems underneath.
+ */
+class Application {
+public:
+    Application();
+    ~Application();
+    
+    // Delete copy/move to ensure single instance
+    Application(const Application&) = delete;
+    Application& operator=(const Application&) = delete;
+    Application(Application&&) = delete;
+    Application& operator=(Application&&) = delete;
+    
+    // Main loop
+    void run();
+    
+private:
+    // Initialization stages
+    void initWindow();
+    void initVulkan();
+    void initSystems();
+    
+    // Main loop stages
+    void processInput();
+    void update(float deltaTime);
+    void render();
+    
+    // Cleanup
+    void cleanup();
+    
+    // Core components
+    std::unique_ptr<Window> m_window;
+    std::unique_ptr<VulkanContext> m_vulkanContext;
+    std::unique_ptr<Swapchain> m_swapchain;
+    
+    // Systems
+    std::unique_ptr<ParticleSystem> m_particleSystem;
+    std::unique_ptr<Camera> m_camera;
+    
+    // Timing
+    Timer m_timer;
+    
+    // State
+    bool m_isRunning = true;
+    bool m_isMinimized = false;
+    
+    // Configuration
+    struct Config {
+        uint32_t windowWidth = 1920;
+        uint32_t windowHeight = 1080;
+        bool enableVSync = true;
+        bool enableValidation = true;
+        uint32_t particleCount = 1000000;  // 1 million particles
+    } m_config;
+};
+
+} // namespace PlasmaVulkan

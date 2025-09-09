@@ -1,0 +1,130 @@
+#pragma once
+
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+#include <volk.h>
+#include <GLFW/glfw3.h>
+#include <vk_mem_alloc.h>
+
+#include <memory>
+#include <vector>
+#include <string>
+
+namespace plasma {
+
+
+/**
+ * VulkanContext manages the core Vulkan objects:
+ * - Instance
+ * - Physical Device
+ * - Logical Device  
+ * - Queues
+ * - VMA Allocator
+ * 
+ * This class uses vk-bootstrap to simplify initialization
+ * and VMA for memory management.
+ */
+class VulkanContext {
+public:
+    struct QueueFamilyIndices {
+        uint32_t graphics;
+        uint32_t compute;
+        uint32_t transfer;
+        uint32_t present;
+        
+        bool hasDiscrete() const {
+            return graphics != compute || graphics != transfer;
+        }
+    };
+    
+    struct Queues {
+        VkQueue graphics = VK_NULL_HANDLE;
+        VkQueue compute = VK_NULL_HANDLE;
+        VkQueue transfer = VK_NULL_HANDLE;
+        VkQueue present = VK_NULL_HANDLE;
+    };
+    
+    explicit VulkanContext(GLFWwindow* window, bool enableValidation = true);
+    ~VulkanContext();
+    
+    // Getters
+    VkInstance getInstance() const { return m_instance; }
+    VkPhysicalDevice getPhysicalDevice() const { return m_physicalDevice; }
+    VkDevice getDevice() const { return m_device; }
+    VkSurfaceKHR getSurface() const { return m_surface; }
+    VmaAllocator getAllocator() const { return m_allocator; }
+    
+    const QueueFamilyIndices& getQueueFamilies() const { return m_queueFamilies; }
+    const Queues& getQueues() const { return m_queues; }
+    
+    // Properties
+    const VkPhysicalDeviceProperties& getDeviceProperties() const { return m_deviceProperties; }
+    const VkPhysicalDeviceFeatures& getDeviceFeatures() const { return m_deviceFeatures; }
+    
+    // Vulkan 1.4 features
+    bool supportsMeshShaders() const { return m_supportsMeshShaders; }
+    bool supportsDynamicRendering() const { return m_supportsDynamicRendering; }
+    bool supportsTimelineSemaphores() const { return true; } // Required in 1.4
+    
+    // Helper functions
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates,
+                                  VkImageTiling tiling,
+                                  VkFormatFeatureFlags features) const;
+    
+    // Command buffer helpers
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool commandPool) const;
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool) const;
+    
+private:
+    void createInstance();
+    void createSurface();
+    void selectPhysicalDevice();
+    void createLogicalDevice();
+    void createAllocator();
+    
+    // Vulkan objects
+    VkInstance m_instance = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
+    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+    VkDevice m_device = VK_NULL_HANDLE;
+    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+    
+    // VMA allocator
+    VmaAllocator m_allocator = VK_NULL_HANDLE;
+    
+    // Queue information
+    QueueFamilyIndices m_queueFamilies{};
+    Queues m_queues{};
+    
+    // Device properties
+    VkPhysicalDeviceProperties m_deviceProperties{};
+    VkPhysicalDeviceFeatures m_deviceFeatures{};
+    
+    // Feature support
+    bool m_supportsMeshShaders = false;
+    bool m_supportsDynamicRendering = false;
+    
+    // Validation layers
+    bool m_enableValidation = true;
+    std::vector<const char*> m_validationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
+    
+    // Required extensions
+    std::vector<const char*> m_deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,  // Core in 1.4
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,  // Core in 1.3
+        VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, // Core in 1.2
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, // Core in 1.2
+    };
+    
+    // Optional extensions
+    std::vector<const char*> m_optionalExtensions = {
+        VK_EXT_MESH_SHADER_EXTENSION_NAME,
+        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
+    };
+};
+
+} // namespace plasma

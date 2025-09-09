@@ -1,0 +1,505 @@
+#version 450
+
+// Particle structure
+struct Particle {
+    vec3 position;
+    float temperature;
+    vec3 velocity;
+    float density;
+};
+
+// Shader storage buffer for particles
+layout(binding = 0, std430) buffer ParticleBuffer {
+    Particle particles[];
+} particleBuffer;
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+    float time;
+    uint particleCount;
+    float gravityStrength;
+    vec3 gravityCenter;
+    float turbulenceStrength;
+    float dampingFactor;
+    uint constraintShape;  // 0=NONE, 1=SPHERE, 2=DISC, 3=TORUS, 4=ACCRETION_DISK, 5=GALAXY_COLLISION
+    float constraintRadius;
+    float constraintThickness;
+    float blackHoleMass;  // In solar masses
+    float alphaViscosity; // Shakura-Sunyaev alpha parameter
+    float angularMomentumBoost; // Boost orbital velocity for stable orbits
+    // Galaxy collision parameters
+    vec3 gravityCenter2;   // Second galaxy center
+    float blackHoleMass2;  // Second galaxy black hole mass
+    uint dualGalaxyMode;   // 0=single galaxy, 1=dual galaxy mode
+} push;
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Constraint physics functions
+void applyConstraints(inout vec3 position, inout vec3 velocity) {
+    if (push.constraintShape == 1u) { // SPHERE
+        float distance = length(position);
+        if (distance > push.constraintRadius && distance > 0.001) {
+            // Project particle back onto sphere surface
+            vec3 normal = position / distance; // Safe normalize
+            position = normal * push.constraintRadius * 0.99; // Slightly inside
+            // Reflect velocity
+            velocity = reflect(velocity, -normal) * 0.8; // Some energy loss
+        }
+    }
+    else if (push.constraintShape == 2u) { // DISC
+        float radiusXZ = length(position.xz);
+        float thickness = push.constraintThickness * 0.5; // Half thickness above/below center
+        
+        // Radial constraint
+        if (radiusXZ > push.constraintRadius && radiusXZ > 0.001) {
+            vec2 normalXZ = position.xz / radiusXZ; // Safe normalize
+            position.xz = normalXZ * push.constraintRadius * 0.99;
+            vec2 velXZ = velocity.xz;
+            velXZ = reflect(velXZ, -normalXZ) * 0.8;
+            velocity.xz = velXZ;
+        }
+        
+        // Thickness constraint
+        if (abs(position.y) > thickness) {
+            float normalY = sign(position.y);
+            position.y = normalY * thickness * 0.99;
+            velocity.y = -velocity.y * 0.6; // Damped reflection
+        }
+    }
+    else if (push.constraintShape == 3u) { // TORUS  
+        float radiusXZ = length(position.xz);
+        float majorRadius = push.constraintRadius;
+        float minorRadius = push.constraintThickness;
+        
+        // Avoid division by zero for particles at center
+        if (radiusXZ < 0.001) {
+            radiusXZ = 0.001;
+        }
+        
+        // Distance to torus center line in XZ plane
+        vec2 dirXZ = position.xz / radiusXZ; // Safe normalize
+        vec3 torusCenter = vec3(dirXZ * majorRadius, 0.0);
+        vec3 toCenter = position - torusCenter;
+        float distToTorus = length(toCenter);
+        
+        if (distToTorus > minorRadius) {
+            // Project back onto torus surface
+            if (distToTorus > 0.001) {
+                vec3 normal = toCenter / distToTorus; // Safe normalize
+                position = torusCenter + normal * minorRadius * 0.99;
+                velocity = reflect(velocity, -normal) * 0.7;
+            }
+        }
+        
+        // Handle case where particle is too close to center (inside donut hole)
+        if (radiusXZ < majorRadius - minorRadius) {
+            position.xz = dirXZ * (majorRadius - minorRadius) * 0.99;
+            vec2 velXZ = velocity.xz;
+            velXZ = reflect(velXZ, -dirXZ) * 0.8;
+            velocity.xz = velXZ;
+        }
+    }
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    // Bounds check
+    if (id >= push.particleCount) {
+        return;
+    }
+
+    Particle p = particleBuffer.particles[id];
+
+    vec3 gravityForce = vec3(0.0);
+    vec3 toCenter = vec3(0.0);
+    float distance = 0.0;
+    
+    // DUAL GALAXY COLLISION MODE - Two distinct gravitational systems
+    if (push.dualGalaxyMode == 1u) {
+        
+        // Determine which galaxy this particle belongs to
+        // CRITICAL FIX: Explicit calculation to ensure proper galaxy assignment
+        uint halfParticles = push.particleCount / 2u;
+        uint particleGalaxy = (id < halfParticles) ? 0u : 1u;
+        
+        // Calculate gravity from Galaxy A (Milky Way) center
+        vec3 toCenter1 = push.gravityCenter - p.position;
+        float distance1 = max(length(toCenter1), 0.1);
+        float gravityMag1 = push.gravityStrength * push.blackHoleMass / (distance1 * distance1 + 0.1);
+        vec3 gravityForce1 = normalize(toCenter1) * gravityMag1;
+        
+        // Calculate gravity from Galaxy B (Andromeda) center  
+        vec3 toCenter2 = push.gravityCenter2 - p.position;
+        float distance2 = max(length(toCenter2), 0.1);
+        float gravityMag2 = push.gravityStrength * push.blackHoleMass2 / (distance2 * distance2 + 0.1);
+        vec3 gravityForce2 = normalize(toCenter2) * gravityMag2;
+        
+        // DEBUG: Force Galaxy B to have stronger gravity for testing
+        if (particleGalaxy == 1u) {
+            gravityMag2 = gravityMag2 * 2.0; // Double Galaxy B gravity for visibility
+            gravityForce2 = normalize(toCenter2) * gravityMag2;
+        }
+        
+        // CRITICAL FIX: Each particle primarily orbits its own galaxy
+        // Strong gravity from own galaxy, very weak tidal influence from other galaxy
+        if (particleGalaxy == 0u) {
+            // Galaxy A particle - strong pull from Galaxy A, minimal from Galaxy B
+            gravityForce = gravityForce1 + gravityForce2 * 0.05; // Only 5% influence from other galaxy
+            toCenter = toCenter1;
+            distance = distance1;
+            // Galaxy A particles - use velocity-based temperature (disabled debug colors)
+            // p.temperature = 0.05 + 0.15 * (distance1 / 15.0); // DISABLED: Debug blue colors
+        } else {
+            // Galaxy B particle - strong pull from Galaxy B, minimal from Galaxy A  
+            gravityForce = gravityForce2 + gravityForce1 * 0.05; // Only 5% influence from other galaxy
+            toCenter = toCenter2;
+            distance = distance2;
+            // Galaxy B particles - use velocity-based temperature (disabled debug colors)
+            // p.temperature = 0.75 + 0.20 * (distance2 / 15.0); // DISABLED: Debug orange colors
+        }
+        
+    } else {
+        // SINGLE GALAXY MODE - standard behavior
+        
+        // Calculate force towards center
+        toCenter = push.gravityCenter - p.position;
+        distance = length(toCenter);
+
+        // Prevent division by zero and singularity
+        distance = max(distance, 0.1);
+        
+        // Standard Newtonian gravity
+        float gravityMagnitude = push.gravityStrength / (distance * distance + 1.0);
+        gravityForce = normalize(toCenter) * gravityMagnitude;
+    }
+    
+    // Apply specific gravity model based on constraint mode
+    float ISCO = 3.0; // Innermost stable circular orbit at 3 Schwarzschild radii
+    
+    // Refine gravity calculation for special modes (single galaxy only)
+    if (push.constraintShape == 4u && push.dualGalaxyMode == 0u) { // ACCRETION_DISK mode (single galaxy only)
+        // Paczynski-Wiita pseudo-Newtonian potential
+        // Mimics relativistic effects near black hole
+        float r_s = 0.5 * push.blackHoleMass; // Schwarzschild radius (scaled down)
+        float effectiveRadius = max(distance - r_s, 0.5);
+        
+        // Override with black hole gravity model
+        float gravityMagnitude = push.gravityStrength * push.blackHoleMass / (effectiveRadius * effectiveRadius + 1.0);
+        gravityForce = normalize(toCenter) * gravityMagnitude * 0.3; // Reduced strength
+        
+        // Sink particles inside ISCO but more gradually
+        if (distance < ISCO * r_s) {
+            // Gradual inward pull
+            float sinkFactor = 1.0 + 2.0 * (1.0 - distance / (ISCO * r_s));
+            gravityForce *= sinkFactor;
+            p.temperature = mix(p.temperature, 2.0, 0.01); // Gradual heating
+        }
+    } else if (push.dualGalaxyMode == 0u) {
+        // Add repulsion when too close to center (prevents singularity/slingshot) - single galaxy only
+        if (distance < 1.0) {
+            float repulsionStrength = 2.0 * (1.0 - distance);
+            gravityForce -= normalize(toCenter) * repulsionStrength;
+        }
+    }
+
+    // Calculate proper orbital velocity (perpendicular to radius)
+    vec3 orbitalCorrection = vec3(0.0);
+    
+    if (push.dualGalaxyMode == 1u) {
+        // DUAL GALAXY MODE - Each particle orbits its own galaxy center
+        uint particleGalaxy = (id < push.particleCount / 2u) ? 0u : 1u;
+        
+        // Get the correct galaxy center for this particle
+        vec3 ownGalaxyCenter = (particleGalaxy == 0u) ? push.gravityCenter : push.gravityCenter2;
+        float ownGalaxyMass = (particleGalaxy == 0u) ? push.blackHoleMass : push.blackHoleMass2;
+        
+        // Calculate orbital physics relative to own galaxy center
+        vec3 toOwnCenter = ownGalaxyCenter - p.position;
+        float ownDistance = max(length(toOwnCenter), 0.1);
+        
+        // Orbital tangent around own galaxy
+        vec3 tangent = cross(normalize(toOwnCenter), vec3(0.0, 1.0, 0.0));
+        if (length(tangent) < 0.1) {
+            tangent = cross(normalize(toOwnCenter), vec3(1.0, 0.0, 0.0));
+        }
+        tangent = normalize(tangent);
+        
+        // Keplerian orbital speed for own galaxy
+        float targetOrbitalSpeed = sqrt(push.gravityStrength * ownGalaxyMass / (ownDistance + 1.0)) * 0.8;
+        float currentOrbitalSpeed = dot(p.velocity, tangent);
+        
+        // Apply orbital correction to maintain stable orbit around own galaxy
+        orbitalCorrection = tangent * (targetOrbitalSpeed - currentOrbitalSpeed) * 0.05;
+        
+        // Add angular momentum boost for stable galaxy structure
+        orbitalCorrection += tangent * push.angularMomentumBoost * 0.1;
+        
+    } else {
+        // SINGLE GALAXY MODE - Original orbital physics
+        vec3 tangent = cross(normalize(toCenter), vec3(0.0, 1.0, 0.0));
+        if (length(tangent) < 0.1) {
+            tangent = cross(normalize(toCenter), vec3(1.0, 0.0, 0.0));
+        }
+        tangent = normalize(tangent);
+
+        if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+            // Keplerian orbital velocity with relativistic correction
+            float r_s = 0.5 * push.blackHoleMass;
+            float keplerianSpeed = sqrt(push.gravityStrength * push.blackHoleMass / (distance + 0.5));
+            
+            // Smoother orbital velocity targeting
+            float targetOrbitalSpeed = keplerianSpeed * 0.7; // Reduced for stability
+            
+            // Much gentler α-viscosity for slower inward spiral
+            float viscousForce = push.alphaViscosity * 0.01; // Reduced by 10x
+            vec3 radialDrift = -normalize(toCenter) * viscousForce;
+            
+            float currentSpeed = length(p.velocity);
+            orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02 + radialDrift;
+            
+            // Apply angular momentum boost for better particle distribution
+            orbitalCorrection += tangent * push.angularMomentumBoost * 0.1;
+        } else {
+            // Standard orbital correction for other modes with angular momentum boost
+            float currentSpeed = length(p.velocity);
+            float targetOrbitalSpeed = sqrt(push.gravityStrength / (distance + 1.0));
+            orbitalCorrection = tangent * (targetOrbitalSpeed - currentSpeed) * 0.02;
+            
+            // Apply angular momentum boost for better particle distribution in ALL modes
+            orbitalCorrection += tangent * push.angularMomentumBoost * 0.08;
+        }
+    }
+
+    // Apply forces
+    vec3 acceleration = gravityForce + orbitalCorrection;
+
+    // CURL NOISE TURBULENCE - Creates local vortices and eddies
+    // Based on 2025 research: curl of a potential field creates divergence-free flow
+    
+    // Scale position for different vortex sizes
+    vec3 curlPos = p.position * 0.08 + vec3(push.time * 0.03);
+    
+    // Generate 3D potential field using smooth noise
+    float epsilon = 0.05;
+    
+    // Sample potential at 6 points for curl calculation
+    float px1 = sin(curlPos.x + epsilon) * cos(curlPos.y * 1.7) * sin(curlPos.z * 2.3);
+    float px2 = sin(curlPos.x - epsilon) * cos(curlPos.y * 1.7) * sin(curlPos.z * 2.3);
+    float py1 = sin(curlPos.x) * cos((curlPos.y + epsilon) * 1.7) * sin(curlPos.z * 2.3);
+    float py2 = sin(curlPos.x) * cos((curlPos.y - epsilon) * 1.7) * sin(curlPos.z * 2.3);
+    float pz1 = sin(curlPos.x) * cos(curlPos.y * 1.7) * sin((curlPos.z + epsilon) * 2.3);
+    float pz2 = sin(curlPos.x) * cos(curlPos.y * 1.7) * sin((curlPos.z - epsilon) * 2.3);
+    
+    // Calculate curl (creates rotating flow field)
+    vec3 curl;
+    curl.x = (pz1 - pz2) / (2.0 * epsilon) - (py1 - py2) / (2.0 * epsilon);
+    curl.y = (px1 - px2) / (2.0 * epsilon) - (pz1 - pz2) / (2.0 * epsilon);
+    curl.z = (py1 - py2) / (2.0 * epsilon) - (px1 - px2) / (2.0 * epsilon);
+    
+    // Add smaller scale eddies for detail
+    vec3 curlPos2 = p.position * 0.25 + vec3(push.time * 0.08);
+    curl += vec3(
+        sin(curlPos2.y * 5.1) * cos(curlPos2.z * 4.3),
+        sin(curlPos2.z * 5.1) * cos(curlPos2.x * 4.3), 
+        sin(curlPos2.x * 5.1) * cos(curlPos2.y * 4.3)
+    ) * 0.2;
+    
+    // Apply vortex turbulence
+    vec3 vortexForce = curl * push.turbulenceStrength * 0.5;
+    acceleration += vortexForce;
+
+    // RELATIVISTIC JET SYSTEM
+    // Jets emerge from poles when central density is high
+    if (distance < 2.0) { // Only affect particles near the center
+        // Calculate central density (simplified - count nearby particles)
+        float centralDensity = 0.0;
+        
+        // Sample density in central region (approximation using particle's own density)
+        // In real implementation, would sample neighboring particles
+        centralDensity = p.density * (2.0 - distance); // Higher density closer to center
+        
+        // Jet emission criteria:
+        // 1. High central density (accretion disk is feeding black hole)
+        // 2. Particle is near poles (aligned with Y axis)
+        // 3. Random chance for particle ejection
+        
+        float polarAlignment = abs(p.position.y) / max(length(p.position.xz), 0.1);
+        bool nearPole = polarAlignment > 1.0; // Particle is above/below the disk
+        
+        // Jet strength proportional to central density AND black hole mass
+        // Jets only active when we have significant black hole mass
+        float jetActivity = push.blackHoleMass > 0.5 ? 1.0 : 0.0; // Binary: jets ON or OFF
+        float jetStrength = centralDensity * 5.0 * jetActivity; // Scale factor for jet power
+        jetStrength = clamp(jetStrength, 0.0, 10.0);
+        
+        // Relativistic jet ejection
+        if (nearPole && centralDensity > 0.8) {
+            // Determine if particle should be ejected
+            float ejectionProbability = jetStrength * 0.02 * push.deltaTime; // Doubled probability
+            float random = fract(sin(float(id) * 12.9898 + push.time) * 43758.5453);
+            
+            if (random < ejectionProbability) {
+                // EJECT! Accelerate to EXTREME relativistic speeds along pole
+                vec3 jetDirection = vec3(0.0, sign(p.position.y), 0.0);
+                
+                // Add slight spiral for magnetic field effect (reduced for straighter jets)
+                float spiral = push.time * 0.5 + float(id) * 0.05;
+                jetDirection.x = cos(spiral) * 0.05; // Less spiral
+                jetDirection.z = sin(spiral) * 0.05; // Less spiral
+                jetDirection = normalize(jetDirection);
+                
+                // EXTREME relativistic velocity - much faster for extended jets
+                float jetSpeed = 20.0 + jetStrength * 10.0; // 20-30 units - VERY fast
+                p.velocity = jetDirection * jetSpeed;
+                
+                // Mark as extremely hot (white/blue-white)
+                p.temperature = 0.95 + random * 0.05; // Near maximum temperature
+                p.density = 2.0; // High energy density
+            }
+        }
+        
+        // Collimation effect - keep jets narrow but allow them to extend far
+        if (length(p.velocity) > 15.0 && abs(p.position.y) > 2.0) {
+            // Particle is in jet - apply gentle magnetic collimation
+            float radialDist = length(p.position.xz);
+            if (radialDist > 2.0) { // Allow wider jets
+                // Gentle push back toward axis
+                vec2 radialDir = normalize(p.position.xz);
+                vec2 collimationForce = -radialDir * (radialDist - 2.0) * 0.5; // Much gentler
+                p.velocity.xz += collimationForce * push.deltaTime;
+            }
+            
+            // IMPORTANT: Maintain jet velocity - resist damping
+            float jetVelMag = length(p.velocity);
+            if (jetVelMag > 15.0) {
+                // Boost to maintain speed against damping
+                p.velocity *= 1.02; // Counter damping for jet particles
+            }
+        }
+    }
+
+    // Update velocity with damping
+    p.velocity += acceleration * push.deltaTime;
+    
+    // Check if particle is in a jet (very high velocity)
+    float velMagnitude = length(p.velocity);
+    bool isJetParticle = velMagnitude > 15.0;
+    
+    if (isJetParticle) {
+        // JET PARTICLES - minimal damping, maintain extreme speeds
+        p.velocity *= 0.995; // Very slight damping for jets
+        
+        // Allow extreme speeds for jets (up to 50 units)
+        float maxJetSpeed = 50.0;
+        if (velMagnitude > maxJetSpeed) {
+            p.velocity = normalize(p.velocity) * maxJetSpeed;
+        }
+    } else {
+        // NORMAL PARTICLES - standard damping and speed limits
+        p.velocity *= push.dampingFactor;
+        
+        // Clamp velocity to prevent extreme speeds - MUCH slower for stable orbits
+        float maxSpeed = 2.0; // Reduced from 5.0
+        if (velMagnitude > maxSpeed) {
+            p.velocity = normalize(p.velocity) * maxSpeed;
+        }
+    }
+    
+    // Add slight particle repulsion to prevent complete overlap
+    if (push.constraintShape == 4u) { // Only in accretion disk mode
+        // Simple spacing force to spread particles
+        vec3 spacingForce = vec3(0.0);
+        float minDistance = 0.1;
+        
+        // Add small random offset based on particle position
+        vec3 pseudoRandom = sin(p.position * 123.456) * 0.01;
+        spacingForce += pseudoRandom;
+        
+        p.velocity += spacingForce;
+    }
+
+    // Update position
+    p.position += p.velocity * push.deltaTime;
+
+    // Apply shape constraints only if enabled
+    if (push.constraintShape != 0u) {
+        applyConstraints(p.position, p.velocity);
+    }
+
+    // Update temperature and density for accretion disk
+    if (push.constraintShape == 4u) { // ACCRETION_DISK mode
+        // ORBITAL VELOCITY-BASED TEMPERATURE MODEL
+        // Based on 2025 research: temperature from orbital mechanics, not distance
+        
+        float speed = length(p.velocity);
+        vec3 radialDirection = normalize(toCenter);
+        
+        // Calculate orbital velocity (perpendicular to radius)
+        vec3 orbitalVelocity = p.velocity - dot(p.velocity, radialDirection) * radialDirection;
+        float orbitalSpeed = length(orbitalVelocity);
+        
+        // Keplerian velocity for circular orbit at this radius
+        float keplerianVel = sqrt(push.gravityStrength * push.blackHoleMass / (distance + 0.5));
+        
+        // Temperature based on orbital shear and velocity deviation
+        // Higher temperature when orbital velocity deviates from Keplerian
+        float velocityDeviation = abs(orbitalSpeed - keplerianVel) / keplerianVel;
+        float shearHeating = velocityDeviation * 0.5;
+        
+        // Viscous dissipation heating (from α-viscosity model)
+        float viscousHeating = push.alphaViscosity * orbitalSpeed * orbitalSpeed * 0.1;
+        
+        // CONSERVATIVE TEMPERATURE MODEL - white only at extremes
+        // Much gentler heating for stable colors across all modes
+        float densityBoost = min(p.density * 0.1, 0.05); // Much smaller density effect
+        
+        // Extreme conditions for white hot cores - more achievable thresholds
+        float extremeVelocity = max(0.0, (speed - 1.0) * 0.3); // High velocities contribute more
+        float extremeShear = max(0.0, (shearHeating - 0.2) * 0.4); // Lower threshold for shear
+        
+        // Combine heating sources - much more conservative
+        float baseTemp = shearHeating + viscousHeating + 0.05;
+        float extremeBonus = (extremeVelocity + extremeShear + densityBoost) * 0.5;
+        float newTemp = baseTemp + extremeBonus;
+        
+        // Very gradual temperature evolution to maintain stable colors
+        p.temperature = mix(p.temperature, newTemp, 0.02);
+        p.temperature = clamp(p.temperature, 0.05, 1.0); // Allow full range for white hot cores
+        
+        // Gentler density profile
+        float normalizedRadius = max(distance / 10.0, 0.1);
+        p.density = 0.5 / pow(normalizedRadius, 0.3);
+        p.density = clamp(p.density, 0.0, 2.0);
+    } else {
+        // ENHANCED STANDARD MODE TEMPERATURE - same white hot capability
+        float speed = length(p.velocity);
+        
+        // ENHANCED ORBITAL DYNAMICS for target image colors
+        float orbitalSpeed = length(p.velocity);
+        
+        // Base temperature shifts based on orbital dynamics
+        float baseTemp = 0.4 + orbitalSpeed * 0.3; // Moderate base range
+        
+        // Distance creates strong red-orange outer regions (inverted - farther = redder)
+        float distanceTemp = (distance > 2.0) ? (distance - 2.0) * 0.15 : 0.0; // Strong outer heating
+        
+        // Density creates concentrated white cores (smaller effect)
+        float densityTemp = min(p.density * 0.15, 0.25); // Reduced white core size
+        
+        // Combine with emphasis on distance-based coloring
+        float newTemp = baseTemp + distanceTemp + densityTemp;
+        
+        // Gradual temperature evolution
+        p.temperature = mix(p.temperature, newTemp, 0.03);
+        p.temperature = clamp(p.temperature, 0.05, 1.0); // Full range for dramatic gradient like target
+        
+        // Standard density
+        p.density = 1.0 / (distance * 0.1 + 1.0);
+    }
+
+    // Write back
+    particleBuffer.particles[id] = p;
+}

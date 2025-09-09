@@ -194,8 +194,7 @@ private:
     
     // Volumetric rendering
     bool m_volumetricMode = false;
-    bool m_volumetricHighQuality = false;    // High quality mode for realtime use (Shift+V)
-    bool m_volumetricUltraQuality = false;   // Ultra-high quality mode for recording (Ctrl+V)
+    bool m_volumetricHighQuality = false;  // Ultra-high quality mode for recording
     
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma
