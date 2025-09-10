@@ -88,6 +88,12 @@ Thumbs.db
 *.log
 *.tlog
 
+# Large generated media and captures
+screenshots/
+recording/
+**/recording/
+recording/**/*.mp4
+
 # Dependencies (vcpkg installed packages)
 vcpkg_installed/
 
