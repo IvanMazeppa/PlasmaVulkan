@@ -1,0 +1,223 @@
+#version 450
+#extension GL_EXT_mesh_shader : require
+
+// Modern SPH + Mesh Shader Integration
+// Leverages 32-particle workgroups for local fluid physics
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = 128, max_primitives = 64) out;
+
+// Particle data structure
+struct Particle {
+    vec3 position;      // 12 bytes
+    float temperature;  // 4 bytes  
+    vec3 velocity;      // 12 bytes
+    float density;      // 4 bytes - now computed via SPH
+};
+
+// Input particle buffer
+layout(set = 0, binding = 0) restrict readonly buffer ParticleBuffer {
+    Particle particles[];
+};
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    mat4 viewProj;
+    vec3 cameraPos;
+    float particleSize;
+    uint particleCount;
+    float time;
+    // SPH parameters
+    float smoothingRadius;    // h = 2.0 (typical)
+    float restDensity;        // ρ₀ = 1000.0  
+    float pressureConstant;   // k = 200.0
+    float viscosity;          // μ = 0.1
+    float mass;               // m = 1.0
+} pc;
+
+// Shared memory for cooperative SPH computation
+shared Particle localParticles[32];
+shared float localDensities[32];
+shared vec3 localPressures[32];
+shared vec3 localViscosity[32];
+
+// Per-vertex outputs to fragment shader
+layout(location = 0) out vec4 fragColor[];
+layout(location = 1) out vec2 fragUV[];
+layout(location = 2) out vec3 fragWorldPos[];
+
+// SPH kernel functions (optimized for GPU)
+float poly6Kernel(float r, float h) {
+    if (r > h) return 0.0;
+    float h2 = h * h;
+    float r2 = r * r;
+    float diff = h2 - r2;
+    return 1.56668147106 / (h2 * h2 * h2 * h2 * h) * diff * diff * diff; // Optimized constant
+}
+
+float spikyGradientMag(float r, float h) {
+    if (r > h || r < 0.001) return 0.0;
+    float diff = h - r;
+    return -14.3239448783 / (h * h * h * h * h * h) * diff * diff; // Optimized constant
+}
+
+void main() {
+    uint particleIndex = gl_WorkGroupID.x * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
+    uint localId = gl_LocalInvocationID.x;
+    
+    // Early exit if beyond particle count
+    if (particleIndex >= pc.particleCount) {
+        return;
+    }
+    
+    // Load particles into shared memory
+    localParticles[localId] = particles[particleIndex];
+    
+    // Synchronize workgroup
+    barrier();
+    
+    // === COOPERATIVE SPH COMPUTATION ===
+    
+    // Phase 1: Compute local density
+    float density = pc.mass * poly6Kernel(0.0, pc.smoothingRadius); // Self-contribution
+    float neighborCount = 0.0;
+    
+    // Check against other particles in this workgroup (local neighborhood)
+    for (uint i = 0; i < gl_WorkGroupSize.x; i++) {
+        if (i == localId) continue;
+        
+        vec3 diff = localParticles[localId].position - localParticles[i].position;
+        float dist = length(diff);
+        
+        if (dist < pc.smoothingRadius) {
+            density += pc.mass * poly6Kernel(dist, pc.smoothingRadius);
+            neighborCount += 1.0;
+        }
+    }
+    
+    // Store the RAW calculated density for debugging
+    float rawDensity = density;
+    localDensities[localId] = density;
+    
+    // Phase 2: Compute pressure
+    float pressure = pc.pressureConstant * (density - pc.restDensity);
+    
+    // Synchronize densities
+    barrier();
+    
+    // Phase 3: Compute SPH forces within local neighborhood
+    vec3 pressureForce = vec3(0.0);
+    vec3 viscosityForce = vec3(0.0);
+    
+    for (uint i = 0; i < gl_WorkGroupSize.x; i++) {
+        if (i == localId) continue;
+        
+        vec3 diff = localParticles[localId].position - localParticles[i].position;
+        float dist = length(diff);
+        
+        if (dist < pc.smoothingRadius && dist > 0.001) {
+            vec3 direction = diff / dist; // Normalized
+            
+            float neighborPressure = pc.pressureConstant * (localDensities[i] - pc.restDensity);
+            
+            // Pressure force
+            float pressureTerm = (pressure + neighborPressure) / (2.0 * density * localDensities[i]);
+            float gradMag = spikyGradientMag(dist, pc.smoothingRadius);
+            pressureForce -= pc.mass * pressureTerm * gradMag * direction;
+            
+            // Viscosity force  
+            vec3 velocityDiff = localParticles[i].velocity - localParticles[localId].velocity;
+            float viscosityKernel = (pc.smoothingRadius - dist); // Simplified viscosity kernel
+            viscosityForce += pc.mass * (velocityDiff / localDensities[i]) * viscosityKernel;
+        }
+    }
+    
+    viscosityForce *= pc.viscosity * 45.0 / (3.14159 * pow(pc.smoothingRadius, 6.0));
+    
+    // Store computed forces
+    localPressures[localId] = pressureForce / density;
+    localViscosity[localId] = viscosityForce / density;
+    
+    // Synchronize before geometry generation
+    barrier();
+    
+    // === GEOMETRY GENERATION ===
+    
+    // Count valid particles in this workgroup
+    uint validParticles = min(gl_WorkGroupSize.x, pc.particleCount - gl_WorkGroupID.x * gl_WorkGroupSize.x);
+    
+    // Set mesh output size
+    SetMeshOutputsEXT(validParticles * 4, validParticles * 2);
+    
+    Particle p = localParticles[localId];
+    
+    // Enhanced particle size based on SPH density
+    vec3 toCamera = pc.cameraPos - p.position;
+    float distance = length(toCamera);
+    
+    float screenSize = pc.particleSize * (25.0 / (distance + 1.0));
+    screenSize = clamp(screenSize, 4.0, 40.0);
+    
+    // Scale particle size based on density (more fluid = larger particles)
+    float densityScale = sqrt(density / pc.restDensity);
+    densityScale = clamp(densityScale, 0.5, 2.0);
+    
+    float size = screenSize * distance * 0.00025 * densityScale;
+    size = max(size, 0.05);
+    
+    // DIAGNOSTIC MODE: Show what's really happening
+    vec3 color;
+    
+    if (neighborCount == 0.0) {
+        // NO NEIGHBORS - this reveals the core problem!
+        color = vec3(1.0, 0.0, 0.0); // RED - isolated particles
+    } else if (neighborCount < 2.0) {
+        color = vec3(1.0, 0.5, 0.0); // ORANGE - very few neighbors
+    } else if (neighborCount < 5.0) {
+        color = vec3(1.0, 1.0, 0.0); // YELLOW - some neighbors
+    } else if (neighborCount < 10.0) {
+        color = vec3(0.0, 1.0, 0.0); // GREEN - good neighbors
+    } else {
+        color = vec3(0.0, 1.0, 1.0); // CYAN - lots of neighbors
+    }
+    
+    // Use raw density to modulate brightness - prevent white washout
+    float densityRatio = rawDensity / pc.restDensity;
+    float brightness = 0.5 + clamp(densityRatio * 0.3, 0.0, 0.5); // Controlled brightness
+    color *= clamp(brightness, 0.1, 1.0); // Never exceed 1.0 to prevent white
+    
+    // If smoothing radius is working correctly, we should see:
+    // - Mostly RED (no neighbors) = smoothing radius too small
+    // - Mixed colors = good SPH interactions happening
+    
+    // Billboard geometry generation
+    vec3 forward = normalize(toCamera);
+    vec3 right = normalize(cross(forward, vec3(0.0, 1.0, 0.0)));
+    vec3 up = cross(right, forward);
+    
+    vec3 positions[4] = {
+        p.position + (-right - up) * size,  // Bottom-left
+        p.position + ( right - up) * size,  // Bottom-right
+        p.position + (-right + up) * size,  // Top-left
+        p.position + ( right + up) * size   // Top-right
+    };
+    
+    vec2 uvs[4] = {
+        vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0)
+    };
+    
+    // Output vertices
+    uint vertexOffset = localId * 4;
+    for (uint i = 0; i < 4; i++) {
+        uint vertexIndex = vertexOffset + i;
+        gl_MeshVerticesEXT[vertexIndex].gl_Position = pc.viewProj * vec4(positions[i], 1.0);
+        fragColor[vertexIndex] = vec4(color, 1.0);
+        fragUV[vertexIndex] = uvs[i];
+        fragWorldPos[vertexIndex] = positions[i];
+    }
+    
+    // Output triangles
+    uint primitiveOffset = localId * 2;
+    gl_PrimitiveTriangleIndicesEXT[primitiveOffset + 0] = uvec3(vertexOffset + 0, vertexOffset + 1, vertexOffset + 2);
+    gl_PrimitiveTriangleIndicesEXT[primitiveOffset + 1] = uvec3(vertexOffset + 1, vertexOffset + 3, vertexOffset + 2);
+}
