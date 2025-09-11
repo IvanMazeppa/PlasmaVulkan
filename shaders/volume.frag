@@ -184,35 +184,54 @@ void main() {
     float hash = fract(sin(dot(fragCoord, vec2(12.9898,78.233))) * 43758.5453);
     float t = t0 + hash * push.stepSize;
 
-    // Accumulation
-    vec3 color = vec3(0.0);
-    float alpha = 0.0;
-
+    // Beer-Lambert Transmittance + Emission Model
+    // Physically correct opacity accumulation that prevents overbright saturation
+    vec3 radiance = vec3(0.0);    // Accumulated light
+    float transmittance = 1.0;    // How much light passes through
+    
+    // Extinction coefficient (controls how quickly opacity builds)
+    float sigma_t = 8.0;  // Tunable: higher = more opaque
+    
     // Adaptive step parameters
     float baseStep = push.stepSize;
 
-    for (uint i = 0u; i < push.maxSteps && t < t1 && alpha < 0.98; ++i) {
+    for (uint i = 0u; i < push.maxSteps && t < t1 && transmittance > 0.01; ++i) {
         vec3 pos = ro + rd * t;
         float dens = sampleDensity(pos);
 
         // Empty-space skipping: take larger steps when empty
         float stepMul = (dens < 0.002) ? 4.0 : ((dens < 0.01) ? 2.0 : 1.0);
+        float currentStep = baseStep * stepMul;
 
         if (dens > 0.001) {
-            // Color from density
-            vec3 c = temperatureToColor(dens);
+            // Color from density (emission)
+            vec3 emission = temperatureToColor(dens);
+            
             // Simple edge lighting using gradient and view dir
             vec3 N = normalize(densityGradient(pos) + 1e-5);
             float viewDot = clamp(dot(-rd, N) * 0.5 + 0.5, 0.0, 1.0);
-            c *= mix(0.8, 1.3, viewDot); // emphasize thin features
-
-            float a = dens * 0.1;
-            color += (1.0 - alpha) * c * a;
-            alpha += (1.0 - alpha) * a;
+            emission *= mix(0.8, 1.3, viewDot); // emphasize thin features
+            
+            // Beer-Lambert transmittance update
+            float optical_depth = sigma_t * dens * currentStep;
+            float local_transmittance = exp(-optical_depth);
+            
+            // Integrate emission along the ray segment
+            // This accounts for absorption within the segment itself
+            vec3 segment_radiance = emission * dens * (1.0 - local_transmittance) / max(sigma_t * dens, 0.001);
+            
+            // Accumulate radiance attenuated by transmittance
+            radiance += transmittance * segment_radiance;
+            
+            // Update transmittance for next segment
+            transmittance *= local_transmittance;
         }
 
-        t += baseStep * stepMul;
+        t += currentStep;
     }
-
-    fragColor = vec4(color, alpha);
+    
+    // Final opacity from transmittance
+    float alpha = 1.0 - transmittance;
+    
+    fragColor = vec4(radiance, alpha);
 }
