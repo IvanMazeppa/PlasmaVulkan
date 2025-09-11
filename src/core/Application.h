@@ -57,7 +57,7 @@ public:
     void enableBloomMode(bool enabled);
     
     // Recording system methods
-    void startRecording(uint32_t maxFrames = 300, bool highQuality = false);
+    void startRecording(uint32_t maxFrames = 300, bool highQuality = false, bool resetSimulation = true);
     void stopRecording();
     void captureFrame();
     bool isRecording() const { return m_recordingActive; }

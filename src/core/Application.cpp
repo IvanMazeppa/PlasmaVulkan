@@ -1114,7 +1114,7 @@ void Application::enableBloomMode(bool enabled) {
 }
 
 // Recording system implementation
-void Application::startRecording(uint32_t maxFrames, bool highQuality) {
+void Application::startRecording(uint32_t maxFrames, bool highQuality, bool resetSimulation) {
     if (m_recordingActive) {
         std::cout << "Already recording!" << std::endl;
         return;
@@ -1177,10 +1177,10 @@ void Application::startRecording(uint32_t maxFrames, bool highQuality) {
         std::cout << "  High Quality Mode: " << hqParticleCount << " particles, volumetrics enabled" << std::endl;
     }
     
-    // Reset simulation for perfect loops if enabled
-    if (m_recordingLoop && m_particleSystem) {
+    // Reset simulation if requested (controlled by resetSimulation parameter)
+    if (resetSimulation && m_particleSystem) {
         m_particleSystem->reinitializeParticles();
-        std::cout << "  Simulation reset for seamless loop" << std::endl;
+        std::cout << "  Simulation reset to starting position" << std::endl;
     }
     
     // Create output directory (platform specific)
@@ -1191,16 +1191,14 @@ void Application::startRecording(uint32_t maxFrames, bool highQuality) {
     #endif
     
     std::cout << "\n[RECORDING] Started - Session #" << m_recordingSessionNumber << std::endl;
-    std::cout << "  Frames: " << maxFrames << " (" << (maxFrames / 60.0f) << " seconds at 60fps)" << std::endl;
+    if (maxFrames == 0) {
+        std::cout << "  Frames: Unlimited (press F to stop manually)" << std::endl;
+    } else {
+        std::cout << "  Frames: " << maxFrames << " (" << (maxFrames / 60.0f) << " seconds at 60fps)" << std::endl;
+    }
     std::cout << "  Output: " << m_recordingOutputDir << std::endl;
     std::cout << "  Fixed timestep: " << m_recordingFixedTimestep << "s" << std::endl;
-    std::cout << "  Loop mode: " << (m_recordingLoop ? "ON" : "OFF") << std::endl;
-    
-    // Reset simulation for consistent start
-    if (m_recordingLoop && m_particleSystem) {
-        // TODO: Add particle system reset method
-        std::cout << "  Resetting simulation state for loop..." << std::endl;
-    }
+    std::cout << "  Reset mode: " << (resetSimulation ? "ON" : "OFF (from current position)") << std::endl;
 }
 
 void Application::stopRecording() {
@@ -1379,9 +1377,13 @@ void Application::captureFrame() {
         if (stbi_write_png(filename.c_str(), extent.width, extent.height, 4, pixels.data(), extent.width * 4)) {
             // Only print progress every 60 frames to reduce console spam
             if (m_recordingFrame % 60 == 0) {
-                float progress = (float)m_recordingFrame / (float)m_recordingMaxFrames * 100.0f;
-                std::cout << "[RECORDING] " << std::fixed << std::setprecision(1) 
-                         << progress << "% (" << m_recordingFrame << "/" << m_recordingMaxFrames << ")" << std::endl;
+                if (m_recordingMaxFrames > 0) {
+                    float progress = (float)m_recordingFrame / (float)m_recordingMaxFrames * 100.0f;
+                    std::cout << "[RECORDING] " << std::fixed << std::setprecision(1) 
+                             << progress << "% (" << m_recordingFrame << "/" << m_recordingMaxFrames << ")" << std::endl;
+                } else {
+                    std::cout << "[RECORDING] Frame " << m_recordingFrame << " (unlimited mode - press F to stop)" << std::endl;
+                }
             }
         }
         vkUnmapMemory(device, stagingBufferMemory);
@@ -1393,8 +1395,8 @@ void Application::captureFrame() {
     
     m_recordingFrame++;
     
-    // Auto-stop when max frames reached
-    if (m_recordingFrame >= m_recordingMaxFrames) {
+    // Auto-stop when max frames reached (only if max frames > 0)
+    if (m_recordingMaxFrames > 0 && m_recordingFrame >= m_recordingMaxFrames) {
         stopRecording();
         std::cout << "[RECORDING] Completed! " << m_recordingFrame << " PNG files saved to " 
                  << m_recordingOutputDir << std::endl;
@@ -1863,16 +1865,30 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
     // Recording controls (F key)
     else if (key == GLFW_KEY_F && action == GLFW_PRESS) {
         if (!app->isRecording()) {
-            if (mods & GLFW_MOD_SHIFT) {
-                // High quality recording mode
-                app->startRecording(300, true); // 300 frames, high quality
-                std::cout << "  HIGH QUALITY recording mode activated!" << std::endl;
+            if (mods & GLFW_MOD_ALT) {
+                // ALT+F: Record from current position (no reset)
+                if (mods & GLFW_MOD_SHIFT) {
+                    // ALT+Shift+F: High quality from current position
+                    app->startRecording(0, true, false); // Unlimited frames, high quality, no reset
+                    std::cout << "  HIGH QUALITY recording from current position (press F to stop)" << std::endl;
+                } else {
+                    // ALT+F: Standard quality from current position  
+                    app->startRecording(0, false, false); // Unlimited frames, standard quality, no reset
+                    std::cout << "  Recording from current position (press F to stop)" << std::endl;
+                }
             } else {
-                // Standard recording mode
-                app->startRecording(300); // 300 frames = 5 seconds at 60fps
+                // F key: Standard recording with reset
+                if (mods & GLFW_MOD_SHIFT) {
+                    // Shift+F: High quality with reset
+                    app->startRecording(0, true, true); // Unlimited frames, high quality, with reset
+                    std::cout << "  HIGH QUALITY recording mode (press F to stop)" << std::endl;
+                } else {
+                    // F: Standard recording with reset
+                    app->startRecording(0, false, true); // Unlimited frames, standard quality, with reset
+                    std::cout << "  Recording mode (press F to stop)" << std::endl;
+                }
             }
         } else {
-            // Stop recording
             app->stopRecording();
         }
     }
