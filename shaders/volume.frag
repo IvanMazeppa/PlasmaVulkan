@@ -124,8 +124,8 @@ vec3 plasmaColor(float temperature) {
 vec3 temperatureToColor(float density) {
     if (density < 0.001) return vec3(0.0);
     
-    // Much lower scaling to keep colors in deep red-orange range  
-    float enhancedDensity = density * 0.05; // Very low to avoid pink/white saturation
+    // Adjusted scaling for proper brightness after R32F format change
+    float enhancedDensity = density * 0.2; // Increased from 0.05 to brighten colors
     
     return plasmaColor(enhancedDensity);
 }

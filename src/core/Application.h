@@ -13,6 +13,7 @@
 #include "renderer/VulkanContext.h"
 #include "systems/ParticleSystem.h"
 #include "systems/VolumeRenderer.h"
+#include "systems/MeshParticleRenderer.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -108,6 +109,7 @@ private:
     // Systems
     std::unique_ptr<ParticleSystem> m_particleSystem;
     std::unique_ptr<VolumeRenderer> m_volumeRenderer;
+    std::unique_ptr<MeshParticleRenderer> m_meshRenderer;
     
     // Bloom post-processing pipeline
     VkRenderPass m_bloomRenderPass = VK_NULL_HANDLE;
@@ -196,6 +198,9 @@ private:
     bool m_volumetricMode = false;
     bool m_volumetricHighQuality = false;    // High quality mode for realtime use (Shift+V)
     bool m_volumetricUltraQuality = false;   // Ultra-high quality mode for recording (Ctrl+V)
+    
+    // Mesh shader rendering
+    bool m_useMeshShaders = false;           // Use mesh shader rendering when available
     
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma

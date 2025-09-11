@@ -94,7 +94,7 @@ void ParticleSystem::createComputePipeline() {
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = 84; // Fixed size to match shader expectation (84 bytes)
+    pushConstantRange.size = 108; // Fixed size to match shader SPIR-V expectation (108 bytes with alignment)
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

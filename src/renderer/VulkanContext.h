@@ -76,6 +76,7 @@ public:
     
     // Capabilities
     bool supportsShaderAtomicFloat() const { return m_supportsAtomicFloat; }
+    bool supportsMeshShaders() const { return m_supportsMeshShaders; }
     
     // Command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
@@ -138,6 +139,7 @@ private:
     VkPhysicalDeviceProperties m_deviceProperties{};
     VkPhysicalDeviceFeatures m_deviceFeatures{};
     bool m_supportsAtomicFloat = false; // VK_EXT_shader_atomic_float
+    bool m_supportsMeshShaders = false; // VK_EXT_mesh_shader
     
     // Configuration
     bool m_enableValidation;

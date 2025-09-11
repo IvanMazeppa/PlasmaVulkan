@@ -183,6 +183,7 @@ void VulkanContext::createLogicalDevice() {
     };
 
     m_supportsAtomicFloat = hasExtension(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+    m_supportsMeshShaders = hasExtension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 
     // Enable Vulkan 1.4 features
     VkPhysicalDeviceVulkan14Features vk14Features{};
@@ -203,17 +204,30 @@ void VulkanContext::createLogicalDevice() {
     vk12Features.timelineSemaphore = VK_TRUE;
     vk12Features.bufferDeviceAddress = VK_TRUE;
 
+    // Optional: mesh shader features
+    VkPhysicalDeviceMeshShaderFeaturesEXT meshShader{};
+    meshShader.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+    meshShader.pNext = &vk12Features;
+    meshShader.meshShader = m_supportsMeshShaders ? VK_TRUE : VK_FALSE;
+    meshShader.taskShader = m_supportsMeshShaders ? VK_TRUE : VK_FALSE;
+
     // Optional: atomic float features
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloat{};
     atomicFloat.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
-    atomicFloat.pNext = &vk12Features; // will be rewired into the pNext chain below
+    atomicFloat.pNext = m_supportsMeshShaders ? (void*)&meshShader : (void*)&vk12Features;
     atomicFloat.shaderImageFloat32AtomicAdd = m_supportsAtomicFloat ? VK_TRUE : VK_FALSE;
     atomicFloat.shaderBufferFloat32AtomicAdd = m_supportsAtomicFloat ? VK_TRUE : VK_FALSE;
 
     VkPhysicalDeviceFeatures2 deviceFeatures{};
     deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    // If atomic float is supported, put it at the head of the chain; otherwise skip it
-    deviceFeatures.pNext = m_supportsAtomicFloat ? (void*)&atomicFloat : (void*)&vk12Features;
+    // Build pNext chain based on supported features
+    if (m_supportsAtomicFloat) {
+        deviceFeatures.pNext = (void*)&atomicFloat;
+    } else if (m_supportsMeshShaders) {
+        deviceFeatures.pNext = (void*)&meshShader;
+    } else {
+        deviceFeatures.pNext = (void*)&vk12Features;
+    }
     deviceFeatures.features.geometryShader = VK_TRUE;
     deviceFeatures.features.tessellationShader = VK_TRUE;
 
@@ -233,6 +247,9 @@ void VulkanContext::createLogicalDevice() {
 
     if (m_supportsAtomicFloat) {
         deviceExtensions.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+    }
+    if (m_supportsMeshShaders) {
+        deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());

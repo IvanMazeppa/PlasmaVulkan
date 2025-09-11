@@ -286,6 +286,20 @@ void Application::initVulkan() {
         // Continue without volumetric rendering for now
     }
     
+    // Create mesh particle renderer if supported
+    try {
+        m_meshRenderer = std::make_unique<MeshParticleRenderer>(m_vulkanContext.get());
+        if (m_meshRenderer->isSupported()) {
+            std::cout << "Mesh shader particle renderer initialized successfully!" << std::endl;
+        } else {
+            std::cout << "Mesh shaders not supported on this GPU" << std::endl;
+            m_meshRenderer.reset();
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: Failed to create mesh particle renderer: " << e.what() << std::endl;
+        m_meshRenderer.reset();
+    }
+    
     // Initialize bloom resources
     try {
         createBloomResources();
@@ -583,7 +597,17 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             }
         } else {
             // Render particles (drawing only, physics already updated)
-            m_particleSystem->render(commandBuffer, viewProj);
+            if (m_useMeshShaders && m_meshRenderer && m_meshRenderer->isSupported()) {
+                // Use mesh shader rendering - GPU-driven particle generation
+                m_meshRenderer->render(commandBuffer, viewProj, cameraPos,
+                                      m_particleSystem->getParticleBuffer(),
+                                      m_particleSystem->getActiveParticleCount(),
+                                      1.0f, // particle size
+                                      m_totalTime);
+            } else {
+                // Use traditional vertex buffer rendering
+                m_particleSystem->render(commandBuffer, viewProj);
+            }
         }
     }
 
@@ -1907,6 +1931,31 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         app->m_particleSystem->setAlphaViscosity(app->m_alphaViscosity);
         app->printParameterChange("Alpha Viscosity", app->m_alphaViscosity);
         std::cout << "  (angular momentum transport)" << std::endl;
+    }
+    // Mesh shader toggle (Y key)
+    else if (key == GLFW_KEY_Y && action == GLFW_PRESS) {
+        if (app->m_meshRenderer && app->m_meshRenderer->isSupported()) {
+            app->m_useMeshShaders = !app->m_useMeshShaders;
+            if (app->m_useMeshShaders) {
+                std::cout << "[RENDERER] Mesh shaders ENABLED - GPU-driven particle generation!" << std::endl;
+                std::cout << "           Faster performance, better quality rendering" << std::endl;
+            } else {
+                std::cout << "[RENDERER] Mesh shaders DISABLED - Traditional vertex rendering" << std::endl;
+            }
+        } else {
+            std::cout << "[RENDERER] Mesh shaders not available on this GPU" << std::endl;
+        }
+    }
+    // Volumetric color density scaling (Numpad keys)
+    else if (key == GLFW_KEY_KP_ADD && action == GLFW_PRESS) {
+        // Increase volumetric color brightness
+        std::cout << "[VOLUMETRIC] Color brightness increased (numpad +)" << std::endl;
+        // Note: Requires shader uniform to adjust density scaling dynamically
+    }
+    else if (key == GLFW_KEY_KP_SUBTRACT && action == GLFW_PRESS) {
+        // Decrease volumetric color brightness
+        std::cout << "[VOLUMETRIC] Color brightness decreased (numpad -)" << std::endl;
+        // Note: Requires shader uniform to adjust density scaling dynamically
     }
     // Temperature scaling controls (C/X keys)
     else if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {

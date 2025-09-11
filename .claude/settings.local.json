@@ -49,7 +49,8 @@
       "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" -B cmake-build-debug-visual-studio -S . -G \"Visual Studio 17 2022\" -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake)",
       "Bash(rm:*)",
       "WebFetch(domain:github.com)",
-      "Bash(ffmpeg:*)"
+      "Bash(ffmpeg:*)",
+      "mcp__enhanced-vulkan-docs__search_vulkan_api"
     ],
     "deny": [],
     "ask": []

@@ -44,7 +44,7 @@ void VolumeRenderer::createDensityGrid() {
     imageInfo.extent.depth = depth;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R16_SFLOAT;  // Half-precision float (50% memory bandwidth reduction)
+    imageInfo.format = VK_FORMAT_R32_SFLOAT;  // Full precision needed for atomic operations
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -76,7 +76,7 @@ void VolumeRenderer::createDensityGrid() {
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_densityImage;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
-    viewInfo.format = VK_FORMAT_R16_SFLOAT;
+    viewInfo.format = VK_FORMAT_R32_SFLOAT;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = 1;

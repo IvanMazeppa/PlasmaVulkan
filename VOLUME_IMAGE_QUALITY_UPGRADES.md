@@ -2,7 +2,7 @@
 
 Ordered by estimated impact. Scores are 1 (low) to 10 (very high).
 
-## 1) ✅ Beer–Lambert Transmittance + Emission (Score: 10) [COMPLETED]
+## 1) ✅ Beer–Lambert Transmittance + Emission (Score: 10) [COMPLETED - WORKING]
 - **Benefit**: Physically-plausible opacity and brightness; reduces banding and overbright.
 - **Approach**: Accumulate transmittance T and emission per step: `T *= exp(-sigma_t * dens * step)`, `radiance += T * emission * step`.
 - **Code touchpoints**: `shaders/volume.frag` main loop.
@@ -44,14 +44,14 @@ Ordered by estimated impact. Scores are 1 (low) to 10 (very high).
 - **Relevant spec / MCP**:
   - search_vulkan_spec("Blending") for final compositing → Section 31.1
 
-## 7) Stochastic Jitter and Blue-Noise Dithering (Score: 5)
+## 7) ✅ Stochastic Jitter and Blue-Noise Dithering (Score: 5) [COMPLETED - WORKING]
 - **Benefit**: Reduces banding/contouring at low step counts.
 - **Approach**: Replace hash jitter with blue-noise pattern; vary along time for TAA.
 - **Code touchpoints**: `shaders/volume.frag`.
 - **Relevant spec / MCP**:
   - N/A; sampling unaffected.
 
-## 8) Color Calibration for Plasma Palette (Score: 4)
+## 8) ⚠️  Color Calibration for Plasma Palette (Score: 4) [PARTIALLY FIXED - NEEDS TUNING]
 - **Benefit**: Avoids early white/pink saturation; preserves orange-red range.
 - **Approach**: Adjust mapping curve and density scaling (already begun in shader); pair with tone map.
 - **Code touchpoints**: `temperatureToColor` in `shaders/volume.frag`.

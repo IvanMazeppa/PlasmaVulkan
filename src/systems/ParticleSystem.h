@@ -42,7 +42,7 @@ public:
         glm::vec3 gravityCenter2;   // Second galaxy center
         float blackHoleMass2;       // Second galaxy black hole mass
         uint32_t dualGalaxyMode;    // 0=single galaxy, 1=dual galaxy mode
-        uint32_t padding[1];        // Padding to align to 84 bytes total
+        uint32_t padding[5];        // Padding to align to 108 bytes total (SPIR-V alignment)
     };
     
     // Push constants for SPH shader
