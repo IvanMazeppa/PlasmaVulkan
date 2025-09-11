@@ -519,6 +519,8 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
             pushConstants.maxSteps = hqParams.maxRaySteps;     // 256 ray steps
             pushConstants.stepSize = hqParams.rayStepSize;     // 0.1 step size
             pushConstants.densityScale = hqParams.densityScale; // 0.6 density scale
+            pushConstants.opacityScale = 4.0f;                  // Default opacity
+            pushConstants.emissionScale = 1.0f;                 // Default emission
             break;
         }
         case QualityLevel::Ultra: {
@@ -526,12 +528,16 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
             pushConstants.maxSteps = uhqParams.maxRaySteps;     // 1024 ray steps - EXTREME!
             pushConstants.stepSize = uhqParams.rayStepSize;     // 0.02 step size - ULTRA-FINE!
             pushConstants.densityScale = uhqParams.densityScale; // 0.3 density scale
+            pushConstants.opacityScale = 4.0f;                  // Default opacity
+            pushConstants.emissionScale = 1.0f;                 // Default emission
             break;
         }
         default: // QualityLevel::Standard
-            pushConstants.maxSteps = m_params.maxRaySteps;      // 128 ray steps
-            pushConstants.stepSize = m_params.rayStepSize;      // 0.2 step size
-            pushConstants.densityScale = m_params.densityScale; // 0.7 density scale
+            pushConstants.maxSteps = m_runtimeMaxSteps;         // Runtime adjustable
+            pushConstants.stepSize = m_runtimeStepSize;         // Runtime adjustable  
+            pushConstants.densityScale = m_runtimeDensityScale; // Runtime adjustable
+            pushConstants.opacityScale = m_runtimeOpacityScale; // Runtime adjustable
+            pushConstants.emissionScale = m_runtimeEmissionScale; // Runtime adjustable
             break;
     }
     
@@ -654,6 +660,19 @@ std::vector<char> VolumeRenderer::readFile(const std::string& filename) {
     file.close();
     
     return buffer;
+}
+
+void VolumeRenderer::setRuntimeParameters(float densityScale, float opacityScale, float stepSize, 
+                                        float emissionScale, int maxSteps,
+                                        float redBalance, float orangeBalance, float yellowBalance) {
+    m_runtimeDensityScale = densityScale;
+    m_runtimeOpacityScale = opacityScale;
+    m_runtimeStepSize = stepSize;
+    m_runtimeEmissionScale = emissionScale;
+    m_runtimeMaxSteps = maxSteps;
+    m_runtimeRedBalance = redBalance;
+    m_runtimeOrangeBalance = orangeBalance;
+    m_runtimeYellowBalance = yellowBalance;
 }
 
 } // namespace plasma

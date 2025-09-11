@@ -590,6 +590,13 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             } else if (m_volumetricHighQuality) {
                 quality = VolumeRenderer::QualityLevel::High;
             }
+            
+            // Update runtime parameters before rendering
+            m_volumeRenderer->setRuntimeParameters(
+                m_volumeDensityScale, m_volumeOpacity, m_volumeStepSize,
+                m_volumeEmissionScale, m_volumeMaxSteps,
+                m_volumeRedBalance, m_volumeOrangeBalance, m_volumeYellowBalance);
+            
             m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
@@ -1946,16 +1953,46 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             std::cout << "[RENDERER] Mesh shaders not available on this GPU" << std::endl;
         }
     }
-    // Volumetric color density scaling (Numpad keys)
-    else if (key == GLFW_KEY_KP_ADD && action == GLFW_PRESS) {
-        // Increase volumetric color brightness
-        std::cout << "[VOLUMETRIC] Color brightness increased (numpad +)" << std::endl;
-        // Note: Requires shader uniform to adjust density scaling dynamically
+    // Volumetric parameter tuning (Numpad 1-5 with Shift for decrease)
+    else if (key == GLFW_KEY_KP_1 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.05f : 0.05f;
+        app->m_volumeDensityScale = std::max(0.01f, app->m_volumeDensityScale + delta);
+        std::cout << "[VOLUMETRIC] Density Scale: " << app->m_volumeDensityScale << " (NUM1" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
     }
-    else if (key == GLFW_KEY_KP_SUBTRACT && action == GLFW_PRESS) {
-        // Decrease volumetric color brightness
-        std::cout << "[VOLUMETRIC] Color brightness decreased (numpad -)" << std::endl;
-        // Note: Requires shader uniform to adjust density scaling dynamically
+    else if (key == GLFW_KEY_KP_2 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.5f : 0.5f;
+        app->m_volumeOpacity = std::max(0.1f, app->m_volumeOpacity + delta);
+        std::cout << "[VOLUMETRIC] Opacity (Sigma_t): " << app->m_volumeOpacity << " (NUM2" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_3 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.005f : 0.005f;
+        app->m_volumeStepSize = std::clamp(app->m_volumeStepSize + delta, 0.005f, 0.1f);
+        std::cout << "[VOLUMETRIC] Step Size: " << app->m_volumeStepSize << " (NUM3" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_4 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
+        app->m_volumeEmissionScale = std::max(0.1f, app->m_volumeEmissionScale + delta);
+        std::cout << "[VOLUMETRIC] Emission Scale: " << app->m_volumeEmissionScale << " (NUM4" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_5 && action == GLFW_PRESS) {
+        int delta = (mods & GLFW_MOD_SHIFT) ? -32 : 32;
+        app->m_volumeMaxSteps = std::clamp(app->m_volumeMaxSteps + delta, 64, 2048);
+        std::cout << "[VOLUMETRIC] Max Steps: " << app->m_volumeMaxSteps << " (NUM5" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_6 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
+        app->m_volumeRedBalance = std::max(0.1f, app->m_volumeRedBalance + delta);
+        std::cout << "[VOLUMETRIC] Red Balance: " << app->m_volumeRedBalance << " (NUM6" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_7 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
+        app->m_volumeOrangeBalance = std::max(0.1f, app->m_volumeOrangeBalance + delta);
+        std::cout << "[VOLUMETRIC] Orange Balance: " << app->m_volumeOrangeBalance << " (NUM7" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_8 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
+        app->m_volumeYellowBalance = std::max(0.1f, app->m_volumeYellowBalance + delta);
+        std::cout << "[VOLUMETRIC] Yellow Balance: " << app->m_volumeYellowBalance << " (NUM8" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
     }
     // Temperature scaling controls (C/X keys)
     else if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {

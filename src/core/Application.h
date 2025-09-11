@@ -202,6 +202,16 @@ private:
     // Mesh shader rendering
     bool m_useMeshShaders = false;           // Use mesh shader rendering when available
     
+    // Volumetric rendering parameters (runtime adjustable)
+    float m_volumeDensityScale = 0.2f;       // NUM1: Color brightness/density scaling  
+    float m_volumeOpacity = 4.0f;            // NUM2: Sigma_t (opacity/absorption)
+    float m_volumeStepSize = 0.02f;          // NUM3: Ray marching step size
+    float m_volumeEmissionScale = 1.0f;      // NUM4: Emission intensity
+    int m_volumeMaxSteps = 512;              // NUM5: Maximum ray steps
+    float m_volumeRedBalance = 1.0f;         // NUM6: Red color weight
+    float m_volumeOrangeBalance = 1.2f;      // NUM7: Orange color weight  
+    float m_volumeYellowBalance = 0.8f;      // NUM8: Yellow color weight
+    
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma
     float m_bloomThreshold = 0.8f;           // Brightness threshold

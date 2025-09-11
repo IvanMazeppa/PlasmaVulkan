@@ -79,12 +79,17 @@ public:
         uint32_t maxSteps;
         float stepSize;
         float densityScale;
-        float _padding2;
-        float _padding3;
+        float opacityScale;    // Sigma_t for opacity/absorption
+        float emissionScale;   // Emission intensity scaling
     };
 
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});
     ~VolumeRenderer();
+    
+    // Update runtime parameters from Application
+    void setRuntimeParameters(float densityScale, float opacityScale, float stepSize, 
+                            float emissionScale, int maxSteps,
+                            float redBalance, float orangeBalance, float yellowBalance);
     
     // Update quality settings dynamically
     void setRecordingQuality(bool enable);
@@ -139,6 +144,16 @@ private:
     
     // Mode selection
     bool m_useAtomicScatter = false; // use per-particle atomic image adds when available
+    
+    // Runtime adjustable parameters
+    float m_runtimeDensityScale = 0.2f;    // Lower default to avoid white saturation
+    float m_runtimeOpacityScale = 4.0f;  
+    float m_runtimeStepSize = 0.02f;
+    float m_runtimeEmissionScale = 1.0f;
+    int m_runtimeMaxSteps = 512;
+    float m_runtimeRedBalance = 1.0f;
+    float m_runtimeOrangeBalance = 1.2f;
+    float m_runtimeYellowBalance = 0.8f;
     
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);

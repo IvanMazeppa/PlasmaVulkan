@@ -17,8 +17,8 @@ layout(push_constant) uniform PushConstants {
     uint maxSteps;         // Maximum ray marching steps
     float stepSize;        // Ray marching step size
     float densityScale;    // Scale factor for density visualization
-    float _padding2;
-    float _padding3;
+    float opacityScale;    // Sigma_t scaling for opacity/absorption
+    float emissionScale;   // Emission intensity scaling
 } push;
 
 // 3D density texture
@@ -124,8 +124,8 @@ vec3 plasmaColor(float temperature) {
 vec3 temperatureToColor(float density) {
     if (density < 0.001) return vec3(0.0);
     
-    // Adjusted scaling for proper brightness after R32F format change
-    float enhancedDensity = density * 0.2; // Increased from 0.05 to brighten colors
+    // Runtime adjustable density scaling (NUM1 key)
+    float enhancedDensity = density * push.densityScale;
     
     return plasmaColor(enhancedDensity);
 }
@@ -189,8 +189,8 @@ void main() {
     vec3 radiance = vec3(0.0);    // Accumulated light
     float transmittance = 1.0;    // How much light passes through
     
-    // Extinction coefficient (controls how quickly opacity builds)
-    float sigma_t = 8.0;  // Tunable: higher = more opaque
+    // Runtime adjustable extinction coefficient (NUM2 key)
+    float sigma_t = push.opacityScale;  // Controls opacity/absorption
     
     // Adaptive step parameters
     float baseStep = push.stepSize;
@@ -211,6 +211,7 @@ void main() {
             vec3 N = normalize(densityGradient(pos) + 1e-5);
             float viewDot = clamp(dot(-rd, N) * 0.5 + 0.5, 0.0, 1.0);
             emission *= mix(0.8, 1.3, viewDot); // emphasize thin features
+            emission *= push.emissionScale; // Runtime adjustable emission (NUM4 key)
             
             // Beer-Lambert transmittance update
             float optical_depth = sigma_t * dens * currentStep;
