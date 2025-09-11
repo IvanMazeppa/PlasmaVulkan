@@ -19,6 +19,9 @@ layout(push_constant) uniform PushConstants {
     float densityScale;    // Scale factor for density visualization
     float opacityScale;    // Sigma_t scaling for opacity/absorption
     float emissionScale;   // Emission intensity scaling
+    float redBalance;      // Red color weight
+    float orangeBalance;   // Orange color weight  
+    float yellowBalance;   // Yellow color weight
 } push;
 
 // 3D density texture
@@ -113,6 +116,11 @@ vec3 plasmaColor(float temperature) {
         // Very limited white-hot core (only at extreme values)
         color = vec3(1.0, 1.0, 0.9);
     }
+    
+    // Apply runtime color balance controls (NUM6-8 keys)
+    color.r *= push.redBalance;      // NUM6: Red balance
+    color.g *= push.orangeBalance;   // NUM7: Orange balance (affects orange/yellow mix)
+    color.b *= push.yellowBalance;   // NUM8: Yellow balance
     
     // Moderate intensity for volumetric rendering
     float intensity = 0.5 + t * 0.8;

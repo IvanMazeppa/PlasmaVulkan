@@ -81,6 +81,9 @@ public:
         float densityScale;
         float opacityScale;    // Sigma_t for opacity/absorption
         float emissionScale;   // Emission intensity scaling
+        float redBalance;      // Red color weight
+        float orangeBalance;   // Orange color weight  
+        float yellowBalance;   // Yellow color weight
     };
 
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});

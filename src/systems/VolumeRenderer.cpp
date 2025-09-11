@@ -512,32 +512,27 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     pushConstants.voxelSize = m_params.voxelSize;
     pushConstants.gridDimensions = m_params.gridDimensions;
     
-    // Apply quality settings
+    // Use runtime parameters for all quality modes, with quality-based multipliers
+    pushConstants.densityScale = m_runtimeDensityScale;
+    pushConstants.opacityScale = m_runtimeOpacityScale;
+    pushConstants.emissionScale = m_runtimeEmissionScale;
+    pushConstants.redBalance = m_runtimeRedBalance;
+    pushConstants.orangeBalance = m_runtimeOrangeBalance;
+    pushConstants.yellowBalance = m_runtimeYellowBalance;
+    
+    // Apply quality-based adjustments to step count and size
     switch (quality) {
-        case QualityLevel::High: {
-            VolumeParams hqParams = VolumeParams::getHighQuality();
-            pushConstants.maxSteps = hqParams.maxRaySteps;     // 256 ray steps
-            pushConstants.stepSize = hqParams.rayStepSize;     // 0.1 step size
-            pushConstants.densityScale = hqParams.densityScale; // 0.6 density scale
-            pushConstants.opacityScale = 4.0f;                  // Default opacity
-            pushConstants.emissionScale = 1.0f;                 // Default emission
+        case QualityLevel::High:
+            pushConstants.maxSteps = m_runtimeMaxSteps * 2;     // 2x ray steps for high quality
+            pushConstants.stepSize = m_runtimeStepSize * 0.5f;  // Finer steps for high quality
             break;
-        }
-        case QualityLevel::Ultra: {
-            VolumeParams uhqParams = VolumeParams::getUltraRecordingQuality();
-            pushConstants.maxSteps = uhqParams.maxRaySteps;     // 1024 ray steps - EXTREME!
-            pushConstants.stepSize = uhqParams.rayStepSize;     // 0.02 step size - ULTRA-FINE!
-            pushConstants.densityScale = uhqParams.densityScale; // 0.3 density scale
-            pushConstants.opacityScale = 4.0f;                  // Default opacity
-            pushConstants.emissionScale = 1.0f;                 // Default emission
+        case QualityLevel::Ultra:
+            pushConstants.maxSteps = m_runtimeMaxSteps * 4;     // 4x ray steps for ultra quality  
+            pushConstants.stepSize = m_runtimeStepSize * 0.25f; // Ultra-fine steps for recording
             break;
-        }
         default: // QualityLevel::Standard
-            pushConstants.maxSteps = m_runtimeMaxSteps;         // Runtime adjustable
-            pushConstants.stepSize = m_runtimeStepSize;         // Runtime adjustable  
-            pushConstants.densityScale = m_runtimeDensityScale; // Runtime adjustable
-            pushConstants.opacityScale = m_runtimeOpacityScale; // Runtime adjustable
-            pushConstants.emissionScale = m_runtimeEmissionScale; // Runtime adjustable
+            pushConstants.maxSteps = m_runtimeMaxSteps;         // Standard runtime values
+            pushConstants.stepSize = m_runtimeStepSize;
             break;
     }
     

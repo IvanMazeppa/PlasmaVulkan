@@ -50,7 +50,8 @@
       "Bash(rm:*)",
       "WebFetch(domain:github.com)",
       "Bash(ffmpeg:*)",
-      "mcp__enhanced-vulkan-docs__search_vulkan_api"
+      "mcp__enhanced-vulkan-docs__search_vulkan_api",
+      "mcp__enhanced-vulkan-docs__search_vulkan_spec"
     ],
     "deny": [],
     "ask": []
