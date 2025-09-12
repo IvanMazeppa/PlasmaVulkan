@@ -152,12 +152,12 @@ private:
     // Mode selection
     bool m_useAtomicScatter = false; // use per-particle atomic image adds when available
     
-    // Runtime adjustable parameters
-    float m_runtimeDensityScale = 0.2f;    // Lower default to avoid white saturation
-    float m_runtimeOpacityScale = 4.0f;  
-    float m_runtimeStepSize = 0.02f;
-    float m_runtimeEmissionScale = 1.0f;
-    int m_runtimeMaxSteps = 512;
+    // Runtime adjustable parameters (tuned for optical-depth adaptive stepping)
+    float m_runtimeDensityScale = 0.4f;    // Higher for better base visibility
+    float m_runtimeOpacityScale = 8.0f;    // Higher absorption to balance emission
+    float m_runtimeStepSize = 0.04f;       // Larger steps work better with adaptive stepping
+    float m_runtimeEmissionScale = 1.5f;   // Boost emission to compensate for reduced base
+    int m_runtimeMaxSteps = 128;           // Lower max steps since adaptive stepping is more efficient
     float m_runtimeTempOffset = 0.0f;
     float m_runtimeTempRange = 1.0f;
     float m_runtimeSaturation = 1.0f;

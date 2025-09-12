@@ -214,64 +214,77 @@ void main() {
     float hash = fract(sin(dot(fragCoord, vec2(12.9898,78.233))) * 43758.5453);
     float t = t0 + hash * push.stepSize;
 
-    // Beer-Lambert Transmittance + Emission Model
-    // Physically correct opacity accumulation that prevents overbright saturation
+    // Beer-Lambert Transmittance + Emission Model with Optical-Depth Adaptive Stepping
     vec3 radiance = vec3(0.0);    // Accumulated light
     float transmittance = 1.0;    // How much light passes through
     
     // Runtime adjustable extinction coefficient (NUM2 key)
     float sigma_t = push.opacityScale;  // Controls opacity/absorption
     
-    // Adaptive step parameters with continuous LOD
-    float baseStep = push.stepSize;
+    // Optical-depth adaptive stepping parameters (tuned for dense plasma rings)
+    float tauTarget = 0.04;              // Smaller target for dense regions
+    float stepMin = push.voxelSize * 0.8; // Larger minimum to prevent oversampling
+    float stepMax = push.voxelSize * 6.0;  // Smaller maximum to maintain detail
+    float lodBias = 0.2;                  // Lower bias for sharper detail
+    float densNormalThreshold = 0.01;     // Higher threshold for sparse shading
+    
+    // Adaptive marching state
+    float lastStep = push.stepSize;       // Warm start
+    float prevLod = 0.0;                  // LOD smoothing
+    uint shadeStride = 0;                 // Gradient computation gating
 
-    for (uint i = 0u; i < push.maxSteps && t < t1 && transmittance > 0.01; ++i) {
+    for (uint i = 0u; i < push.maxSteps && t < t1 && transmittance > 0.02; ++i) {
         vec3 pos = ro + rd * t;
         
-        // Restore proper gradient-based adaptive stepping
-        vec3 grad = densityGradient(pos);
-        float gradMag = length(grad);
+        // Estimate step size for LOD calculation (warm start)
+        float tentativeStep = clamp(lastStep, stepMin, stepMax);
+        float lod = clamp(log2(tentativeStep / push.voxelSize) + lodBias, 0.0, 5.0);
+        lod = mix(prevLod, lod, 0.7); // Smooth LOD transitions to avoid flicker
         
-        // Adaptive step size based on gradient magnitude and transmittance
-        float gradientFactor = clamp(1.0 / (1.0 + gradMag * 5.0), 0.1, 4.0);
-        float transmittanceFactor = mix(1.0, 0.5, transmittance);
-        float adaptiveStepMul = gradientFactor * transmittanceFactor;
-        float currentStep = baseStep * adaptiveStepMul;
+        // Sample density with continuous LOD
+        float dens = sampleDensityLOD(pos, lod);
         
-        // Fixed continuous LOD calculation - ensure it stays reasonable
-        float continuousLOD = clamp(log2(max(currentStep / max(push.voxelSize, 0.01), 1.0)), 0.0, 5.0);
+        // Optical-depth-driven step size
+        float currentStep = clamp(tauTarget / max(sigma_t * dens, 1e-4), stepMin, stepMax);
         
-        // Sample density with properly bounded continuous LOD
-        float dens = sampleDensityLOD(pos, continuousLOD);
+        // Small stochastic dither to break resonance patterns
+        float stepJitter = 0.9 + 0.2 * fract(sin(dot(vec2(i, hash), vec2(12.9898,78.233))) * 43758.5453);
+        currentStep *= stepJitter;
 
+        // Local transmittance for this segment (compute early for gating decisions)
+        float optical_depth = sigma_t * dens * currentStep;
+        float local_transmittance = exp(-optical_depth);
+        
         if (dens > 0.001) {
-            // Color from density (emission)
-            vec3 emission = temperatureToColor(dens);
+            // Color from density (emission) - reduce base emission to prevent overexposure
+            vec3 emission = temperatureToColor(dens) * 0.3; // Scale down base emission
             
-            // Physically-based single scattering with Henyey-Greenstein phase function
-            // Define a simple directional light (can be made configurable later)
-            vec3 lightDir = normalize(vec3(-0.5, -0.8, -0.6)); // Light from upper-left-front
-            vec3 lightColor = vec3(1.2, 1.0, 0.9); // Warm white light
+            // Gate expensive shading: only when meaningful density and periodically
+            bool doExpensiveShading = (dens > densNormalThreshold) && 
+                                    (shadeStride % 2u == 0u || local_transmittance < 0.99);
             
-            // Compute scattering phase function
-            float cosTheta = dot(-rd, lightDir); // Angle between ray and light
-            float g = 0.75; // Forward scattering parameter (0.6-0.85 for plasma)
-            float phase = henyeyGreenstein(cosTheta, g);
+            if (doExpensiveShading) {
+                // Physically-based single scattering with Henyey-Greenstein phase function
+                vec3 lightDir = normalize(vec3(-0.5, -0.8, -0.6)); // Light from upper-left-front
+                vec3 lightColor = vec3(0.8, 0.7, 0.6); // Dimmer, warmer light to prevent overexposure
+                
+                // Compute scattering phase function
+                float cosTheta = dot(-rd, lightDir); // Angle between ray and light
+                float g = 0.75; // Forward scattering parameter (0.6-0.85 for plasma)
+                float phase = henyeyGreenstein(cosTheta, g);
+                
+                // Add single scattering contribution with density-based modulation
+                float scatteringStrength = 0.4 * (1.0 - clamp(dens * 2.0, 0.0, 0.8)); // Reduce in dense regions
+                vec3 scatteredLight = lightColor * phase * scatteringStrength;
+                emission += scatteredLight;
+                
+                // Edge enhancement with gated gradient computation (expensive: 6 texture fetches)
+                vec3 N = normalize(densityGradient(pos) + 1e-5);
+                float edgeEnhancement = clamp(dot(-rd, N) * 0.2 + 0.8, 0.6, 1.1); // Gentler enhancement
+                emission *= edgeEnhancement;
+            }
             
-            // Add single scattering contribution
-            float scatteringStrength = 0.8; // Controls scattering intensity
-            vec3 scatteredLight = lightColor * phase * scatteringStrength * dens;
-            emission += scatteredLight;
-            
-            // Keep some basic edge enhancement for fine features
-            vec3 N = normalize(densityGradient(pos) + 1e-5);
-            float edgeEnhancement = clamp(dot(-rd, N) * 0.3 + 0.7, 0.5, 1.2);
-            emission *= edgeEnhancement;
             emission *= push.emissionScale; // Runtime adjustable emission (NUM4 key)
-            
-            // Proper preintegrated Beer-Lambert transmittance for banding reduction
-            float optical_depth = sigma_t * dens * currentStep;
-            float local_transmittance = exp(-optical_depth);
             
             // Preintegrated emission over variable step sizes - reduces banding
             vec3 integrated_emission;
@@ -285,17 +298,22 @@ void main() {
             
             // Accumulate radiance attenuated by transmittance
             radiance += transmittance * integrated_emission;
-            
-            // Update transmittance for next segment
-            transmittance *= local_transmittance;
         }
+        
+        // Update transmittance for next segment
+        transmittance *= local_transmittance;
 
         t += currentStep;
+        
+        // Update adaptive marching state
+        shadeStride++;
+        prevLod = lod;
+        lastStep = currentStep;
         
         // Subgroup-coherent early exit optimization
         // If all invocations in this subgroup have reached the opacity threshold, exit early
         // This reduces warp divergence and improves performance on GPUs
-        if (i > 8u && subgroupAll(transmittance <= 0.01)) {
+        if (i > 8u && subgroupAll(transmittance <= 0.02)) {
             break;  // Entire subgroup is opaque, early termination
         }
     }

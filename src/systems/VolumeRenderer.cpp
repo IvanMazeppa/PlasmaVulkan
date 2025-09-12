@@ -753,6 +753,18 @@ void VolumeRenderer::generateMipChain(VkCommandBuffer cmd) {
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+
+        // Transition previous source mip (i-1) back to shader read, except for mip 0 which is handled at the end
+        if (i > 1) {
+            barrier.subresourceRange.baseMipLevel = i - 1;
+            barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+            barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+            barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+        }
     }
 
     // Transition mip level 0 to shader read
