@@ -81,9 +81,9 @@ public:
         float densityScale;
         float opacityScale;    // Sigma_t for opacity/absorption
         float emissionScale;   // Emission intensity scaling
-        float redBalance;      // Red color weight
-        float orangeBalance;   // Orange color weight  
-        float yellowBalance;   // Yellow color weight
+        float tempOffset;      // Temperature offset for color shift
+        float tempRange;       // Temperature range compression/expansion
+        float saturation;      // Color saturation control
     };
 
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});
@@ -92,13 +92,16 @@ public:
     // Update runtime parameters from Application
     void setRuntimeParameters(float densityScale, float opacityScale, float stepSize, 
                             float emissionScale, int maxSteps,
-                            float redBalance, float orangeBalance, float yellowBalance);
+                            float tempOffset, float tempRange, float saturation);
     
     // Update quality settings dynamically
     void setRecordingQuality(bool enable);
     
     // Update density grid from particle data
     void updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount);
+    
+    // Generate mip chain for cone-stepped raymarch optimization
+    void generateMipChain(VkCommandBuffer cmd);
     
     // Quality levels for volumetric rendering
     enum class QualityLevel {
@@ -124,11 +127,12 @@ private:
     VulkanContext* m_context;
     VolumeParams m_params;
     
-    // 3D density texture
+    // 3D density texture with mip chain
     VkImage m_densityImage = VK_NULL_HANDLE;
     VkDeviceMemory m_densityImageMemory = VK_NULL_HANDLE;
     VkImageView m_densityImageView = VK_NULL_HANDLE;
     VkSampler m_densitySampler = VK_NULL_HANDLE;
+    uint32_t m_densityMipLevels = 1;
     
     // Density splatting compute pipeline
     VkPipeline m_densitySplatPipeline = VK_NULL_HANDLE;
@@ -154,9 +158,9 @@ private:
     float m_runtimeStepSize = 0.02f;
     float m_runtimeEmissionScale = 1.0f;
     int m_runtimeMaxSteps = 512;
-    float m_runtimeRedBalance = 1.0f;
-    float m_runtimeOrangeBalance = 1.2f;
-    float m_runtimeYellowBalance = 0.8f;
+    float m_runtimeTempOffset = 0.0f;
+    float m_runtimeTempRange = 1.0f;
+    float m_runtimeSaturation = 1.0f;
     
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);

@@ -203,14 +203,14 @@ private:
     bool m_useMeshShaders = false;           // Use mesh shader rendering when available
     
     // Volumetric rendering parameters (runtime adjustable)
-    float m_volumeDensityScale = 0.2f;       // NUM1: Color brightness/density scaling  
+    float m_volumeDensityScale = 0.8f;       // NUM1: Color brightness/density scaling (increased for yellow range)
     float m_volumeOpacity = 4.0f;            // NUM2: Sigma_t (opacity/absorption)
     float m_volumeStepSize = 0.02f;          // NUM3: Ray marching step size
     float m_volumeEmissionScale = 1.0f;      // NUM4: Emission intensity
     int m_volumeMaxSteps = 512;              // NUM5: Maximum ray steps
-    float m_volumeRedBalance = 1.0f;         // NUM6: Red color weight
-    float m_volumeOrangeBalance = 1.2f;      // NUM7: Orange color weight  
-    float m_volumeYellowBalance = 0.8f;      // NUM8: Yellow color weight
+    float m_volumeTemperatureOffset = 0.0f;  // NUM6: Temperature offset (-0.5 to 0.5, shifts color range)
+    float m_volumeTemperatureRange = 1.0f;   // NUM7: Temperature range (0.5 to 2.0, compresses/expands gradient)
+    float m_volumeColorSaturation = 1.0f;    // NUM8: Color saturation (0.5 to 1.5, vibrance control)
     
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma

@@ -545,6 +545,10 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                 vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 0);
             }
             m_volumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
+            
+            // Generate mip chain for cone-stepped raymarch (performance upgrade #1)
+            m_volumeRenderer->generateMipChain(commandBuffer);
+            
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 1);
@@ -595,7 +599,7 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             m_volumeRenderer->setRuntimeParameters(
                 m_volumeDensityScale, m_volumeOpacity, m_volumeStepSize,
                 m_volumeEmissionScale, m_volumeMaxSteps,
-                m_volumeRedBalance, m_volumeOrangeBalance, m_volumeYellowBalance);
+                m_volumeTemperatureOffset, m_volumeTemperatureRange, m_volumeColorSaturation);
             
             m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
@@ -1997,18 +2001,24 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
     }
     else if (key == GLFW_KEY_KP_6 && action == GLFW_PRESS) {
         float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
-        app->m_volumeRedBalance = std::max(0.1f, app->m_volumeRedBalance + delta);
-        std::cout << "[VOLUMETRIC] Red Balance: " << app->m_volumeRedBalance << " (NUM6" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+        app->m_volumeTemperatureOffset = std::clamp(app->m_volumeTemperatureOffset + delta, -0.5f, 0.5f);
+        std::cout << "[VOLUMETRIC] Temperature Offset: " << app->m_volumeTemperatureOffset 
+                  << " (NUM6" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
+                  << " [" << (app->m_volumeTemperatureOffset < 0 ? "More Red" : "More Yellow") << "]" << std::endl;
     }
     else if (key == GLFW_KEY_KP_7 && action == GLFW_PRESS) {
         float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
-        app->m_volumeOrangeBalance = std::max(0.1f, app->m_volumeOrangeBalance + delta);
-        std::cout << "[VOLUMETRIC] Orange Balance: " << app->m_volumeOrangeBalance << " (NUM7" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+        app->m_volumeTemperatureRange = std::clamp(app->m_volumeTemperatureRange + delta, 0.5f, 2.0f);
+        std::cout << "[VOLUMETRIC] Temperature Range: " << app->m_volumeTemperatureRange 
+                  << " (NUM7" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
+                  << " [" << (app->m_volumeTemperatureRange < 1.0f ? "Compressed" : "Expanded") << "]" << std::endl;
     }
     else if (key == GLFW_KEY_KP_8 && action == GLFW_PRESS) {
         float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
-        app->m_volumeYellowBalance = std::max(0.1f, app->m_volumeYellowBalance + delta);
-        std::cout << "[VOLUMETRIC] Yellow Balance: " << app->m_volumeYellowBalance << " (NUM8" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") << std::endl;
+        app->m_volumeColorSaturation = std::clamp(app->m_volumeColorSaturation + delta, 0.5f, 1.5f);
+        std::cout << "[VOLUMETRIC] Color Saturation: " << app->m_volumeColorSaturation 
+                  << " (NUM8" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
+                  << " [" << (app->m_volumeColorSaturation < 1.0f ? "Desaturated" : "Vibrant") << "]" << std::endl;
     }
     // Temperature scaling controls (C/X keys)
     else if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {

@@ -19,9 +19,9 @@ layout(push_constant) uniform PushConstants {
     float densityScale;    // Scale factor for density visualization
     float opacityScale;    // Sigma_t scaling for opacity/absorption
     float emissionScale;   // Emission intensity scaling
-    float redBalance;      // Red color weight
-    float orangeBalance;   // Orange color weight  
-    float yellowBalance;   // Yellow color weight
+    float tempOffset;      // Temperature offset for color shift
+    float tempRange;       // Temperature range compression/expansion
+    float saturation;      // Color saturation control
 } push;
 
 // 3D density texture
@@ -61,7 +61,8 @@ vec3 worldToTexture(vec3 worldPos) {
 }
 
 // Sample density at world position
-float sampleDensity(vec3 worldPos) {
+// Sample density texture with LOD for cone-stepped raymarch
+float sampleDensityLOD(vec3 worldPos, float lod) {
     vec3 texCoord = worldToTexture(worldPos);
     
     // Check if we're inside the volume bounds
@@ -69,7 +70,13 @@ float sampleDensity(vec3 worldPos) {
         return 0.0;
     }
     
-    return texture(densityTexture, texCoord).r * push.densityScale;
+    // Use textureLod for manual mip level selection (cone-stepped optimization)
+    return textureLod(densityTexture, texCoord, lod).r * push.densityScale;
+}
+
+// Legacy sample for gradient computation (always use highest detail)
+float sampleDensity(vec3 worldPos) {
+    return sampleDensityLOD(worldPos, 0.0);
 }
 
 // Estimate gradient for simple shading
@@ -81,13 +88,16 @@ vec3 densityGradient(vec3 worldPos) {
     return vec3(dx, dy, dz) / (2.0 * h);
 }
 
-// Plasma color mapping matching particle shader's orange-red scheme
+// Improved plasma color with temperature remapping controls
 vec3 plasmaColor(float temperature) {
-    float t = clamp(temperature, 0.0, 1.0);
+    // Apply temperature remapping controls (NUM6-7)
+    // tempOffset shifts the whole gradient (-0.5 = more red, +0.5 = more yellow)
+    // tempRange compresses/expands the gradient (0.5 = compressed, 2.0 = expanded)
+    float t = clamp((temperature + push.tempOffset) * push.tempRange, 0.0, 1.0);
     
     vec3 color;
     
-    // Pure red-orange-yellow-white plasma progression (no pink tones)
+    // Pure red-orange-yellow-white plasma progression
     if (t < 0.2) {
         // Deep red to bright red
         float factor = t / 0.2;
@@ -109,18 +119,18 @@ vec3 plasmaColor(float temperature) {
         float factor = (t - 0.65) / 0.15;
         color = mix(vec3(1.0, 0.7, 0.0), vec3(1.0, 0.95, 0.0), factor);
     } else if (t < 0.98) {
-        // Yellow to warm white (narrower white range)
+        // Yellow to warm white
         float factor = (t - 0.8) / 0.18;
         color = mix(vec3(1.0, 0.95, 0.0), vec3(1.0, 1.0, 0.85), factor);
     } else {
-        // Very limited white-hot core (only at extreme values)
+        // White-hot core
         color = vec3(1.0, 1.0, 0.9);
     }
     
-    // Apply runtime color balance controls (NUM6-8 keys)
-    color.r *= push.redBalance;      // NUM6: Red balance
-    color.g *= push.orangeBalance;   // NUM7: Orange balance (affects orange/yellow mix)
-    color.b *= push.yellowBalance;   // NUM8: Yellow balance
+    // Apply saturation control (NUM8)
+    // Desaturate by mixing with luminance
+    float lum = dot(color, vec3(0.299, 0.587, 0.114)); // Standard luminance weights
+    color = mix(vec3(lum), color, push.saturation);
     
     // Moderate intensity for volumetric rendering
     float intensity = 0.5 + t * 0.8;

@@ -35,19 +35,25 @@ void VolumeRenderer::createDensityGrid() {
     uint32_t height = m_params.gridDimensions.y;
     uint32_t depth = m_params.gridDimensions.z;
     
-    // Create 3D image for density storage
+    // Calculate mip levels for 3D texture (cone-stepped raymarch optimization)
+    uint32_t maxDim = std::max({width, height, depth});
+    m_densityMipLevels = static_cast<uint32_t>(std::floor(std::log2(maxDim))) + 1;
+    
+    std::cout << "Creating density grid with " << m_densityMipLevels << " mip levels for LOD sampling" << std::endl;
+    
+    // Create 3D image for density storage with full mip chain
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_3D;
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
     imageInfo.extent.depth = depth;
-    imageInfo.mipLevels = 1;
+    imageInfo.mipLevels = m_densityMipLevels;  // Full mip chain for cone stepping
     imageInfo.arrayLayers = 1;
     imageInfo.format = VK_FORMAT_R32_SFLOAT;  // Full precision needed for atomic operations
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
@@ -71,7 +77,7 @@ void VolumeRenderer::createDensityGrid() {
     
     vkBindImageMemory(m_context->getDevice(), m_densityImage, m_densityImageMemory, 0);
     
-    // Create image view for storage access
+    // Create image view for storage access (full mip chain)
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_densityImage;
@@ -79,7 +85,7 @@ void VolumeRenderer::createDensityGrid() {
     viewInfo.format = VK_FORMAT_R32_SFLOAT;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.levelCount = m_densityMipLevels;  // Access all mip levels
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
     
@@ -87,24 +93,24 @@ void VolumeRenderer::createDensityGrid() {
         throw std::runtime_error("Failed to create density image view!");
     }
     
-    // Create sampler for volume rendering
+    // Create sampler for volume rendering with mip mapping support
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;  // Linear mip interpolation
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.mipLodBias = 0.0f;
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.maxAnisotropy = 1.0f;
-    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
+    samplerInfo.maxLod = static_cast<float>(m_densityMipLevels - 1);  // Allow access to all mips
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
     
     if (vkCreateSampler(m_context->getDevice(), &samplerInfo, nullptr, &m_densitySampler) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create density sampler!");
@@ -516,9 +522,9 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     pushConstants.densityScale = m_runtimeDensityScale;
     pushConstants.opacityScale = m_runtimeOpacityScale;
     pushConstants.emissionScale = m_runtimeEmissionScale;
-    pushConstants.redBalance = m_runtimeRedBalance;
-    pushConstants.orangeBalance = m_runtimeOrangeBalance;
-    pushConstants.yellowBalance = m_runtimeYellowBalance;
+    pushConstants.tempOffset = m_runtimeTempOffset;
+    pushConstants.tempRange = m_runtimeTempRange;
+    pushConstants.saturation = m_runtimeSaturation;
     
     // Apply quality-based adjustments to step count and size
     switch (quality) {
@@ -659,15 +665,108 @@ std::vector<char> VolumeRenderer::readFile(const std::string& filename) {
 
 void VolumeRenderer::setRuntimeParameters(float densityScale, float opacityScale, float stepSize, 
                                         float emissionScale, int maxSteps,
-                                        float redBalance, float orangeBalance, float yellowBalance) {
+                                        float tempOffset, float tempRange, float saturation) {
     m_runtimeDensityScale = densityScale;
     m_runtimeOpacityScale = opacityScale;
     m_runtimeStepSize = stepSize;
     m_runtimeEmissionScale = emissionScale;
     m_runtimeMaxSteps = maxSteps;
-    m_runtimeRedBalance = redBalance;
-    m_runtimeOrangeBalance = orangeBalance;
-    m_runtimeYellowBalance = yellowBalance;
+    m_runtimeTempOffset = tempOffset;
+    m_runtimeTempRange = tempRange;
+    m_runtimeSaturation = saturation;
+}
+
+void VolumeRenderer::generateMipChain(VkCommandBuffer cmd) {
+    // Generate mip chain using vkCmdBlitImage for 3D texture downsample
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.image = m_densityImage;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = 1;
+
+    int32_t mipWidth = m_params.gridDimensions.x;
+    int32_t mipHeight = m_params.gridDimensions.y;
+    int32_t mipDepth = m_params.gridDimensions.z;
+
+    for (uint32_t i = 1; i < m_densityMipLevels; i++) {
+        // Transition previous mip to transfer source
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
+        VkDependencyInfo dependencyInfo{};
+        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &barrier;
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+
+        // Transition current mip to transfer destination
+        barrier.subresourceRange.baseMipLevel = i;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_NONE;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+
+        // Blit from previous mip to current mip
+        VkImageBlit blit{};
+        blit.srcOffsets[0] = {0, 0, 0};
+        blit.srcOffsets[1] = {mipWidth, mipHeight, mipDepth};
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        
+        mipWidth = std::max(1, mipWidth / 2);
+        mipHeight = std::max(1, mipHeight / 2);
+        mipDepth = std::max(1, mipDepth / 2);
+
+        blit.dstOffsets[0] = {0, 0, 0};
+        blit.dstOffsets[1] = {mipWidth, mipHeight, mipDepth};
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+
+        vkCmdBlitImage(cmd, m_densityImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       m_densityImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &blit, VK_FILTER_LINEAR);
+
+        // Transition current mip to shader read
+        barrier.subresourceRange.baseMipLevel = i;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+    }
+
+    // Transition mip level 0 to shader read
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    
+    VkDependencyInfo finalDependencyInfo{};
+    finalDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    finalDependencyInfo.imageMemoryBarrierCount = 1;
+    finalDependencyInfo.pImageMemoryBarriers = &barrier;
+    vkCmdPipelineBarrier2(cmd, &finalDependencyInfo);
 }
 
 } // namespace plasma
