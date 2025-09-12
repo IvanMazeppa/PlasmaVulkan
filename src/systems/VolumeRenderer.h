@@ -84,6 +84,9 @@ public:
         float tempOffset;      // Temperature offset for color shift
         float tempRange;       // Temperature range compression/expansion
         float saturation;      // Color saturation control
+        uint32_t frameIndex;   // For STBN layer selection  
+        glm::vec2 cpOffset;     // Cranley-Patterson offset for temporal jitter
+        float _padding2;
     };
 
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});
@@ -116,12 +119,16 @@ public:
     // Parameter controls
     void setVolumeParams(const VolumeParams& params) { m_params = params; }
     VolumeParams getVolumeParams() const { return m_params; }
+    
+    // First-frame crash prevention
+    bool needsInitialUpdate() const { return !m_densityInitialized; }
 
 private:
     void createDensityGrid();
     void createDensitySplatPipeline();
     void createVolumeRenderPipeline();
     void createDescriptorSets();
+    void createSTBNTexture();
     void cleanup();
     
     VulkanContext* m_context;
@@ -144,6 +151,15 @@ private:
     VkPipelineLayout m_volumePipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_volumeDescriptorSetLayout = VK_NULL_HANDLE;
     
+    // STBN (Spatiotemporal Blue Noise) texture array for jittering
+    VkImage m_stbnImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_stbnMemory = VK_NULL_HANDLE;
+    VkImageView m_stbnImageView = VK_NULL_HANDLE;
+    VkSampler m_stbnSampler = VK_NULL_HANDLE;
+    static constexpr uint32_t STBN_SIZE = 128;
+    static constexpr uint32_t STBN_LAYERS = 64;
+    uint32_t m_frameIndex = 0;  // For temporal rotation
+    
     // Shader modules
     VkShaderModule m_densitySplatShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeVertShader = VK_NULL_HANDLE;
@@ -161,6 +177,9 @@ private:
     float m_runtimeTempOffset = 0.0f;
     float m_runtimeTempRange = 1.0f;
     float m_runtimeSaturation = 1.0f;
+    
+    // First-frame crash prevention
+    bool m_densityInitialized = false;    // Track if density grid has been updated at least once
     
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);

@@ -1,4 +1,5 @@
 # Build directories
+assets/
 build/
 cmake-build-*/
 out/
@@ -126,6 +127,8 @@ coverage/
 
 # Windows specific
 *.lnk
+resources/
+build_backups/
 build_backups/005_dual_galaxy_working/info.txt
 build_backups/006_dual_galaxy_restored/info.txt
 build_backups/007_bloom_foundation/CMakeLists.txt

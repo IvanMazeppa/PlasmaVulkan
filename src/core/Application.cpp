@@ -555,6 +555,33 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             }
         }
     }
+    
+    // First-frame crash prevention: ensure volume renderer is initialized before first render
+    // This handles the case where volumetric mode is enabled but physics hasn't updated yet
+    if (m_volumetricMode && m_volumeRenderer && m_particleSystem && 
+        m_volumeRenderer->needsInitialUpdate() && !m_shouldUpdatePhysics) {
+        
+        std::cout << "Performing first-frame volume initialization (physics accumulator not ready)" << std::endl;
+        
+        // Safety check: ensure particle buffer is valid before attempting update
+        VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
+        if (particleBuffer == VK_NULL_HANDLE) {
+            std::cerr << "ERROR: Particle buffer is null during first-frame initialization!" << std::endl;
+            // Skip volume initialization - will be handled in next frame when physics updates
+        } else {
+            uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
+            std::cout << "Initializing volume with " << activeParticles << " particles" << std::endl;
+            
+            try {
+                m_volumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
+                m_volumeRenderer->generateMipChain(commandBuffer);
+                std::cout << "First-frame volume initialization completed successfully" << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "ERROR during first-frame volume initialization: " << e.what() << std::endl;
+                // Continue anyway - volume will be initialized on next physics update
+            }
+        }
+    }
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
@@ -601,7 +628,18 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                 m_volumeEmissionScale, m_volumeMaxSteps,
                 m_volumeTemperatureOffset, m_volumeTemperatureRange, m_volumeColorSaturation);
             
-            m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
+            // Safety check: only render if density has been initialized to prevent first-frame crashes
+            if (!m_volumeRenderer->needsInitialUpdate()) {
+                m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
+            } else {
+                // Skip volume rendering this frame - density not yet initialized
+                // Volume will be rendered once physics updates and initializes the density grid
+                static bool warningShown = false;
+                if (!warningShown) {
+                    std::cout << "Skipping volume render - waiting for density initialization" << std::endl;
+                    warningShown = true;
+                }
+            }
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, m_timestampQueryPool, base + 3);
