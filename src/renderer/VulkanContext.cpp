@@ -143,8 +143,24 @@ void VulkanContext::pickPhysicalDevice() {
     // Get properties for later use
     vkGetPhysicalDeviceProperties(m_physicalDevice, &m_deviceProperties);
     vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_deviceFeatures);
+    
+    // Query subgroup properties (Vulkan 1.1 core)
+    m_subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+    m_subgroupProperties.pNext = nullptr;
+    
+    VkPhysicalDeviceProperties2 deviceProperties2{};
+    deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    deviceProperties2.pNext = &m_subgroupProperties;
+    vkGetPhysicalDeviceProperties2(m_physicalDevice, &deviceProperties2);
+    
+    // Check subgroup support
+    m_subgroupSize = m_subgroupProperties.subgroupSize;
+    m_supportsSubgroupBallot = (m_subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT) &&
+                               (m_subgroupProperties.supportedStages & VK_SHADER_STAGE_FRAGMENT_BIT);
 
     std::cout << "Selected GPU: " << m_deviceProperties.deviceName << std::endl;
+    std::cout << "Subgroup size: " << m_subgroupSize << std::endl;
+    std::cout << "Subgroup ballot in fragment: " << (m_supportsSubgroupBallot ? "YES" : "NO") << std::endl;
 }
 
 void VulkanContext::createLogicalDevice() {

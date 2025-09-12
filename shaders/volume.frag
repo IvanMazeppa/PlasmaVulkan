@@ -1,6 +1,8 @@
 #version 450
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_KHR_shader_subgroup_vote : enable
 
-// Volumetric ray marching fragment shader
+// Volumetric ray marching fragment shader with subgroup-coherent early exit
 // Renders 3D density grid as glowing plasma
 
 layout(location = 0) in vec2 fragCoord; // Screen coordinates [0,1]
@@ -247,6 +249,13 @@ void main() {
         }
 
         t += currentStep;
+        
+        // Subgroup-coherent early exit optimization
+        // If all invocations in this subgroup have reached the opacity threshold, exit early
+        // This reduces warp divergence and improves performance on GPUs
+        if (i > 8u && subgroupAll(transmittance <= 0.01)) {
+            break;  // Entire subgroup is opaque, early termination
+        }
     }
     
     // Final opacity from transmittance
