@@ -222,16 +222,27 @@ void main() {
     // Runtime adjustable extinction coefficient (NUM2 key)
     float sigma_t = push.opacityScale;  // Controls opacity/absorption
     
-    // Adaptive step parameters
+    // Adaptive step parameters with continuous LOD
     float baseStep = push.stepSize;
 
     for (uint i = 0u; i < push.maxSteps && t < t1 && transmittance > 0.01; ++i) {
         vec3 pos = ro + rd * t;
-        float dens = sampleDensity(pos);
-
-        // Empty-space skipping: take larger steps when empty
-        float stepMul = (dens < 0.002) ? 4.0 : ((dens < 0.01) ? 2.0 : 1.0);
-        float currentStep = baseStep * stepMul;
+        
+        // Restore proper gradient-based adaptive stepping
+        vec3 grad = densityGradient(pos);
+        float gradMag = length(grad);
+        
+        // Adaptive step size based on gradient magnitude and transmittance
+        float gradientFactor = clamp(1.0 / (1.0 + gradMag * 5.0), 0.1, 4.0);
+        float transmittanceFactor = mix(1.0, 0.5, transmittance);
+        float adaptiveStepMul = gradientFactor * transmittanceFactor;
+        float currentStep = baseStep * adaptiveStepMul;
+        
+        // Fixed continuous LOD calculation - ensure it stays reasonable
+        float continuousLOD = clamp(log2(max(currentStep / max(push.voxelSize, 0.01), 1.0)), 0.0, 5.0);
+        
+        // Sample density with properly bounded continuous LOD
+        float dens = sampleDensityLOD(pos, continuousLOD);
 
         if (dens > 0.001) {
             // Color from density (emission)
@@ -258,16 +269,22 @@ void main() {
             emission *= edgeEnhancement;
             emission *= push.emissionScale; // Runtime adjustable emission (NUM4 key)
             
-            // Beer-Lambert transmittance update
+            // Proper preintegrated Beer-Lambert transmittance for banding reduction
             float optical_depth = sigma_t * dens * currentStep;
             float local_transmittance = exp(-optical_depth);
             
-            // Integrate emission along the ray segment
-            // This accounts for absorption within the segment itself
-            vec3 segment_radiance = emission * dens * (1.0 - local_transmittance) / max(sigma_t * dens, 0.001);
+            // Preintegrated emission over variable step sizes - reduces banding
+            vec3 integrated_emission;
+            if (optical_depth > 0.0001) {
+                // Analytical integration for better quality: ∫ emission * e^(-σt) dt 
+                integrated_emission = emission * dens * (1.0 - local_transmittance) / optical_depth;
+            } else {
+                // Linear fallback for very low optical depths
+                integrated_emission = emission * dens * currentStep;
+            }
             
             // Accumulate radiance attenuated by transmittance
-            radiance += transmittance * segment_radiance;
+            radiance += transmittance * integrated_emission;
             
             // Update transmittance for next segment
             transmittance *= local_transmittance;

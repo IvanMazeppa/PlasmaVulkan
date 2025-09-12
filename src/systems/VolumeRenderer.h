@@ -22,11 +22,11 @@ public:
     // Volume grid parameters  
     struct VolumeParams {
         glm::vec3 gridOrigin = glm::vec3(-25.0f, -25.0f, -25.0f);  // Expanded from 30³ to 50³ world space  
-        float voxelSize = 0.4f;                    // Slightly larger voxels for broader coverage
-        glm::uvec3 gridDimensions = glm::uvec3(125, 125, 125);  // Maintain reasonable memory usage
+        float voxelSize = 0.25f;                   // Keep fine voxels for detail
+        glm::uvec3 gridDimensions = glm::uvec3(200, 200, 200);  // Actually expand grid resolution
         float splatRadius = 1.0f;                  
-        uint32_t maxRaySteps = 128;                // Double the ray steps
-        float rayStepSize = 0.2f;                  // Finer ray steps
+        uint32_t maxRaySteps = 64;                 // Reasonable ray steps for performance
+        float rayStepSize = 0.5f;                  // Proper step size (~2x voxel size)
         float densityScale = 0.7f;                 // Slightly reduced to prevent white dominance
         
         // HIGH QUALITY settings for realtime high-quality mode (Shift+V)
@@ -36,8 +36,8 @@ public:
             params.voxelSize = 0.32f;              // Proportionally adjusted detail balance  
             params.gridDimensions = glm::uvec3(156, 156, 156);  // Maintain 1.25x increase ratio
             params.splatRadius = 1.2f;             // Smooth splatting
-            params.maxRaySteps = 256;              // Double standard ray steps
-            params.rayStepSize = 0.1f;             // Finer ray marching
+            params.maxRaySteps = 128;              // Higher quality ray steps  
+            params.rayStepSize = 0.25f;            // Fine but reasonable ray marching
             params.densityScale = 0.6f;            // Prevent white dominance
             return params;
         }
@@ -49,8 +49,8 @@ public:
             params.voxelSize = 0.12f;              // Balanced ultra-fine detail with expanded bounds
             params.gridDimensions = glm::uvec3(500, 500, 500);  // MASSIVE resolution grid
             params.splatRadius = 2.0f;             // Maximum smooth splatting
-            params.maxRaySteps = 1024;             // EXTREME ray steps - recording only!
-            params.rayStepSize = 0.02f;            // Ultra-fine ray marching - recording only!
+            params.maxRaySteps = 256;              // High quality ray steps - recording only!
+            params.rayStepSize = 0.12f;            // Fine ray marching - recording only!
             params.densityScale = 0.3f;            // Very low for maximum color range
             return params;
         }
