@@ -631,6 +631,10 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             // Safety check: only render if density has been initialized to prevent first-frame crashes
             if (!m_volumeRenderer->needsInitialUpdate()) {
                 m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
+                
+                // TODO: Add TAA pass here once we have intermediate render targets
+                // For now, TAA requires architectural changes to use intermediate textures
+                // m_volumeRenderer->renderTAA(commandBuffer, viewProj, currentFrameImageView);
             } else {
                 // Skip volume rendering this frame - density not yet initialized
                 // Volume will be rendered once physics updates and initializes the density grid

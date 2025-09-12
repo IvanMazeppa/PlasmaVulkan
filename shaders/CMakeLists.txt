@@ -19,6 +19,9 @@ set(SHADER_SOURCES
     density_splat_scatter.comp
     volume.vert
     volume.frag
+    # TAA (Temporal Anti-Aliasing) shaders for noise reduction
+    taa.vert
+    taa.frag
     # Bloom post-processing shaders
     fullscreen.vert
     bloom_bright.frag

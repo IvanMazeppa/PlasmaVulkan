@@ -21,9 +21,9 @@ class VolumeRenderer {
 public:
     // Volume grid parameters  
     struct VolumeParams {
-        glm::vec3 gridOrigin = glm::vec3(-25.0f, -25.0f, -25.0f);  // Expanded from 30³ to 50³ world space  
+        glm::vec3 gridOrigin = glm::vec3(-30.0f, -30.0f, -30.0f);  // Expanded from 50³ to 60³ world space for better particle spread
         float voxelSize = 0.25f;                   // Keep fine voxels for detail
-        glm::uvec3 gridDimensions = glm::uvec3(200, 200, 200);  // Actually expand grid resolution
+        glm::uvec3 gridDimensions = glm::uvec3(240, 240, 240);  // Expand grid resolution proportionally (60/0.25 = 240)
         float splatRadius = 1.0f;                  
         uint32_t maxRaySteps = 64;                 // Reasonable ray steps for performance
         float rayStepSize = 0.5f;                  // Proper step size (~2x voxel size)
@@ -32,9 +32,9 @@ public:
         // HIGH QUALITY settings for realtime high-quality mode (Shift+V)
         static VolumeParams getHighQuality() {
             VolumeParams params;
-            params.gridOrigin = glm::vec3(-25.0f, -25.0f, -25.0f);  // Match expanded bounds
+            params.gridOrigin = glm::vec3(-30.0f, -30.0f, -30.0f);  // Match expanded bounds
             params.voxelSize = 0.32f;              // Proportionally adjusted detail balance  
-            params.gridDimensions = glm::uvec3(156, 156, 156);  // Maintain 1.25x increase ratio
+            params.gridDimensions = glm::uvec3(188, 188, 188);  // Proportionally adjusted (60/0.32 ≈ 188)
             params.splatRadius = 1.2f;             // Smooth splatting
             params.maxRaySteps = 128;              // Higher quality ray steps  
             params.rayStepSize = 0.25f;            // Fine but reasonable ray marching
@@ -116,6 +116,9 @@ public:
     // Render volumetric effect with quality level
     void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, QualityLevel quality = QualityLevel::Standard);
     
+    // Render TAA pass for temporal noise smoothing (call after volume rendering)
+    void renderTAA(VkCommandBuffer cmd, const glm::mat4& viewProj, VkImageView currentFrameView);
+    
     // Parameter controls
     void setVolumeParams(const VolumeParams& params) { m_params = params; }
     VolumeParams getVolumeParams() const { return m_params; }
@@ -127,6 +130,8 @@ private:
     void createDensityGrid();
     void createDensitySplatPipeline();
     void createVolumeRenderPipeline();
+    void createTAAPipeline();
+    void createTAAResources();     // TAA history buffer and pipeline
     void createDescriptorSets();
     void createSTBNTexture();
     void createOpticalDepthLUT();  // Preintegrated Beer-Lambert LUT
@@ -152,6 +157,11 @@ private:
     VkPipelineLayout m_volumePipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_volumeDescriptorSetLayout = VK_NULL_HANDLE;
     
+    // TAA (Temporal Anti-Aliasing) pipeline for noise smoothing
+    VkPipeline m_taaPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout m_taaPipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_taaDescriptorSetLayout = VK_NULL_HANDLE;
+    
     // STBN (Spatiotemporal Blue Noise) texture array for jittering
     VkImage m_stbnImage = VK_NULL_HANDLE;
     VkDeviceMemory m_stbnMemory = VK_NULL_HANDLE;
@@ -168,10 +178,20 @@ private:
     VkSampler m_opticalDepthLUTSampler = VK_NULL_HANDLE;
     static constexpr uint32_t OPTICAL_DEPTH_LUT_SIZE = 256;  // 256 entries for smooth interpolation
     
+    // TAA (Temporal Anti-Aliasing) history buffer for noise smoothing
+    VkImage m_taaHistoryImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_taaHistoryMemory = VK_NULL_HANDLE;
+    VkImageView m_taaHistoryImageView = VK_NULL_HANDLE;
+    VkSampler m_taaHistorySampler = VK_NULL_HANDLE;
+    glm::mat4 m_previousViewProjMatrix = glm::mat4(1.0f);  // For reprojection
+    bool m_taaFirstFrame = true;  // Track first frame for history initialization
+    
     // Shader modules
     VkShaderModule m_densitySplatShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeVertShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeFragShader = VK_NULL_HANDLE;
+    VkShaderModule m_taaVertShader = VK_NULL_HANDLE;
+    VkShaderModule m_taaFragShader = VK_NULL_HANDLE;
     
     // Mode selection
     bool m_useAtomicScatter = false; // use per-particle atomic image adds when available

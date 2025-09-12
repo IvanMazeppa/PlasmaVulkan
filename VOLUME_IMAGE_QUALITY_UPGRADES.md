@@ -42,12 +42,22 @@ Ordered by estimated impact. Scores are 1 (low) to 10 (very high).
 - **Relevant spec / MCP**:
   - search_vulkan_spec("3D image mipmap"), barriers via search_vulkan_spec("vkCmdPipelineBarrier2")
 
-## 5) Temporal Supersampling (TAA-style) (Score: 7)
+## 5) ✅ Temporal Supersampling (TAA-style) (Score: 7) [FOUNDATION COMPLETED - Sep 12, 2025]
 - **Benefit**: Higher effective quality at lower per-frame ray steps; less noise.
-- **Approach**: Subpixel camera jitter + history reprojection with clamped blending.
-- **Code touchpoints**: Frame graph/additional textures; compositing.
+- **Status**: ✅ **FOUNDATION IMPLEMENTED** (ready for activation)
+  - ✅ Complete TAA shaders with 3x3 neighborhood clamping
+  - ✅ Reprojection matrices for camera movement compensation  
+  - ✅ RGB16F history buffer with proper resource management
+  - ✅ TAA graphics pipeline with push descriptors
+  - ⏳ **Requires intermediate render targets for full activation**
+- **Implementation**:
+  - `VolumeRenderer::createTAAPipeline()` complete TAA system
+  - `VolumeRenderer::renderTAA()` temporal accumulation function
+  - `shaders/taa.frag` neighborhood-clamped temporal blending
+- **Impact**: Directly addresses volume definition problem - allows higher density values with temporal noise smoothing
+- **Code touchpoints**: `src/systems/VolumeRenderer.cpp` (TAA system); `shaders/taa.frag` (temporal accumulation).
 - **Relevant spec / MCP**:
-  - N/A (algorithmic); ensure proper layout transitions via Synchronization2.
+  - N/A (algorithmic); uses Synchronization2 transitions.
 
 ## 6) Tone Mapping and Bloom Integration (Score: 6)
 - **Benefit**: Better highlight rolloff; emphasizes hot cores/filaments.
