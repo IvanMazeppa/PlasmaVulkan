@@ -660,6 +660,102 @@ void VolumeRenderer::createTAAResources() {
         throw std::runtime_error("Failed to create TAA history sampler!");
     }
     
+    // Create TAA current frame target (matches swapchain format for direct rendering)
+    VkImageCreateInfo currentImageInfo{};
+    currentImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    currentImageInfo.imageType = VK_IMAGE_TYPE_2D;
+    currentImageInfo.extent.width = extent.width;
+    currentImageInfo.extent.height = extent.height;
+    currentImageInfo.extent.depth = 1;
+    currentImageInfo.mipLevels = 1;
+    currentImageInfo.arrayLayers = 1;
+    currentImageInfo.format = m_context->getSwapChainImageFormat(); // Match swapchain format
+    currentImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    currentImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    currentImageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    currentImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    currentImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    if (vkCreateImage(m_context->getDevice(), &currentImageInfo, nullptr, &m_taaCurrentImage) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create TAA current frame image!");
+    }
+    
+    // Allocate memory for TAA current frame image
+    VkMemoryRequirements currentMemRequirements;
+    vkGetImageMemoryRequirements(m_context->getDevice(), m_taaCurrentImage, &currentMemRequirements);
+    
+    VkMemoryAllocateInfo currentAllocInfo{};
+    currentAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    currentAllocInfo.allocationSize = currentMemRequirements.size;
+    currentAllocInfo.memoryTypeIndex = findMemoryType(currentMemRequirements.memoryTypeBits, 
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    if (vkAllocateMemory(m_context->getDevice(), &currentAllocInfo, nullptr, &m_taaCurrentMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate TAA current frame memory!");
+    }
+    
+    vkBindImageMemory(m_context->getDevice(), m_taaCurrentImage, m_taaCurrentMemory, 0);
+    
+    // Create image view for TAA current frame
+    VkImageViewCreateInfo currentViewInfo{};
+    currentViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    currentViewInfo.image = m_taaCurrentImage;
+    currentViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    currentViewInfo.format = m_context->getSwapChainImageFormat();
+    currentViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    currentViewInfo.subresourceRange.baseMipLevel = 0;
+    currentViewInfo.subresourceRange.levelCount = 1;
+    currentViewInfo.subresourceRange.baseArrayLayer = 0;
+    currentViewInfo.subresourceRange.layerCount = 1;
+    
+    if (vkCreateImageView(m_context->getDevice(), &currentViewInfo, nullptr, &m_taaCurrentImageView) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create TAA current frame image view!");
+    }
+    
+    // Create sampler for TAA current frame
+    VkSamplerCreateInfo currentSamplerInfo{};
+    currentSamplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    currentSamplerInfo.magFilter = VK_FILTER_LINEAR;
+    currentSamplerInfo.minFilter = VK_FILTER_LINEAR;
+    currentSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    currentSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    currentSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    currentSamplerInfo.anisotropyEnable = VK_FALSE;
+    currentSamplerInfo.maxAnisotropy = 1.0f;
+    currentSamplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    currentSamplerInfo.unnormalizedCoordinates = VK_FALSE;
+    currentSamplerInfo.compareEnable = VK_FALSE;
+    currentSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    currentSamplerInfo.minLod = 0.0f;
+    currentSamplerInfo.maxLod = 0.0f;
+    
+    if (vkCreateSampler(m_context->getDevice(), &currentSamplerInfo, nullptr, &m_taaCurrentSampler) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create TAA current frame sampler!");
+    }
+    
+    // Transition TAA current image to color attachment optimal using a separate command buffer
+    VkCommandBuffer currentCmd = m_context->beginSingleTimeCommands();
+    
+    VkImageMemoryBarrier currentBarrier{};
+    currentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    currentBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    currentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    currentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    currentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    currentBarrier.image = m_taaCurrentImage;
+    currentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    currentBarrier.subresourceRange.baseMipLevel = 0;
+    currentBarrier.subresourceRange.levelCount = 1;
+    currentBarrier.subresourceRange.baseArrayLayer = 0;
+    currentBarrier.subresourceRange.layerCount = 1;
+    currentBarrier.srcAccessMask = 0;
+    currentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    
+    vkCmdPipelineBarrier(currentCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &currentBarrier);
+    
+    m_context->endSingleTimeCommands(currentCmd);
+    
     std::cout << "TAA resources created successfully (" << extent.width << "x" << extent.height << ")" << std::endl;
 }
 
@@ -1357,6 +1453,189 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 
+void VolumeRenderer::renderToTAATarget(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, QualityLevel quality) {
+    // Calculate reprojection matrix for TAA (previous_viewProj * inverse(current_viewProj))
+    glm::mat4 currentToHistory = glm::mat4(1.0f);
+    if (!m_taaFirstFrame) {
+        currentToHistory = m_previousViewProjMatrix * glm::inverse(viewProj);
+    }
+    
+    // Update previous view-projection matrix for next frame
+    m_previousViewProjMatrix = viewProj;
+    
+    VkExtent2D extent = m_context->getSwapChainExtent();
+    
+    // Begin rendering to TAA current frame target
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = m_taaCurrentImageView;
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = {0, 0};
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+    
+    vkCmdBeginRendering(cmd, &renderingInfo);
+    
+    // Set dynamic viewport and scissor
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    
+    // Bind volume rendering pipeline and push descriptors
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipeline);
+    
+    // Push descriptors for density + STBN + optical depth LUT (Vulkan 1.4)
+    VkDescriptorImageInfo imageInfos[3] = {};
+    
+    // Binding 0: Density texture
+    imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfos[0].imageView = m_densityImageView;
+    imageInfos[0].sampler = m_densitySampler;
+    
+    // Binding 1: STBN texture array
+    imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfos[1].imageView = m_stbnImageView;
+    imageInfos[1].sampler = m_stbnSampler;
+    
+    // Binding 2: Optical depth LUT
+    imageInfos[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfos[2].imageView = m_opticalDepthLUTView;
+    imageInfos[2].sampler = m_opticalDepthLUTSampler;
+    
+    VkWriteDescriptorSet descriptorWrites[3] = {};
+    
+    // Density texture descriptor
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pImageInfo = &imageInfos[0];
+    
+    // STBN texture descriptor  
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].dstArrayElement = 0;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pImageInfo = &imageInfos[1];
+    
+    // Optical depth LUT descriptor
+    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[2].dstBinding = 2;
+    descriptorWrites[2].dstArrayElement = 0;
+    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[2].descriptorCount = 1;
+    descriptorWrites[2].pImageInfo = &imageInfos[2];
+    
+    // Push descriptors (Vulkan 1.1+)
+    vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipelineLayout,
+                           0, 3, descriptorWrites);
+    
+    // Quality-based parameter selection
+    VolumeParams params;
+    switch (quality) {
+        case QualityLevel::High:
+            params = VolumeParams::getHighQuality();
+            break;
+        case QualityLevel::Ultra:
+            params = VolumeParams::getUltraRecordingQuality();
+            break;
+        default:
+            params = m_params;
+            break;
+    }
+    
+    // Prepare push constants for volume ray marching
+    VolumePushConstants pushConstants{};
+    pushConstants.viewProjInv = glm::inverse(viewProj);
+    pushConstants.cameraPos = cameraPos;
+    pushConstants.gridOrigin = params.gridOrigin;
+    pushConstants.voxelSize = params.voxelSize;
+    pushConstants.gridDimensions = params.gridDimensions;
+    
+    // Use runtime parameters for all quality modes
+    pushConstants.densityScale = m_runtimeDensityScale;
+    pushConstants.opacityScale = m_runtimeOpacityScale;
+    pushConstants.emissionScale = m_runtimeEmissionScale;
+    pushConstants.tempOffset = m_runtimeTempOffset;
+    pushConstants.tempRange = m_runtimeTempRange;
+    pushConstants.saturation = m_runtimeSaturation;
+    
+    // STBN temporal parameters
+    pushConstants.frameIndex = m_frameIndex % STBN_LAYERS;
+    
+    // Apply quality-based adjustments to step count and size
+    switch (quality) {
+        case QualityLevel::High:
+            pushConstants.maxSteps = m_runtimeMaxSteps * 2;     // 2x ray steps for high quality
+            pushConstants.stepSize = m_runtimeStepSize * 0.5f;  // Finer steps for high quality
+            break;
+        case QualityLevel::Ultra:
+            pushConstants.maxSteps = m_runtimeMaxSteps * 4;     // 4x ray steps for ultra quality  
+            pushConstants.stepSize = m_runtimeStepSize * 0.25f; // Ultra-fine steps for recording
+            break;
+        default:
+            pushConstants.maxSteps = m_runtimeMaxSteps;
+            pushConstants.stepSize = m_runtimeStepSize;
+            break;
+    }
+    
+    // Cranley-Patterson offset for temporal decorrelation 
+    const float phi1 = 0.618034f;  // Golden ratio - 1
+    const float phi2 = 0.755769f;  // Plastic number - 1
+    pushConstants.cpOffset = glm::vec2(
+        fmod(m_frameIndex * phi1, 1.0f),
+        fmod(m_frameIndex * phi2, 1.0f)
+    );
+    
+    // Push constants to shader
+    vkCmdPushConstants(cmd, m_volumePipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 
+        0, sizeof(VolumePushConstants), &pushConstants);
+    
+    // Draw fullscreen triangle
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+    
+    vkCmdEndRendering(cmd);
+    
+    // Transition TAA current image from color attachment to shader read
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_taaCurrentImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
 void VolumeRenderer::renderTAA(VkCommandBuffer cmd, const glm::mat4& viewProj, VkImageView currentFrameView) {
     // TAA push constants for reprojection
     struct TAAConstants {
@@ -1381,20 +1660,7 @@ void VolumeRenderer::renderTAA(VkCommandBuffer cmd, const glm::mat4& viewProj, V
     taaConstants.blendFactor = 0.1f;  // Volumetric-optimized blend factor
     taaConstants.firstFrame = m_taaFirstFrame ? 1u : 0u;
     
-    // Set dynamic viewport and scissor for TAA
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-    
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = extent;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    // NOTE: Viewport and scissor are already set by Application - no need to set them again
     
     // Bind TAA pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_taaPipeline);
@@ -1590,6 +1856,27 @@ void VolumeRenderer::cleanup() {
     if (m_taaHistoryMemory != VK_NULL_HANDLE) {
         vkFreeMemory(m_context->getDevice(), m_taaHistoryMemory, nullptr);
         m_taaHistoryMemory = VK_NULL_HANDLE;
+    }
+    
+    // Clean up TAA current frame resources
+    if (m_taaCurrentSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(m_context->getDevice(), m_taaCurrentSampler, nullptr);
+        m_taaCurrentSampler = VK_NULL_HANDLE;
+    }
+    
+    if (m_taaCurrentImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_context->getDevice(), m_taaCurrentImageView, nullptr);
+        m_taaCurrentImageView = VK_NULL_HANDLE;
+    }
+    
+    if (m_taaCurrentImage != VK_NULL_HANDLE) {
+        vkDestroyImage(m_context->getDevice(), m_taaCurrentImage, nullptr);
+        m_taaCurrentImage = VK_NULL_HANDLE;
+    }
+    
+    if (m_taaCurrentMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(m_context->getDevice(), m_taaCurrentMemory, nullptr);
+        m_taaCurrentMemory = VK_NULL_HANDLE;
     }
 }
 

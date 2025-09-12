@@ -116,8 +116,17 @@ public:
     // Render volumetric effect with quality level
     void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, QualityLevel quality = QualityLevel::Standard);
     
+    // Render volumetric effect to intermediate TAA current frame target
+    void renderToTAATarget(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos, QualityLevel quality = QualityLevel::Standard);
+    
     // Render TAA pass for temporal noise smoothing (call after volume rendering)
     void renderTAA(VkCommandBuffer cmd, const glm::mat4& viewProj, VkImageView currentFrameView);
+    
+    // Copy TAA result to history buffer for next frame (call after rendering)
+    void copyTAAToHistory(VkCommandBuffer cmd, VkImageView taaResultView);
+    
+    // Get TAA current frame image view for final TAA pass
+    VkImageView getTAACurrentImageView() const { return m_taaCurrentImageView; }
     
     // Parameter controls
     void setVolumeParams(const VolumeParams& params) { m_params = params; }
@@ -183,6 +192,13 @@ private:
     VkDeviceMemory m_taaHistoryMemory = VK_NULL_HANDLE;
     VkImageView m_taaHistoryImageView = VK_NULL_HANDLE;
     VkSampler m_taaHistorySampler = VK_NULL_HANDLE;
+    
+    // TAA current frame target (intermediate render target)
+    VkImage m_taaCurrentImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_taaCurrentMemory = VK_NULL_HANDLE;
+    VkImageView m_taaCurrentImageView = VK_NULL_HANDLE;
+    VkSampler m_taaCurrentSampler = VK_NULL_HANDLE;
+    
     glm::mat4 m_previousViewProjMatrix = glm::mat4(1.0f);  // For reprojection
     bool m_taaFirstFrame = true;  // Track first frame for history initialization
     
