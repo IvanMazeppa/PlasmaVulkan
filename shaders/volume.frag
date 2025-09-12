@@ -32,6 +32,7 @@ layout(push_constant) uniform PushConstants {
 // 3D density texture
 layout(binding = 0) uniform sampler3D densityTexture;
 layout(binding = 1) uniform sampler2DArray stbnTexture;
+layout(binding = 2) uniform sampler1D opticalDepthLUT;
 
 // Generate world space ray from screen coordinate
 vec3 getRayDirection(vec2 screenPos) {
@@ -261,8 +262,15 @@ void main() {
         float stepJitter = 0.9 + 0.2 * fract(sin(dot(vec2(i, stbnValue * 127.0), vec2(12.9898,78.233))) * 43758.5453);
         currentStep *= stepJitter;
 
-        // Local transmittance for this segment (compute early for gating decisions)
+        // Preintegrated segment using optical depth LUT for Beer-Lambert smoothing
         float optical_depth = sigma_t * dens * currentStep;
+        
+        // Sample preintegrated LUT: f(τ) = (1 - exp(-τ)) / τ
+        // LUT maps [0, 8] optical depth range to [0, 1] texture coordinates
+        float lutCoord = clamp(optical_depth / 8.0, 0.0, 1.0);
+        float preintegratedSegment = texture(opticalDepthLUT, lutCoord).r;
+        
+        // Local transmittance (for early exit and shading decisions)
         float local_transmittance = exp(-optical_depth);
         
         if (dens > 0.001) {
@@ -296,15 +304,8 @@ void main() {
             
             emission *= push.emissionScale; // Runtime adjustable emission (NUM4 key)
             
-            // Preintegrated emission over variable step sizes - reduces banding
-            vec3 integrated_emission;
-            if (optical_depth > 0.0001) {
-                // Analytical integration for better quality: ∫ emission * e^(-σt) dt 
-                integrated_emission = emission * dens * (1.0 - local_transmittance) / optical_depth;
-            } else {
-                // Linear fallback for very low optical depths
-                integrated_emission = emission * dens * currentStep;
-            }
+            // Preintegrated emission using LUT for smooth Beer-Lambert integration
+            vec3 integrated_emission = emission * dens * currentStep * preintegratedSegment;
             
             // Accumulate radiance attenuated by transmittance
             radiance += transmittance * integrated_emission;

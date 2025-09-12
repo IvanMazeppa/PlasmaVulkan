@@ -129,6 +129,7 @@ private:
     void createVolumeRenderPipeline();
     void createDescriptorSets();
     void createSTBNTexture();
+    void createOpticalDepthLUT();  // Preintegrated Beer-Lambert LUT
     void cleanup();
     
     VulkanContext* m_context;
@@ -159,6 +160,13 @@ private:
     static constexpr uint32_t STBN_SIZE = 128;
     static constexpr uint32_t STBN_LAYERS = 64;
     uint32_t m_frameIndex = 0;  // For temporal rotation
+    
+    // Preintegrated optical depth LUT for Beer-Lambert smoothing
+    VkImage m_opticalDepthLUT = VK_NULL_HANDLE;
+    VkDeviceMemory m_opticalDepthLUTMemory = VK_NULL_HANDLE;
+    VkImageView m_opticalDepthLUTView = VK_NULL_HANDLE;
+    VkSampler m_opticalDepthLUTSampler = VK_NULL_HANDLE;
+    static constexpr uint32_t OPTICAL_DEPTH_LUT_SIZE = 256;  // 256 entries for smooth interpolation
     
     // Shader modules
     VkShaderModule m_densitySplatShader = VK_NULL_HANDLE;

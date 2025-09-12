@@ -23,6 +23,7 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
 
     createDensityGrid();
     createSTBNTexture();
+    createOpticalDepthLUT();
     createDensitySplatPipeline();
     createVolumeRenderPipeline();
     createDescriptorSets();
@@ -358,6 +359,183 @@ void VolumeRenderer::createSTBNTexture() {
     std::cout << "STBN textures loaded successfully (" << STBN_LAYERS << " layers)" << std::endl;
 }
 
+void VolumeRenderer::createOpticalDepthLUT() {
+    std::cout << "Creating preintegrated optical depth LUT..." << std::endl;
+    
+    // Generate preintegrated optical depth LUT data
+    // f(tau) = (1 - exp(-tau)) / tau for tau > 0, f(0) = 1
+    std::vector<float> lutData(OPTICAL_DEPTH_LUT_SIZE);
+    
+    for (uint32_t i = 0; i < OPTICAL_DEPTH_LUT_SIZE; ++i) {
+        float tau = (float)i / (OPTICAL_DEPTH_LUT_SIZE - 1) * 8.0f; // Map [0, 8] optical depth range
+        
+        if (tau < 1e-6f) {
+            // Handle tau ≈ 0: lim(tau->0) (1-e^(-tau))/tau = 1
+            lutData[i] = 1.0f;
+        } else {
+            // Preintegrated segment: f(tau) = (1 - exp(-tau)) / tau
+            lutData[i] = (1.0f - expf(-tau)) / tau;
+        }
+    }
+    
+    // Create 1D image for LUT
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_1D;
+    imageInfo.extent.width = OPTICAL_DEPTH_LUT_SIZE;
+    imageInfo.extent.height = 1;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R32_SFLOAT; // Single-channel float
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    if (vkCreateImage(m_context->getDevice(), &imageInfo, nullptr, &m_opticalDepthLUT) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create optical depth LUT image!");
+    }
+    
+    // Allocate memory
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(m_context->getDevice(), m_opticalDepthLUT, &memRequirements);
+    
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, 
+                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    if (vkAllocateMemory(m_context->getDevice(), &allocInfo, nullptr, &m_opticalDepthLUTMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate optical depth LUT memory!");
+    }
+    
+    vkBindImageMemory(m_context->getDevice(), m_opticalDepthLUT, m_opticalDepthLUTMemory, 0);
+    
+    // Upload LUT data
+    VkCommandBuffer cmd = m_context->beginSingleTimeCommands();
+    
+    // Transition to transfer destination
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_opticalDepthLUT;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Create staging buffer
+    VkDeviceSize bufferSize = sizeof(float) * OPTICAL_DEPTH_LUT_SIZE;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = bufferSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    vkCreateBuffer(m_context->getDevice(), &bufferInfo, nullptr, &stagingBuffer);
+    
+    VkMemoryRequirements bufMemRequirements;
+    vkGetBufferMemoryRequirements(m_context->getDevice(), stagingBuffer, &bufMemRequirements);
+    
+    VkMemoryAllocateInfo bufAllocInfo{};
+    bufAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    bufAllocInfo.allocationSize = bufMemRequirements.size;
+    bufAllocInfo.memoryTypeIndex = findMemoryType(bufMemRequirements.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    
+    vkAllocateMemory(m_context->getDevice(), &bufAllocInfo, nullptr, &stagingBufferMemory);
+    vkBindBufferMemory(m_context->getDevice(), stagingBuffer, stagingBufferMemory, 0);
+    
+    // Copy LUT data to staging buffer
+    void* data;
+    vkMapMemory(m_context->getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, lutData.data(), bufferSize);
+    vkUnmapMemory(m_context->getDevice(), stagingBufferMemory);
+    
+    // Copy from staging buffer to image
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {OPTICAL_DEPTH_LUT_SIZE, 1, 1};
+    
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, m_opticalDepthLUT, 
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    
+    // Transition to shader read
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    m_context->endSingleTimeCommands(cmd);
+    
+    // Clean up staging buffer
+    vkDestroyBuffer(m_context->getDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(m_context->getDevice(), stagingBufferMemory, nullptr);
+    
+    // Create image view
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_opticalDepthLUT;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_1D;
+    viewInfo.format = VK_FORMAT_R32_SFLOAT;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    
+    if (vkCreateImageView(m_context->getDevice(), &viewInfo, nullptr, &m_opticalDepthLUTView) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create optical depth LUT image view!");
+    }
+    
+    // Create sampler (linear interpolation for smooth LUT access)
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // Clamp for LUT
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+    
+    if (vkCreateSampler(m_context->getDevice(), &samplerInfo, nullptr, &m_opticalDepthLUTSampler) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create optical depth LUT sampler!");
+    }
+    
+    std::cout << "Optical depth LUT created successfully (" << OPTICAL_DEPTH_LUT_SIZE << " entries)" << std::endl;
+}
+
 void VolumeRenderer::createDensitySplatPipeline() {
     // Load density splat compute shader (choose optimal implementation)
     // If VK_EXT_shader_atomic_float is supported, use per-particle atomic scatter which is O(N * r^3)
@@ -461,8 +639,8 @@ void VolumeRenderer::createVolumeRenderPipeline() {
         throw std::runtime_error("Failed to create volume fragment shader module!");
     }
     
-    // Create descriptor set layout for volume rendering (density + STBN textures)
-    std::array<VkDescriptorSetLayoutBinding, 2> volumeBindings{};
+    // Create descriptor set layout for volume rendering (density + STBN + optical depth LUT)
+    std::array<VkDescriptorSetLayoutBinding, 3> volumeBindings{};
     
     // Binding 0: Density texture
     volumeBindings[0].binding = 0;
@@ -475,6 +653,12 @@ void VolumeRenderer::createVolumeRenderPipeline() {
     volumeBindings[1].descriptorCount = 1;
     volumeBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     volumeBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    
+    // Binding 2: Optical depth LUT
+    volumeBindings[2].binding = 2;
+    volumeBindings[2].descriptorCount = 1;
+    volumeBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    volumeBindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -745,8 +929,8 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     // Bind volume rendering pipeline and push descriptors
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipeline);
     
-    // Push descriptors for density texture + STBN texture (Vulkan 1.4)
-    VkDescriptorImageInfo imageInfos[2] = {};
+    // Push descriptors for density + STBN + optical depth LUT (Vulkan 1.4)
+    VkDescriptorImageInfo imageInfos[3] = {};
     
     // Binding 0: Density texture
     imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -758,7 +942,12 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     imageInfos[1].imageView = m_stbnImageView;
     imageInfos[1].sampler = m_stbnSampler;
     
-    VkWriteDescriptorSet descriptorWrites[2] = {};
+    // Binding 2: Optical depth LUT
+    imageInfos[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfos[2].imageView = m_opticalDepthLUTView;
+    imageInfos[2].sampler = m_opticalDepthLUTSampler;
+    
+    VkWriteDescriptorSet descriptorWrites[3] = {};
     
     // Density texture descriptor
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -784,8 +973,20 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     descriptorWrites[1].pBufferInfo = nullptr;
     descriptorWrites[1].pTexelBufferView = nullptr;
     
+    // Optical depth LUT descriptor
+    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[2].pNext = nullptr;
+    descriptorWrites[2].dstSet = VK_NULL_HANDLE; // Ignored for push descriptors
+    descriptorWrites[2].dstBinding = 2;
+    descriptorWrites[2].dstArrayElement = 0;
+    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[2].descriptorCount = 1;
+    descriptorWrites[2].pImageInfo = &imageInfos[2];
+    descriptorWrites[2].pBufferInfo = nullptr;
+    descriptorWrites[2].pTexelBufferView = nullptr;
+    
     vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipelineLayout, 
-        0, 2, descriptorWrites);
+        0, 3, descriptorWrites);
     
     // Push constants for ray marching with quality override
     VolumePushConstants pushConstants{};
@@ -925,6 +1126,27 @@ void VolumeRenderer::cleanup() {
     if (m_stbnMemory != VK_NULL_HANDLE) {
         vkFreeMemory(m_context->getDevice(), m_stbnMemory, nullptr);
         m_stbnMemory = VK_NULL_HANDLE;
+    }
+    
+    // Clean up optical depth LUT resources
+    if (m_opticalDepthLUTSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(m_context->getDevice(), m_opticalDepthLUTSampler, nullptr);
+        m_opticalDepthLUTSampler = VK_NULL_HANDLE;
+    }
+    
+    if (m_opticalDepthLUTView != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_context->getDevice(), m_opticalDepthLUTView, nullptr);
+        m_opticalDepthLUTView = VK_NULL_HANDLE;
+    }
+    
+    if (m_opticalDepthLUT != VK_NULL_HANDLE) {
+        vkDestroyImage(m_context->getDevice(), m_opticalDepthLUT, nullptr);
+        m_opticalDepthLUT = VK_NULL_HANDLE;
+    }
+    
+    if (m_opticalDepthLUTMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(m_context->getDevice(), m_opticalDepthLUTMemory, nullptr);
+        m_opticalDepthLUTMemory = VK_NULL_HANDLE;
     }
 }
 
