@@ -21,9 +21,9 @@ class VolumeRenderer {
 public:
     // Volume grid parameters  
     struct VolumeParams {
-        glm::vec3 gridOrigin = glm::vec3(-15.0f, -15.0f, -15.0f);
-        float voxelSize = 0.25f;                   // Much finer voxels for high detail
-        glm::uvec3 gridDimensions = glm::uvec3(120, 120, 120);  // 8x increase from 50³ to 120³
+        glm::vec3 gridOrigin = glm::vec3(-25.0f, -25.0f, -25.0f);  // Expanded from 30³ to 50³ world space  
+        float voxelSize = 0.4f;                    // Slightly larger voxels for broader coverage
+        glm::uvec3 gridDimensions = glm::uvec3(125, 125, 125);  // Maintain reasonable memory usage
         float splatRadius = 1.0f;                  
         uint32_t maxRaySteps = 128;                // Double the ray steps
         float rayStepSize = 0.2f;                  // Finer ray steps
@@ -32,9 +32,9 @@ public:
         // HIGH QUALITY settings for realtime high-quality mode (Shift+V)
         static VolumeParams getHighQuality() {
             VolumeParams params;
-            params.gridOrigin = glm::vec3(-15.0f, -15.0f, -15.0f);  
-            params.voxelSize = 0.2f;               // Good detail balance
-            params.gridDimensions = glm::uvec3(150, 150, 150);  // 1.25x increase for realtime HQ
+            params.gridOrigin = glm::vec3(-25.0f, -25.0f, -25.0f);  // Match expanded bounds
+            params.voxelSize = 0.32f;              // Proportionally adjusted detail balance  
+            params.gridDimensions = glm::uvec3(156, 156, 156);  // Maintain 1.25x increase ratio
             params.splatRadius = 1.2f;             // Smooth splatting
             params.maxRaySteps = 256;              // Double standard ray steps
             params.rayStepSize = 0.1f;             // Finer ray marching
@@ -45,8 +45,8 @@ public:
         // ULTRA-HIGH QUALITY settings for recording-only mode (Ctrl+V)
         static VolumeParams getUltraRecordingQuality() {
             VolumeParams params;
-            params.gridOrigin = glm::vec3(-20.0f, -20.0f, -20.0f);  // Larger coverage
-            params.voxelSize = 0.08f;              // Ultra-fine detail
+            params.gridOrigin = glm::vec3(-30.0f, -30.0f, -30.0f);  // Maximum coverage for recording  
+            params.voxelSize = 0.12f;              // Balanced ultra-fine detail with expanded bounds
             params.gridDimensions = glm::uvec3(500, 500, 500);  // MASSIVE resolution grid
             params.splatRadius = 2.0f;             // Maximum smooth splatting
             params.maxRaySteps = 1024;             // EXTREME ray steps - recording only!

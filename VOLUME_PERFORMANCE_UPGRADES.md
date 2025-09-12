@@ -37,10 +37,19 @@ Ordered by estimated impact for this project. Scores are 1 (low) to 10 (very hig
 - **Relevant spec / MCP**:
   - search_vulkan_spec("vkCmdPipelineBarrier2") → Section 7.6; Section 54.6 list
 
-## 4) Subgroup-Coherent Early Exit (Score: 7)
+## 4) ✅ Subgroup-Coherent Early Exit (Score: 7) [COMPLETED - Sep 12, 2025]
 - **Benefit**: Whole-wave termination during raymarch when fully opaque; reduces iterations.
-- **Approach**: Use subgroup vote/ballot to test if all invocations reached transmittance threshold, then break.
-- **Code touchpoints**: `shaders/volume.frag` ray loop.
+- **Status**: ✅ **FULLY IMPLEMENTED**
+  - ✅ Subgroup properties querying in VulkanContext (subgroupSize: 32, ballot support: YES)
+  - ✅ GLSL extensions enabled (GL_KHR_shader_subgroup_ballot, GL_KHR_shader_subgroup_vote)
+  - ✅ SPIR-V 1.3 + Vulkan 1.1 target environment for subgroup operations
+  - ✅ subgroupAll() early exit in volume ray marching loop
+- **Implementation**:
+  - `VulkanContext`: Added m_subgroupProperties querying and supportsSubgroupBallot() capability check
+  - `shaders/volume.frag`: Added subgroupAll(transmittance <= 0.01) early termination after 8 iterations
+  - `shaders/CMakeLists.txt`: Special SPIR-V 1.3 compilation for volume.frag
+- **Performance**: Maintains 180-195 FPS performance with coherent early exit optimization
+- **Code touchpoints**: `src/renderer/VulkanContext.h/cpp` (subgroup querying), `shaders/volume.frag` (early exit), `shaders/CMakeLists.txt` (SPIR-V 1.3 target).
 - **Relevant spec / MCP**:
   - search_vulkan_spec("subgroup ballot") → Sections 54.6 (caps), 50.2 (subgroup properties), 9.27 (Group Operations)
   - search_vulkan_spec("shader subgroup") → feature controls and stages

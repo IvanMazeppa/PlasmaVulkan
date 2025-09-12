@@ -81,13 +81,23 @@ float sampleDensity(vec3 worldPos) {
     return sampleDensityLOD(worldPos, 0.0);
 }
 
-// Estimate gradient for simple shading
+// Estimate gradient for simple shading (optimized with LOD sampling)
 vec3 densityGradient(vec3 worldPos) {
     float h = push.voxelSize; // step equal to voxel size
-    float dx = sampleDensity(worldPos + vec3(h,0,0)) - sampleDensity(worldPos - vec3(h,0,0));
-    float dy = sampleDensity(worldPos + vec3(0,h,0)) - sampleDensity(worldPos - vec3(0,h,0));
-    float dz = sampleDensity(worldPos + vec3(0,0,h)) - sampleDensity(worldPos - vec3(0,0,h));
+    // Sample gradient at LOD 1 to reduce texture fetches and denoise
+    // This trades some accuracy for significant performance improvement (6 fetches → cheaper fetches)
+    const float gradientLOD = 1.0;
+    float dx = sampleDensityLOD(worldPos + vec3(h,0,0), gradientLOD) - sampleDensityLOD(worldPos - vec3(h,0,0), gradientLOD);
+    float dy = sampleDensityLOD(worldPos + vec3(0,h,0), gradientLOD) - sampleDensityLOD(worldPos - vec3(0,h,0), gradientLOD);
+    float dz = sampleDensityLOD(worldPos + vec3(0,0,h), gradientLOD) - sampleDensityLOD(worldPos - vec3(0,0,h), gradientLOD);
     return vec3(dx, dy, dz) / (2.0 * h);
+}
+
+// Henyey-Greenstein phase function for single scattering
+float henyeyGreenstein(float cosTheta, float g) {
+    float g2 = g * g;
+    float denominator = 1.0 + g2 - 2.0 * g * cosTheta;
+    return (1.0 - g2) / (4.0 * 3.14159265 * pow(denominator, 1.5));
 }
 
 // Improved plasma color with temperature remapping controls
@@ -227,10 +237,25 @@ void main() {
             // Color from density (emission)
             vec3 emission = temperatureToColor(dens);
             
-            // Simple edge lighting using gradient and view dir
+            // Physically-based single scattering with Henyey-Greenstein phase function
+            // Define a simple directional light (can be made configurable later)
+            vec3 lightDir = normalize(vec3(-0.5, -0.8, -0.6)); // Light from upper-left-front
+            vec3 lightColor = vec3(1.2, 1.0, 0.9); // Warm white light
+            
+            // Compute scattering phase function
+            float cosTheta = dot(-rd, lightDir); // Angle between ray and light
+            float g = 0.75; // Forward scattering parameter (0.6-0.85 for plasma)
+            float phase = henyeyGreenstein(cosTheta, g);
+            
+            // Add single scattering contribution
+            float scatteringStrength = 0.8; // Controls scattering intensity
+            vec3 scatteredLight = lightColor * phase * scatteringStrength * dens;
+            emission += scatteredLight;
+            
+            // Keep some basic edge enhancement for fine features
             vec3 N = normalize(densityGradient(pos) + 1e-5);
-            float viewDot = clamp(dot(-rd, N) * 0.5 + 0.5, 0.0, 1.0);
-            emission *= mix(0.8, 1.3, viewDot); // emphasize thin features
+            float edgeEnhancement = clamp(dot(-rd, N) * 0.3 + 0.7, 0.5, 1.2);
+            emission *= edgeEnhancement;
             emission *= push.emissionScale; // Runtime adjustable emission (NUM4 key)
             
             // Beer-Lambert transmittance update
