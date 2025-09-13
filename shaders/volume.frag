@@ -26,13 +26,15 @@ layout(push_constant) uniform PushConstants {
     float saturation;      // Color saturation control
     uint frameIndex;       // Frame counter for STBN layer selection
     vec2 cpOffset;         // Cranley-Patterson offset for temporal jitter
-    float _padding2;
+    float lightIntensity;  // Light brightness multiplier
+    float shadowStrength;  // Shadow contrast power curve
 } push;
 
 // 3D density texture
 layout(binding = 0) uniform sampler3D densityTexture;
 layout(binding = 1) uniform sampler2DArray stbnTexture;
 layout(binding = 2) uniform sampler1D opticalDepthLUT;
+layout(binding = 3) uniform sampler2D dsmTexture; // Deep Shadow Map for volumetric self-shadowing
 
 // Generate world space ray from screen coordinate
 vec3 getRayDirection(vec2 screenPos) {
@@ -142,6 +144,41 @@ float henyeyGreenstein(float cosTheta, float g) {
     float g2 = g * g;
     float denominator = 1.0 + g2 - 2.0 * g * cosTheta;
     return (1.0 - g2) / (4.0 * 3.14159265 * pow(denominator, 1.5));
+}
+
+// Sample Deep Shadow Map for volumetric self-shadowing
+float sampleDSM(vec3 worldPos) {
+    // TEMPORARY: Revert to manual calculation until UBO is implemented
+    // TODO: Replace with UBO matrices for perfect sync
+    vec3 lightDir = normalize(vec3(-0.5, -0.8, -0.6));
+    vec3 lightPos = -lightDir * 100.0;
+    vec3 volumeCenter = push.gridOrigin + vec3(push.gridDimensions) * push.voxelSize * 0.5;
+    vec3 volumeSize = vec3(push.gridDimensions) * push.voxelSize;
+    float maxExtent = max(max(volumeSize.x, volumeSize.y), volumeSize.z) * 0.7;
+
+    // Simplified light projection for now
+    vec4 lightSpacePos = vec4((worldPos - volumeCenter) / maxExtent, 1.0);
+    vec4 lightClip = lightSpacePos;
+
+    // Convert to texture coordinates [0,1]
+    vec2 lightUV = lightClip.xy * 0.5 + 0.5;
+
+    // Check if position is within light frustum
+    if (any(lessThan(lightUV, vec2(0.0))) || any(greaterThan(lightUV, vec2(1.0)))) {
+        return 1.0; // Outside light frustum, assume fully lit
+    }
+
+    // Sample transmittance from DSM
+    float transmittance = texture(dsmTexture, lightUV).r;
+
+    // Runtime adjustable shadow contrast
+    // If transmittance is less than 1.0, apply power curve for enhanced shadows
+    if (transmittance < 0.999) {
+        // DSM is working - apply runtime shadow strength
+        transmittance = pow(transmittance, push.shadowStrength);
+    }
+
+    return transmittance;
 }
 
 // Improved plasma color with temperature remapping controls
@@ -321,18 +358,24 @@ void main() {
                                     (shadeStride % 2u == 0u || local_transmittance < 0.99);
             
             if (doExpensiveShading) {
-                // Physically-based single scattering with Henyey-Greenstein phase function
+                // Enhanced single scattering with Henyey-Greenstein phase function
                 vec3 lightDir = normalize(vec3(-0.5, -0.8, -0.6)); // Light from upper-left-front
-                vec3 lightColor = vec3(0.8, 0.7, 0.6); // Dimmer, warmer light to prevent overexposure
-                
+                vec3 baseColor = vec3(1.0, 0.88, 0.72); // Warm white light
+                vec3 lightColor = baseColor * push.lightIntensity; // Runtime adjustable brightness
+
                 // Compute scattering phase function
                 float cosTheta = dot(-rd, lightDir); // Angle between ray and light
                 float g = 0.75; // Forward scattering parameter (0.6-0.85 for plasma)
                 float phase = henyeyGreenstein(cosTheta, g);
-                
-                // Add single scattering contribution with density-based modulation
-                float scatteringStrength = 0.4 * (1.0 - clamp(dens * 2.0, 0.0, 0.8)); // Reduce in dense regions
-                vec3 scatteredLight = lightColor * phase * scatteringStrength;
+
+                // Sample Deep Shadow Map for volumetric self-shadowing
+                float shadowVisibility = sampleDSM(pos);
+                // Debug: Temporarily remove ambient floor to see raw shadow effect
+                // shadowVisibility = max(shadowVisibility, 0.3);
+
+                // Enhanced scattering contribution with better visibility
+                float scatteringStrength = 1.2 * (1.0 - clamp(dens * 1.5, 0.0, 0.6)); // More generous scattering
+                vec3 scatteredLight = lightColor * phase * scatteringStrength * shadowVisibility;
                 emission += scatteredLight;
                 
                 // Edge enhancement with adaptive gradient computation for better quality

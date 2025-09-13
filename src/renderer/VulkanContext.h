@@ -79,6 +79,8 @@ public:
     bool supportsMeshShaders() const { return m_supportsMeshShaders; }
     bool supportsSubgroupBallot() const { return m_supportsSubgroupBallot; }
     uint32_t getSubgroupSize() const { return m_subgroupSize; }
+    bool supportsRayQuery() const { return m_supportsRayQuery; }
+    bool supportsAccelerationStructure() const { return m_supportsAccelerationStructure; }
     
     // Command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
@@ -145,6 +147,8 @@ private:
     bool m_supportsMeshShaders = false; // VK_EXT_mesh_shader
     bool m_supportsSubgroupBallot = false; // Core Vulkan 1.1 subgroup ballot operations
     uint32_t m_subgroupSize = 0;
+    bool m_supportsRayQuery = false; // VK_KHR_ray_query
+    bool m_supportsAccelerationStructure = false; // VK_KHR_acceleration_structure
     
     // Configuration
     bool m_enableValidation;

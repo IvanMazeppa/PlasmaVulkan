@@ -19,6 +19,8 @@ set(SHADER_SOURCES
     density_splat_scatter.comp
     volume.vert
     volume.frag
+    # Deep Shadow Map (DSM) compute shader for volumetric self-shadowing
+    dsm_build.comp
     # TAA (Temporal Anti-Aliasing) shaders for noise reduction
     taa.vert
     taa.frag

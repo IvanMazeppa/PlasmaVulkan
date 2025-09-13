@@ -1,0 +1,98 @@
+#version 450
+
+// DSM (Deep Shadow Map) builder compute shader
+// Computes light-space transmittance for volumetric self-shadowing
+// Based on VOLUME_RTX_LIGHTING_GUIDE_2025_09_12.md
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// DSM storage image (R16F format, 1024x1024)
+layout(binding = 0, r16f) uniform writeonly image2D dsmImage;
+
+// Volume density texture
+layout(binding = 1) uniform sampler3D densityTexture;
+
+// Light matrices and volume parameters
+layout(push_constant) uniform DSMPushConstants {
+    mat4 lightViewMatrix;        // Light view matrix
+    mat4 lightProjMatrix;        // Light projection matrix
+    vec3 gridOrigin;             // Volume grid origin in world space
+    float voxelSize;             // Voxel size in world units
+    vec3 gridDimensions;         // Grid dimensions (uvec3 -> vec3 for alignment)
+    float stepSize;              // Ray marching step size in light space
+    vec3 lightDirection;         // Normalized light direction (for directional light)
+    float maxDistance;           // Maximum ray distance through volume
+    float densityScale;          // Density scaling factor
+    float _padding1;
+    float _padding2;
+    float _padding3;
+} pc;
+
+// Sample density from 3D texture at world position
+float sampleDensity(vec3 worldPos) {
+    // Convert world position to texture coordinates
+    vec3 texCoord = (worldPos - pc.gridOrigin) / (pc.gridDimensions * pc.voxelSize);
+
+    // Check bounds
+    if (any(lessThan(texCoord, vec3(0.0))) || any(greaterThan(texCoord, vec3(1.0)))) {
+        return 0.0;
+    }
+
+    return texture(densityTexture, texCoord).r;
+}
+
+// Convert DSM texel coordinates to world space ray origin
+vec3 dsmTexelToWorldPos(ivec2 texelCoord, ivec2 dsmSize) {
+    // Convert texel to NDC [-1, 1]
+    vec2 ndc = (vec2(texelCoord) + 0.5) / vec2(dsmSize) * 2.0 - 1.0;
+
+    // Inverse light projection to get light-space position
+    vec4 lightSpacePos = inverse(pc.lightProjMatrix) * vec4(ndc, -1.0, 1.0);
+    lightSpacePos /= lightSpacePos.w;
+
+    // Transform to world space
+    vec4 worldPos = inverse(pc.lightViewMatrix) * lightSpacePos;
+    return worldPos.xyz;
+}
+
+void main() {
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 dsmSize = imageSize(dsmImage);
+
+    // Skip if outside DSM bounds
+    if (any(greaterThanEqual(texelCoord, dsmSize))) {
+        return;
+    }
+
+    // Get ray origin at the front face of the light frustum
+    vec3 rayOrigin = dsmTexelToWorldPos(texelCoord, dsmSize);
+
+    // Ray direction is the negative light direction (from light towards volume)
+    vec3 rayDirection = -pc.lightDirection;
+
+    // Integrate optical depth along the ray
+    float opticalDepth = 0.0;
+    float t = 0.0;
+
+    // March through the volume
+    while (t < pc.maxDistance) {
+        vec3 samplePos = rayOrigin + rayDirection * t;
+
+        // Sample density at current position
+        float density = sampleDensity(samplePos);
+
+        // Accumulate optical depth (σ_t * density * step_size)
+        // Using Beer-Lambert law: T = exp(-∫ σ_t(s) ds)
+        // Increase sigma_t for stronger shadows (multiply by 5.0 for more visible effect)
+        opticalDepth += density * pc.densityScale * pc.stepSize * 5.0;
+
+        // Advance ray
+        t += pc.stepSize;
+    }
+
+    // Compute transmittance T = exp(-τ)
+    float transmittance = exp(-opticalDepth);
+
+    // Store transmittance in DSM
+    imageStore(dsmImage, texelCoord, vec4(transmittance, 0.0, 0.0, 1.0));
+}

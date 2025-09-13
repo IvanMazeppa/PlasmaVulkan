@@ -68,6 +68,22 @@ public:
         float _padding3;
     };
     
+    // Push constants for DSM building
+    struct DSMPushConstants {
+        glm::mat4 lightViewMatrix;        // Light view matrix
+        glm::mat4 lightProjMatrix;        // Light projection matrix
+        glm::vec3 gridOrigin;             // Volume grid origin in world space
+        float voxelSize;                  // Voxel size in world units
+        glm::vec3 gridDimensions;         // Grid dimensions (as vec3 for alignment)
+        float stepSize;                   // Ray marching step size in light space
+        glm::vec3 lightDirection;         // Normalized light direction
+        float maxDistance;                // Maximum ray distance through volume
+        float densityScale;               // Density scaling factor
+        float _padding1;
+        float _padding2;
+        float _padding3;
+    };
+
     // Push constants for ray marching
     struct VolumePushConstants {
         glm::mat4 viewProjInv;
@@ -84,30 +100,41 @@ public:
         float tempOffset;      // Temperature offset for color shift
         float tempRange;       // Temperature range compression/expansion
         float saturation;      // Color saturation control
-        uint32_t frameIndex;   // For STBN layer selection  
+        uint32_t frameIndex;   // For STBN layer selection
         glm::vec2 cpOffset;     // Cranley-Patterson offset for temporal jitter
-        float _padding2;
+        float lightIntensity;   // Light brightness multiplier
+        float shadowStrength;   // Shadow contrast power curve
+    };
+
+    // Light matrices uniform buffer for DSM synchronization
+    struct LightMatricesUBO {
+        glm::mat4 lightViewMatrix;    // DSM light view matrix
+        glm::mat4 lightProjMatrix;    // DSM light projection matrix
     };
 
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});
     ~VolumeRenderer();
     
     // Update runtime parameters from Application
-    void setRuntimeParameters(float densityScale, float opacityScale, float stepSize, 
+    void setRuntimeParameters(float densityScale, float opacityScale, float stepSize,
                             float emissionScale, int maxSteps,
-                            float tempOffset, float tempRange, float saturation);
+                            float tempOffset, float tempRange, float saturation,
+                            float lightIntensity = 2.5f, float shadowStrength = 3.0f);
     
     // Update TAA parameters
     void setTAAParameters(float blendFactor);
-    
+
     // Update volume parameters (may recreate grid if voxel size changes)
     void setVolumeDetailParameters(float voxelSize);
-    
+
     // Update quality settings dynamically
     void setRecordingQuality(bool enable);
-    
+
     // Handle swapchain resize - recreate TAA resources
     void onSwapchainResized(VkExtent2D newExtent);
+
+    // Ray tracing support
+    bool supportsRayTracing() const;
     
     // Update density grid from particle data
     void updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount);
@@ -162,6 +189,20 @@ private:
     void cleanupTAAResources();    // Clean up TAA resources for resize
     void recreateDensityGrid();    // Recreate density grid with new parameters
     void cleanup();
+
+    // Ray tracing acceleration structures
+    void createAccelerationStructures();
+    void createBLAS();  // Bottom Level Acceleration Structure (scene geometry)
+    void createTLAS();  // Top Level Acceleration Structure (instances)
+    void cleanupAccelerationStructures();
+
+    // Deep Shadow Map (DSM) for volumetric self-shadowing
+    void createDSMResources();           // Create DSM image, views, and sampler
+    void createDSMPipeline();            // Create DSM build compute pipeline
+    void updateLightMatrices();          // Update light view/projection matrices
+    void buildDSM(VkCommandBuffer cmd);  // Build DSM transmittance in light-space
+    void clearDSMToWhite();              // Initialize DSM to fully lit state
+    void cleanupDSMResources();
     
     VulkanContext* m_context;
     VolumeParams m_params;
@@ -238,6 +279,8 @@ private:
     float m_runtimeTempOffset = 0.0f;
     float m_runtimeTempRange = 1.0f;
     float m_runtimeSaturation = 1.0f;
+    float m_runtimeLightIntensity = 2.5f;  // Light brightness multiplier
+    float m_runtimeShadowStrength = 3.0f;  // Shadow contrast power curve
     
     // TAA parameters
     float m_taaBlendFactor = 0.1f;  // Blend factor for temporal accumulation
@@ -245,7 +288,43 @@ private:
     
     // First-frame crash prevention
     bool m_densityInitialized = false;    // Track if density grid has been updated at least once
-    
+
+    // Ray tracing acceleration structures (only created if RT is supported)
+    VkAccelerationStructureKHR m_bottomLevelAS = VK_NULL_HANDLE;
+    VkAccelerationStructureKHR m_topLevelAS = VK_NULL_HANDLE;
+    VkBuffer m_blasBuffer = VK_NULL_HANDLE;           // BLAS storage buffer
+    VkDeviceMemory m_blasBufferMemory = VK_NULL_HANDLE;
+    VkBuffer m_tlasBuffer = VK_NULL_HANDLE;           // TLAS storage buffer
+    VkDeviceMemory m_tlasBufferMemory = VK_NULL_HANDLE;
+    VkBuffer m_geometryBuffer = VK_NULL_HANDLE;       // Scene geometry vertices
+    VkDeviceMemory m_geometryBufferMemory = VK_NULL_HANDLE;
+    VkBuffer m_instanceBuffer = VK_NULL_HANDLE;       // TLAS instance data
+    VkDeviceMemory m_instanceBufferMemory = VK_NULL_HANDLE;
+    bool m_rayTracingInitialized = false;            // Track if RT structures are built
+
+    // Deep Shadow Map (DSM) for volumetric self-shadowing
+    VkImage m_dsmImage = VK_NULL_HANDLE;              // Deep shadow map image (R16F)
+    VkDeviceMemory m_dsmImageMemory = VK_NULL_HANDLE;
+    VkImageView m_dsmImageView = VK_NULL_HANDLE;      // For sampling in volume.frag
+    VkImageView m_dsmStorageView = VK_NULL_HANDLE;    // For compute writes in dsm_build.comp
+    VkSampler m_dsmSampler = VK_NULL_HANDLE;
+    static constexpr uint32_t DSM_SIZE = 1024;       // 1024x1024 DSM resolution
+
+    // DSM compute pipeline for building light-space transmittance
+    VkPipeline m_dsmBuildPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout m_dsmBuildPipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_dsmBuildDescriptorSetLayout = VK_NULL_HANDLE;
+    VkShaderModule m_dsmBuildShader = VK_NULL_HANDLE;
+
+    // Light matrices for DSM projection
+    glm::mat4 m_lightViewMatrix = glm::mat4(1.0f);    // Light view matrix
+    glm::mat4 m_lightProjMatrix = glm::mat4(1.0f);    // Light projection matrix
+
+    // Light matrices uniform buffer for shader synchronization
+    VkBuffer m_lightMatricesUBO = VK_NULL_HANDLE;
+    VkDeviceMemory m_lightMatricesUBOMemory = VK_NULL_HANDLE;
+    void* m_lightMatricesUBOMapped = nullptr;    // Persistent mapping
+
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     VkShaderModule createShaderModule(const std::vector<char>& code);
