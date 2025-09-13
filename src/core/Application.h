@@ -212,6 +212,10 @@ private:
     float m_volumeTemperatureRange = 1.0f;   // NUM7: Temperature range (0.5 to 2.0, compresses/expands gradient)
     float m_volumeColorSaturation = 1.0f;    // NUM8: Color saturation (0.5 to 1.5, vibrance control)
     
+    // TAA (Temporal Anti-Aliasing) controls for noise smoothing
+    bool m_taaEnabled = true;                // NUM9: Enable/disable TAA (allows high density with noise smoothing)
+    float m_taaBlendFactor = 0.1f;           // TAA blend factor: lower = more history, higher = more current frame
+    
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma
     float m_bloomThreshold = 0.8f;           // Brightness threshold
