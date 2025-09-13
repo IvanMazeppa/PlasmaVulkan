@@ -2,12 +2,18 @@
 
 Ordered by estimated impact for the current codebase state. Scores: 1 (low) → 10 (very high).
 
-## 1) Adaptive Step + Continuous LOD + Preintegrated Segment (Score: 10)
+## 1) ✅ Adaptive Step + Continuous LOD + Preintegrated Segment (Score: 10) [COMPLETED - Sep 13, 2025]
 - **Benefit**: Larger steps with fewer artifacts; reduces banding and sample count.
-- **Approach**:
-  - Step size scales with gradient magnitude and current transmittance.
-  - Compute continuous `lod = clamp(log2(stepSize / voxelSize), 0, maxMip)` and sample with `textureLod`.
-  - Use preintegrated absorption/emission over the segment: integrate analytically for constant density or use a 1D LUT over optical depth.
+- **Status**: ✅ **FULLY IMPLEMENTED AND ENHANCED**
+  - ✅ Optical-depth-driven adaptive stepping: `tauTarget / max(sigma_t * dens, 1e-4)`
+  - ✅ Enhanced continuous LOD with dual-level blending for smoother transitions
+  - ✅ Preintegrated optical depth LUT (256 entries) already implemented
+  - ✅ Runtime voxel size control (NUM9) for dynamic detail adjustment
+- **Implementation**:
+  - `shaders/volume.frag`: Advanced adaptive stepping with optical depth targeting
+  - `sampleDensityContinuousLOD()`: Dual-level sampling with smooth blending between LOD levels
+  - `VolumeRenderer::setVolumeDetailParameters()`: Runtime grid recreation for voxel size changes
+- **Performance**: Maintains high FPS with significantly reduced voxel blockiness
 - **Code touchpoints**: `shaders/volume.frag` ray loop; add preintegrated segment helper; smooth LOD mapping.
 - **Spec / MCP**:
   - search_vulkan_spec("3D image mipmap") → Sections 12.4, 12.6

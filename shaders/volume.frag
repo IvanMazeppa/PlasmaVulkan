@@ -122,6 +122,21 @@ vec3 densityGradient(vec3 worldPos) {
     return vec3(dx, dy, dz) / (2.0 * h);
 }
 
+// Enhanced gradient with adaptive LOD for improved quality in detailed areas
+vec3 adaptiveGradient(vec3 worldPos, float currentLOD, float stepSize) {
+    float h = stepSize * 0.5; // Use half step size for gradient sampling
+    
+    // Adaptive LOD: use higher detail for close-up/small steps, lower for distant/large steps
+    float adaptiveLOD = clamp(currentLOD - 0.5, 0.0, 2.0); // Slightly higher detail than main sampling
+    
+    // Use continuous LOD sampling for smoother gradients
+    float dx = sampleDensityContinuousLOD(worldPos + vec3(h,0,0), adaptiveLOD) - sampleDensityContinuousLOD(worldPos - vec3(h,0,0), adaptiveLOD);
+    float dy = sampleDensityContinuousLOD(worldPos + vec3(0,h,0), adaptiveLOD) - sampleDensityContinuousLOD(worldPos - vec3(0,h,0), adaptiveLOD);
+    float dz = sampleDensityContinuousLOD(worldPos + vec3(0,0,h), adaptiveLOD) - sampleDensityContinuousLOD(worldPos - vec3(0,0,h), adaptiveLOD);
+    
+    return vec3(dx, dy, dz) / (2.0 * h);
+}
+
 // Henyey-Greenstein phase function for single scattering
 float henyeyGreenstein(float cosTheta, float g) {
     float g2 = g * g;
@@ -320,8 +335,8 @@ void main() {
                 vec3 scatteredLight = lightColor * phase * scatteringStrength;
                 emission += scatteredLight;
                 
-                // Edge enhancement with gated gradient computation (expensive: 6 texture fetches)
-                vec3 N = normalize(densityGradient(pos) + 1e-5);
+                // Edge enhancement with adaptive gradient computation for better quality
+                vec3 N = normalize(adaptiveGradient(pos, lod, currentStep) + 1e-5);
                 float edgeEnhancement = clamp(dot(-rd, N) * 0.2 + 0.8, 0.6, 1.1); // Gentler enhancement
                 emission *= edgeEnhancement;
             }

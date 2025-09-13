@@ -2016,7 +2016,6 @@ void VolumeRenderer::updateTAAMatrix(const glm::mat4& viewProj) {
     m_taaFirstFrame = false;  // Clear first frame flag
 }
 
-<<<<<<< HEAD
 void VolumeRenderer::setVolumeDetailParameters(float voxelSize) {
     // Check if voxel size actually changed
     if (std::abs(m_params.voxelSize - voxelSize) > 0.001f) {
@@ -2072,8 +2071,6 @@ void VolumeRenderer::recreateDensityGrid() {
     std::cout << "[VOLUME] Density grid recreated successfully" << std::endl;
 }
 
-=======
->>>>>>> ad0124636811c6060e33440a8e63513297684d0f
 void VolumeRenderer::cleanupTAAResources() {
     VkDevice device = m_context->getDevice();
     
