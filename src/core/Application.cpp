@@ -549,6 +549,9 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             // Generate mip chain for cone-stepped raymarch (performance upgrade #1)
             m_volumeRenderer->generateMipChain(commandBuffer);
             
+            // Generate min/max hierarchy for empty-space skipping (performance upgrade #2)
+            m_volumeRenderer->generateMinMaxHierarchy(commandBuffer);
+            
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 1);
@@ -575,6 +578,7 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             try {
                 m_volumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
                 m_volumeRenderer->generateMipChain(commandBuffer);
+                m_volumeRenderer->generateMinMaxHierarchy(commandBuffer);
                 std::cout << "First-frame volume initialization completed successfully" << std::endl;
             } catch (const std::exception& e) {
                 std::cerr << "ERROR during first-frame volume initialization: " << e.what() << std::endl;

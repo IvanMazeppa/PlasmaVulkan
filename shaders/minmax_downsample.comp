@@ -1,0 +1,64 @@
+#version 450
+
+// Min/Max hierarchy downsample compute shader
+// Generates RG16F mip levels where R=min density, G=max density per 2x2x2 block
+// This enables efficient empty-space skipping during ray marching
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Input: higher resolution source mip level (density texture)
+layout(binding = 0, r16f) uniform readonly image3D sourceImage;
+
+// Output: lower resolution min/max mip level (RG16F)
+layout(binding = 1, rg16f) uniform writeonly image3D minMaxImage;
+
+// Push constants for mip level information
+layout(push_constant) uniform PushConstants {
+    ivec3 sourceDimensions;  // Source mip dimensions
+    int sourceMipLevel;      // Source mip level to read from
+    ivec3 targetDimensions;  // Target mip dimensions 
+    int targetMipLevel;      // Target mip level to write to
+} push;
+
+void main() {
+    ivec3 targetCoord = ivec3(gl_GlobalInvocationID.xyz);
+    
+    // Early exit if outside target dimensions
+    if (any(greaterThanEqual(targetCoord, push.targetDimensions))) {
+        return;
+    }
+    
+    // Map target coordinate to source 2x2x2 block
+    ivec3 sourceBase = targetCoord * 2;
+    
+    float minDensity = 1000000.0;  // Start with very high value
+    float maxDensity = -1000000.0; // Start with very low value
+    
+    // Sample 2x2x2 block from source mip and track min/max
+    for (int z = 0; z < 2; z++) {
+        for (int y = 0; y < 2; y++) {
+            for (int x = 0; x < 2; x++) {
+                ivec3 sourceCoord = sourceBase + ivec3(x, y, z);
+                
+                // Clamp to source bounds
+                sourceCoord = clamp(sourceCoord, ivec3(0), push.sourceDimensions - 1);
+                
+                // Sample density from source
+                float density;
+                if (push.sourceMipLevel == 0) {
+                    // Source is density texture (R16F)
+                    density = imageLoad(sourceImage, sourceCoord).r;
+                } else {
+                    // Source is already min/max texture (RG16F) - use max value
+                    density = imageLoad(sourceImage, sourceCoord).g;
+                }
+                
+                minDensity = min(minDensity, density);
+                maxDensity = max(maxDensity, density);
+            }
+        }
+    }
+    
+    // Write min/max to target
+    imageStore(minMaxImage, targetCoord, vec4(minDensity, maxDensity, 0.0, 0.0));
+}

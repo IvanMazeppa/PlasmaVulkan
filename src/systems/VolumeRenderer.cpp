@@ -22,10 +22,12 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
     m_useAtomicScatter = m_context->supportsShaderAtomicFloat();
 
     createDensityGrid();
+    createMinMaxHierarchy();
     createSTBNTexture();
     createOpticalDepthLUT();
     createTAAResources();
     createDensitySplatPipeline();
+    createMinMaxDownsamplePipeline();
     createVolumeRenderPipeline();
     createTAAPipeline();
     createDescriptorSets();
@@ -170,6 +172,88 @@ void VolumeRenderer::createDensityGrid() {
     m_context->endSingleTimeCommands(cmd);
     
     std::cout << "Density image initialized: all " << m_densityMipLevels << " mip levels cleared and transitioned to SHADER_READ_ONLY_OPTIMAL" << std::endl;
+}
+
+void VolumeRenderer::createMinMaxHierarchy() {
+    std::cout << "Creating Min/Max occupancy hierarchy..." << std::endl;
+    
+    VkDevice device = m_context->getDevice();
+    
+    // Create min/max hierarchy image (RG16F format)
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;
+    imageInfo.extent.width = m_params.gridDimensions.x;
+    imageInfo.extent.height = m_params.gridDimensions.y;
+    imageInfo.extent.depth = m_params.gridDimensions.z;
+    imageInfo.mipLevels = m_densityMipLevels;  // Same number of mip levels as density
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R16G16_SFLOAT;  // RG16F: R=min, G=max
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    if (vkCreateImage(device, &imageInfo, nullptr, &m_minMaxImage) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max hierarchy image!");
+    }
+    
+    // Allocate memory for min/max image
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(device, m_minMaxImage, &memRequirements);
+    
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &m_minMaxImageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate min/max hierarchy image memory!");
+    }
+    
+    vkBindImageMemory(device, m_minMaxImage, m_minMaxImageMemory, 0);
+    
+    // Create image view for min/max hierarchy
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_minMaxImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+    viewInfo.format = VK_FORMAT_R16G16_SFLOAT;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = m_densityMipLevels;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    
+    if (vkCreateImageView(device, &viewInfo, nullptr, &m_minMaxImageView) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max hierarchy image view!");
+    }
+    
+    // Create sampler for min/max hierarchy
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = static_cast<float>(m_densityMipLevels);
+    
+    if (vkCreateSampler(device, &samplerInfo, nullptr, &m_minMaxSampler) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max hierarchy sampler!");
+    }
+    
+    std::cout << "Min/Max occupancy hierarchy created (" << m_params.gridDimensions.x << "x" 
+              << m_params.gridDimensions.y << "x" << m_params.gridDimensions.z 
+              << " with " << m_densityMipLevels << " mip levels)" << std::endl;
 }
 
 void VolumeRenderer::createSTBNTexture() {
@@ -838,6 +922,82 @@ void VolumeRenderer::createDensitySplatPipeline() {
     if (vkCreateComputePipelines(m_context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, 
         &m_densitySplatPipeline) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create density splat pipeline!");
+    }
+}
+
+void VolumeRenderer::createMinMaxDownsamplePipeline() {
+    // Load min/max downsample compute shader
+    auto computeShaderCode = readFile("shaders/minmax_downsample.comp.spv");
+    
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = computeShaderCode.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(computeShaderCode.data());
+    
+    if (vkCreateShaderModule(m_context->getDevice(), &createInfo, nullptr, &m_minMaxDownsampleShader) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max downsample shader module!");
+    }
+    
+    // Create descriptor set layout
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings{};
+    
+    // Binding 0: Source image (density or previous min/max level)
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    
+    // Binding 1: Target min/max image
+    bindings[1].binding = 1;
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[1].descriptorCount = 1;
+    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+    
+    if (vkCreateDescriptorSetLayout(m_context->getDevice(), &layoutInfo, nullptr, 
+        &m_minMaxDownsampleDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max downsample descriptor set layout!");
+    }
+    
+    // Push constants
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(MinMaxDownsamplePushConstants);
+    
+    // Create pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &m_minMaxDownsampleDescriptorSetLayout;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+    
+    if (vkCreatePipelineLayout(m_context->getDevice(), &pipelineLayoutInfo, nullptr, 
+        &m_minMaxDownsamplePipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max downsample pipeline layout!");
+    }
+    
+    // Create compute pipeline
+    VkPipelineShaderStageCreateInfo shaderStageInfo{};
+    shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageInfo.module = m_minMaxDownsampleShader;
+    shaderStageInfo.pName = "main";
+    
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage = shaderStageInfo;
+    pipelineInfo.layout = m_minMaxDownsamplePipelineLayout;
+    
+    if (vkCreateComputePipelines(m_context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, 
+        &m_minMaxDownsamplePipeline) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create min/max downsample pipeline!");
     }
 }
 
@@ -1802,6 +1962,22 @@ void VolumeRenderer::cleanup() {
         m_densitySplatPipelineLayout = VK_NULL_HANDLE;
     }
     
+    // Min/Max downsample pipeline cleanup
+    if (m_minMaxDownsamplePipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(m_context->getDevice(), m_minMaxDownsamplePipeline, nullptr);
+        m_minMaxDownsamplePipeline = VK_NULL_HANDLE;
+    }
+    
+    if (m_minMaxDownsamplePipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(m_context->getDevice(), m_minMaxDownsamplePipelineLayout, nullptr);
+        m_minMaxDownsamplePipelineLayout = VK_NULL_HANDLE;
+    }
+    
+    if (m_minMaxDownsampleDescriptorSetLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(m_context->getDevice(), m_minMaxDownsampleDescriptorSetLayout, nullptr);
+        m_minMaxDownsampleDescriptorSetLayout = VK_NULL_HANDLE;
+    }
+    
     if (m_volumePipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(m_context->getDevice(), m_volumePipeline, nullptr);
         m_volumePipeline = VK_NULL_HANDLE;
@@ -1833,6 +2009,11 @@ void VolumeRenderer::cleanup() {
         m_densitySplatShader = VK_NULL_HANDLE;
     }
     
+    if (m_minMaxDownsampleShader != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(m_context->getDevice(), m_minMaxDownsampleShader, nullptr);
+        m_minMaxDownsampleShader = VK_NULL_HANDLE;
+    }
+    
     if (m_volumeVertShader != VK_NULL_HANDLE) {
         vkDestroyShaderModule(m_context->getDevice(), m_volumeVertShader, nullptr);
         m_volumeVertShader = VK_NULL_HANDLE;
@@ -1861,6 +2042,27 @@ void VolumeRenderer::cleanup() {
     if (m_densityImageMemory != VK_NULL_HANDLE) {
         vkFreeMemory(m_context->getDevice(), m_densityImageMemory, nullptr);
         m_densityImageMemory = VK_NULL_HANDLE;
+    }
+    
+    // Clean up Min/Max hierarchy resources
+    if (m_minMaxSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(m_context->getDevice(), m_minMaxSampler, nullptr);
+        m_minMaxSampler = VK_NULL_HANDLE;
+    }
+    
+    if (m_minMaxImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_context->getDevice(), m_minMaxImageView, nullptr);
+        m_minMaxImageView = VK_NULL_HANDLE;
+    }
+    
+    if (m_minMaxImage != VK_NULL_HANDLE) {
+        vkDestroyImage(m_context->getDevice(), m_minMaxImage, nullptr);
+        m_minMaxImage = VK_NULL_HANDLE;
+    }
+    
+    if (m_minMaxImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(m_context->getDevice(), m_minMaxImageMemory, nullptr);
+        m_minMaxImageMemory = VK_NULL_HANDLE;
     }
     
     // Clean up STBN resources
@@ -2067,6 +2269,7 @@ void VolumeRenderer::recreateDensityGrid() {
     
     // Recreate density grid with new parameters
     createDensityGrid();
+    createMinMaxHierarchy();
     
     std::cout << "[VOLUME] Density grid recreated successfully" << std::endl;
 }
@@ -2328,6 +2531,110 @@ void VolumeRenderer::generateMipChain(VkCommandBuffer cmd) {
     finalDependencyInfo.imageMemoryBarrierCount = 1;
     finalDependencyInfo.pImageMemoryBarriers = &barrier;
     vkCmdPipelineBarrier2(cmd, &finalDependencyInfo);
+}
+
+void VolumeRenderer::generateMinMaxHierarchy(VkCommandBuffer cmd) {
+    // Generate min/max hierarchy using compute shader downsampling
+    // This creates RG16F mip chain where R=min density, G=max density per 2x2x2 block
+    
+    // Bind the min/max downsample compute pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_minMaxDownsamplePipeline);
+    
+    // Calculate dimensions for each mip level
+    int32_t sourceMipWidth = m_params.gridDimensions.x;
+    int32_t sourceMipHeight = m_params.gridDimensions.y;
+    int32_t sourceMipDepth = m_params.gridDimensions.z;
+    
+    // Generate each mip level of the min/max hierarchy
+    for (uint32_t mipLevel = 1; mipLevel < m_densityMipLevels; mipLevel++) {
+        // Calculate target dimensions (half of source dimensions)
+        int32_t targetMipWidth = std::max(1, sourceMipWidth / 2);
+        int32_t targetMipHeight = std::max(1, sourceMipHeight / 2);
+        int32_t targetMipDepth = std::max(1, sourceMipDepth / 2);
+        
+        // Set up push constants for this mip level
+        MinMaxDownsamplePushConstants pushConstants{};
+        pushConstants.sourceDimensions = glm::ivec3(sourceMipWidth, sourceMipHeight, sourceMipDepth);
+        pushConstants.sourceMipLevel = mipLevel - 1;  // Source is previous mip level
+        pushConstants.targetDimensions = glm::ivec3(targetMipWidth, targetMipHeight, targetMipDepth);
+        pushConstants.targetMipLevel = mipLevel;      // Target is current mip level
+        
+        vkCmdPushConstants(cmd, m_minMaxDownsamplePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+                          0, sizeof(MinMaxDownsamplePushConstants), &pushConstants);
+        
+        // Set up descriptor writes for this pass
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        
+        // Source image (density texture or previous min/max level)
+        VkDescriptorImageInfo sourceImageInfo{};
+        if (mipLevel == 1) {
+            // First level reads from density texture
+            sourceImageInfo.imageView = m_densityImageView;
+        } else {
+            // Subsequent levels read from min/max texture
+            sourceImageInfo.imageView = m_minMaxImageView;
+        }
+        sourceImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pImageInfo = &sourceImageInfo;
+        
+        // Target min/max image
+        VkDescriptorImageInfo targetImageInfo{};
+        targetImageInfo.imageView = m_minMaxImageView;
+        targetImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &targetImageInfo;
+        
+        // Use push descriptors for dynamic binding
+        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_minMaxDownsamplePipelineLayout,
+                                 0, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data());
+        
+        // Dispatch compute work (8x8x1 local workgroup size from shader)
+        uint32_t groupCountX = (targetMipWidth + 7) / 8;
+        uint32_t groupCountY = (targetMipHeight + 7) / 8;
+        uint32_t groupCountZ = targetMipDepth;  // Each Z layer is handled by separate workgroups
+        
+        vkCmdDispatch(cmd, groupCountX, groupCountY, groupCountZ);
+        
+        // Memory barrier to ensure this mip level is complete before next iteration
+        VkImageMemoryBarrier2 barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = m_minMaxImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = mipLevel;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        
+        VkDependencyInfo dependencyInfo{};
+        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &barrier;
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+        
+        // Update source dimensions for next iteration
+        sourceMipWidth = targetMipWidth;
+        sourceMipHeight = targetMipHeight;
+        sourceMipDepth = targetMipDepth;
+    }
 }
 
 } // namespace plasma

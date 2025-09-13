@@ -88,6 +88,14 @@ public:
         glm::vec2 cpOffset;     // Cranley-Patterson offset for temporal jitter
         float _padding2;
     };
+    
+    // Push constants for min/max hierarchy downsample
+    struct MinMaxDownsamplePushConstants {
+        glm::ivec3 sourceDimensions;  // Source mip dimensions
+        int sourceMipLevel;           // Source mip level to read from
+        glm::ivec3 targetDimensions;  // Target mip dimensions 
+        int targetMipLevel;           // Target mip level to write to
+    };
 
     VolumeRenderer(VulkanContext* context, const VolumeParams& params = {});
     ~VolumeRenderer();
@@ -114,6 +122,9 @@ public:
     
     // Generate mip chain for cone-stepped raymarch optimization
     void generateMipChain(VkCommandBuffer cmd);
+    
+    // Generate min/max hierarchy for empty-space skipping optimization
+    void generateMinMaxHierarchy(VkCommandBuffer cmd);
     
     // Quality levels for volumetric rendering
     enum class QualityLevel {
@@ -152,7 +163,9 @@ public:
 
 private:
     void createDensityGrid();
+    void createMinMaxHierarchy();  // Create min/max occupancy hierarchy
     void createDensitySplatPipeline();
+    void createMinMaxDownsamplePipeline();  // Min/max downsample compute pipeline
     void createVolumeRenderPipeline();
     void createTAAPipeline();
     void createTAAResources();     // TAA history buffer and pipeline
@@ -173,10 +186,21 @@ private:
     VkSampler m_densitySampler = VK_NULL_HANDLE;
     uint32_t m_densityMipLevels = 1;
     
+    // Min/Max occupancy hierarchy (RG16F: R=min, G=max)
+    VkImage m_minMaxImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_minMaxImageMemory = VK_NULL_HANDLE;
+    VkImageView m_minMaxImageView = VK_NULL_HANDLE;
+    VkSampler m_minMaxSampler = VK_NULL_HANDLE;
+    
     // Density splatting compute pipeline
     VkPipeline m_densitySplatPipeline = VK_NULL_HANDLE;
     VkPipelineLayout m_densitySplatPipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_densitySplatDescriptorSetLayout = VK_NULL_HANDLE;
+    
+    // Min/Max hierarchy downsample compute pipeline
+    VkPipeline m_minMaxDownsamplePipeline = VK_NULL_HANDLE;
+    VkPipelineLayout m_minMaxDownsamplePipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_minMaxDownsampleDescriptorSetLayout = VK_NULL_HANDLE;
     
     // Volume rendering graphics pipeline  
     VkPipeline m_volumePipeline = VK_NULL_HANDLE;
@@ -221,6 +245,7 @@ private:
     
     // Shader modules
     VkShaderModule m_densitySplatShader = VK_NULL_HANDLE;
+    VkShaderModule m_minMaxDownsampleShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeVertShader = VK_NULL_HANDLE;
     VkShaderModule m_volumeFragShader = VK_NULL_HANDLE;
     VkShaderModule m_taaVertShader = VK_NULL_HANDLE;
