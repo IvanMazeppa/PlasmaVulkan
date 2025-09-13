@@ -42,14 +42,16 @@ Ordered by estimated impact. Scores are 1 (low) to 10 (very high).
 - **Relevant spec / MCP**:
   - search_vulkan_spec("3D image mipmap"), barriers via search_vulkan_spec("vkCmdPipelineBarrier2")
 
-## 5) ✅ Temporal Supersampling (TAA-style) (Score: 7) [FOUNDATION COMPLETED - Sep 12, 2025]
+## 5) ✅ Temporal Supersampling (TAA-style) (Score: 7) [FULLY COMPLETED - Sep 12, 2025]
 - **Benefit**: Higher effective quality at lower per-frame ray steps; less noise.
-- **Status**: ✅ **FOUNDATION IMPLEMENTED** (ready for activation)
+- **Status**: ✅ **FULLY IMPLEMENTED AND WORKING**
   - ✅ Complete TAA shaders with 3x3 neighborhood clamping
   - ✅ Reprojection matrices for camera movement compensation  
   - ✅ RGB16F history buffer with proper resource management
   - ✅ TAA graphics pipeline with push descriptors
-  - ⏳ **Requires intermediate render targets for full activation**
+  - ✅ Fixed color format issues (linear HDR throughout TAA chain)
+  - ✅ Window resize handling and resource recreation
+  - ✅ Runtime controls for comparison and tuning
 - **Implementation**:
   - `VolumeRenderer::createTAAPipeline()` complete TAA system
   - `VolumeRenderer::renderTAA()` temporal accumulation function

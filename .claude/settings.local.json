@@ -53,7 +53,8 @@
       "mcp__enhanced-vulkan-docs__search_vulkan_api",
       "mcp__enhanced-vulkan-docs__search_vulkan_spec",
       "mcp__enhanced-vulkan-docs__get_spec_section",
-      "mcp__enhanced-vulkan-docs__get_vulkan_entity"
+      "mcp__enhanced-vulkan-docs__get_vulkan_entity",
+      "Bash(/mnt/c/Windows/System32/taskkill.exe /F /IM PlasmaVulkan.exe)"
     ],
     "deny": [],
     "ask": []

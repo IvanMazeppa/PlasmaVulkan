@@ -4,11 +4,13 @@ Ordered by expected visual impact for your current renderer. Scores: 1 (low) →
 
 ## 1) ✅ Banding Reduction: Preintegrated Segment + Blue‑Noise/TAA (Score: 10) [COMPLETED - Sep 12, 2025]
 - **Why**: Remaining banding stems from coarse per‑step integration and structured jitter.
-- **Status**: ✅ **FULLY IMPLEMENTED**
+- **Status**: ✅ **FULLY IMPLEMENTED AND WORKING**
   - ✅ Preintegrated optical depth LUT (256 entries) for Beer-Lambert accuracy
   - ✅ STBN (Spatiotemporal Blue Noise) 64-layer texture array
-  - ✅ TAA foundation with 3x3 neighborhood clamping for ghosting prevention
-  - ✅ Reprojection matrices for temporal stability
+  - ✅ Complete TAA system with proper color format handling (R16G16B16A16_SFLOAT)
+  - ✅ Window resize handling and resource recreation
+  - ✅ Corrected reprojection timing for effective temporal accumulation
+  - ✅ Runtime controls: NUM0 (toggle), NUM. (blend factor)
 - **Implementation**:
   - `VolumeRenderer::createOpticalDepthLUT()` generates preintegrated Beer-Lambert LUT
   - `VolumeRenderer::createSTBNTexture()` loads 64-layer blue noise array

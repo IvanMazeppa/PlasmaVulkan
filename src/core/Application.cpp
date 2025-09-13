@@ -628,14 +628,34 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                 m_volumeEmissionScale, m_volumeMaxSteps,
                 m_volumeTemperatureOffset, m_volumeTemperatureRange, m_volumeColorSaturation);
             
+            // Update TAA parameters
+            m_volumeRenderer->setTAAParameters(m_taaBlendFactor);
+            
             // Safety check: only render if density has been initialized to prevent first-frame crashes
             if (!m_volumeRenderer->needsInitialUpdate()) {
-                // For now, use original render path while debugging TAA
-                m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
-                
-                // TODO: Enable TAA when ready
-                // m_volumeRenderer->renderToTAATarget(commandBuffer, viewProj, cameraPos, quality);
-                // m_volumeRenderer->renderTAA(commandBuffer, viewProj, m_volumeRenderer->getTAACurrentImageView());
+                if (m_taaEnabled) {
+                    // TAA requires intermediate targets - end main renderpass first
+                    vkCmdEndRendering(commandBuffer);
+                    
+                    // TAA ACTIVATED: Volume renders to intermediate target, then TAA processes it
+                    m_volumeRenderer->renderToTAATarget(commandBuffer, viewProj, cameraPos, quality);
+                    m_volumeRenderer->renderTAA(commandBuffer, viewProj, m_volumeRenderer->getTAACurrentImageView());
+                    
+                    // Update history buffer after TAA pass for next frame
+                    m_volumeRenderer->updateTAAHistory(commandBuffer);
+                    
+                    // Update TAA matrix for next frame's reprojection (AFTER TAA processing)
+                    m_volumeRenderer->updateTAAMatrix(viewProj);
+                    
+                    // Restart main renderpass and composite TAA result to main framebuffer
+                    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+                    
+                    // Composite the TAA result to the main framebuffer (PROPER IMPLEMENTATION)
+                    m_volumeRenderer->compositeTAAResult(commandBuffer);
+                } else {
+                    // Direct volume rendering without TAA (allows comparison of noise levels)
+                    m_volumeRenderer->render(commandBuffer, viewProj, cameraPos, quality);
+                }
             } else {
                 // Skip volume rendering this frame - density not yet initialized
                 // Volume will be rendered once physics updates and initializes the density grid
@@ -703,6 +723,11 @@ void Application::recreateSwapChain() {
 
     // Recreate swap chain
     m_vulkanContext->createSwapChain();
+    
+    // Recreate TAA resources for new swapchain size
+    if (m_volumeRenderer) {
+        m_volumeRenderer->onSwapchainResized(m_vulkanContext->getSwapChainExtent());
+    }
 }
 
 
@@ -2062,6 +2087,31 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "[VOLUMETRIC] Color Saturation: " << app->m_volumeColorSaturation 
                   << " (NUM8" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
                   << " [" << (app->m_volumeColorSaturation < 1.0f ? "Desaturated" : "Vibrant") << "]" << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_9 && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.02f : 0.02f;
+        app->m_volumeVoxelSize = std::clamp(app->m_volumeVoxelSize + delta, 0.1f, 0.5f);
+        std::cout << "[VOLUMETRIC] Voxel Size: " << app->m_volumeVoxelSize 
+                  << " (NUM9" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
+                  << " [" << (app->m_volumeVoxelSize < 0.25f ? "Finer Detail" : "Coarser") << "]" << std::endl;
+        std::cout << "[VOLUMETRIC] Grid will be recreated with new voxel size" << std::endl;
+        
+        // Apply the new voxel size to the volume renderer
+        if (app->m_volumeRenderer) {
+            app->m_volumeRenderer->setVolumeDetailParameters(app->m_volumeVoxelSize);
+        }
+    }
+    else if (key == GLFW_KEY_KP_DECIMAL && action == GLFW_PRESS) {
+        float delta = (mods & GLFW_MOD_SHIFT) ? -0.05f : 0.05f;
+        app->m_taaBlendFactor = std::clamp(app->m_taaBlendFactor + delta, 0.05f, 0.3f);
+        std::cout << "[VOLUMETRIC] TAA Blend Factor: " << app->m_taaBlendFactor 
+                  << " (NUM." << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
+                  << " [" << (app->m_taaBlendFactor < 0.15f ? "More History" : "More Current") << "]" << std::endl;
+    }
+    else if (key == GLFW_KEY_KP_0 && action == GLFW_PRESS) {
+        app->m_taaEnabled = !app->m_taaEnabled;
+        std::cout << "[VOLUMETRIC] TAA (Temporal Anti-Aliasing): " << (app->m_taaEnabled ? "ENABLED" : "DISABLED") 
+                  << " (NUM0 toggle) - " << (app->m_taaEnabled ? "Full TAA with temporal noise reduction" : "Direct rendering") << std::endl;
     }
     // Temperature scaling controls (C/X keys)
     else if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {

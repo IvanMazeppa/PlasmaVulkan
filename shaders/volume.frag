@@ -81,6 +81,30 @@ float sampleDensityLOD(vec3 worldPos, float lod) {
     return textureLod(densityTexture, texCoord, lod).r * push.densityScale;
 }
 
+// Improved continuous LOD sampling with dual-level blending for smoother transitions
+float sampleDensityContinuousLOD(vec3 worldPos, float lod) {
+    vec3 texCoord = worldToTexture(worldPos);
+    
+    // Check if we're inside the volume bounds
+    if (any(lessThan(texCoord, vec3(0.0))) || any(greaterThan(texCoord, vec3(1.0)))) {
+        return 0.0;
+    }
+    
+    // Compute discrete LOD levels and blend factor
+    float lodLower = floor(lod);
+    float lodUpper = ceil(lod);
+    float blendFactor = fract(lod);
+    
+    // Sample at both LOD levels
+    float densityLower = textureLod(densityTexture, texCoord, lodLower).r;
+    float densityUpper = textureLod(densityTexture, texCoord, lodUpper).r;
+    
+    // Blend between the two samples for smooth LOD transitions
+    float blendedDensity = mix(densityLower, densityUpper, blendFactor);
+    
+    return blendedDensity * push.densityScale;
+}
+
 // Legacy sample for gradient computation (always use highest detail)
 float sampleDensity(vec3 worldPos) {
     return sampleDensityLOD(worldPos, 0.0);
@@ -252,8 +276,8 @@ void main() {
         float lod = clamp(log2(tentativeStep / push.voxelSize) + lodBias, 0.0, 5.0);
         lod = mix(prevLod, lod, 0.7); // Smooth LOD transitions to avoid flicker
         
-        // Sample density with continuous LOD
-        float dens = sampleDensityLOD(pos, lod);
+        // Sample density with improved continuous LOD for smoother transitions
+        float dens = sampleDensityContinuousLOD(pos, lod);
         
         // Optical-depth-driven step size
         float currentStep = clamp(tauTarget / max(sigma_t * dens, 1e-4), stepMin, stepMax);

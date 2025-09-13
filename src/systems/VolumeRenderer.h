@@ -97,8 +97,17 @@ public:
                             float emissionScale, int maxSteps,
                             float tempOffset, float tempRange, float saturation);
     
+    // Update TAA parameters
+    void setTAAParameters(float blendFactor);
+    
+    // Update volume parameters (may recreate grid if voxel size changes)
+    void setVolumeDetailParameters(float voxelSize);
+    
     // Update quality settings dynamically
     void setRecordingQuality(bool enable);
+    
+    // Handle swapchain resize - recreate TAA resources
+    void onSwapchainResized(VkExtent2D newExtent);
     
     // Update density grid from particle data
     void updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount);
@@ -122,8 +131,14 @@ public:
     // Render TAA pass for temporal noise smoothing (call after volume rendering)
     void renderTAA(VkCommandBuffer cmd, const glm::mat4& viewProj, VkImageView currentFrameView);
     
-    // Copy TAA result to history buffer for next frame (call after rendering)
-    void copyTAAToHistory(VkCommandBuffer cmd, VkImageView taaResultView);
+    // Update TAA history buffer with current frame (call after TAA pass)
+    void updateTAAHistory(VkCommandBuffer cmd);
+    
+    // Update view-projection matrix for next frame's reprojection (call after TAA processing)
+    void updateTAAMatrix(const glm::mat4& viewProj);
+    
+    // Composite TAA result to main framebuffer as fullscreen quad
+    void compositeTAAResult(VkCommandBuffer cmd);
     
     // Get TAA current frame image view for final TAA pass
     VkImageView getTAACurrentImageView() const { return m_taaCurrentImageView; }
@@ -144,6 +159,8 @@ private:
     void createDescriptorSets();
     void createSTBNTexture();
     void createOpticalDepthLUT();  // Preintegrated Beer-Lambert LUT
+    void cleanupTAAResources();    // Clean up TAA resources for resize
+    void recreateDensityGrid();    // Recreate density grid with new parameters
     void cleanup();
     
     VulkanContext* m_context;
@@ -221,6 +238,10 @@ private:
     float m_runtimeTempOffset = 0.0f;
     float m_runtimeTempRange = 1.0f;
     float m_runtimeSaturation = 1.0f;
+    
+    // TAA parameters
+    float m_taaBlendFactor = 0.1f;  // Blend factor for temporal accumulation
+    VkExtent2D m_taaExtent = {0, 0}; // Current TAA image extent
     
     // First-frame crash prevention
     bool m_densityInitialized = false;    // Track if density grid has been updated at least once
