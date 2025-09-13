@@ -2088,6 +2088,7 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
                   << " (NUM8" << ((mods & GLFW_MOD_SHIFT) ? " -)" : " +)") 
                   << " [" << (app->m_volumeColorSaturation < 1.0f ? "Desaturated" : "Vibrant") << "]" << std::endl;
     }
+<<<<<<< HEAD
     else if (key == GLFW_KEY_KP_9 && action == GLFW_PRESS) {
         float delta = (mods & GLFW_MOD_SHIFT) ? -0.02f : 0.02f;
         app->m_volumeVoxelSize = std::clamp(app->m_volumeVoxelSize + delta, 0.1f, 0.5f);
@@ -2101,6 +2102,8 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             app->m_volumeRenderer->setVolumeDetailParameters(app->m_volumeVoxelSize);
         }
     }
+=======
+>>>>>>> ad0124636811c6060e33440a8e63513297684d0f
     else if (key == GLFW_KEY_KP_DECIMAL && action == GLFW_PRESS) {
         float delta = (mods & GLFW_MOD_SHIFT) ? -0.05f : 0.05f;
         app->m_taaBlendFactor = std::clamp(app->m_taaBlendFactor + delta, 0.05f, 0.3f);

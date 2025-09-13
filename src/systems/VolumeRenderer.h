@@ -100,9 +100,12 @@ public:
     // Update TAA parameters
     void setTAAParameters(float blendFactor);
     
+<<<<<<< HEAD
     // Update volume parameters (may recreate grid if voxel size changes)
     void setVolumeDetailParameters(float voxelSize);
     
+=======
+>>>>>>> ad0124636811c6060e33440a8e63513297684d0f
     // Update quality settings dynamically
     void setRecordingQuality(bool enable);
     
@@ -160,7 +163,10 @@ private:
     void createSTBNTexture();
     void createOpticalDepthLUT();  // Preintegrated Beer-Lambert LUT
     void cleanupTAAResources();    // Clean up TAA resources for resize
+<<<<<<< HEAD
     void recreateDensityGrid();    // Recreate density grid with new parameters
+=======
+>>>>>>> ad0124636811c6060e33440a8e63513297684d0f
     void cleanup();
     
     VulkanContext* m_context;

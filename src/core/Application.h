@@ -213,11 +213,16 @@ private:
     float m_volumeColorSaturation = 1.0f;    // NUM8: Color saturation (0.5 to 1.5, vibrance control)
     
     // TAA (Temporal Anti-Aliasing) controls for noise smoothing
+<<<<<<< HEAD
     bool m_taaEnabled = true;                // NUM0: Enable/disable TAA (allows high density with noise smoothing)
     float m_taaBlendFactor = 0.1f;           // NUM.: TAA blend factor: lower = more history, higher = more current frame
     
     // Volume detail controls
     float m_volumeVoxelSize = 0.25f;         // NUM9: Voxel size (smaller = finer detail, higher memory cost)
+=======
+    bool m_taaEnabled = true;                // NUM9: Enable/disable TAA (allows high density with noise smoothing)
+    float m_taaBlendFactor = 0.1f;           // TAA blend factor: lower = more history, higher = more current frame
+>>>>>>> ad0124636811c6060e33440a8e63513297684d0f
     
     // Bloom post-processing
     bool m_bloomEnabled = true;              // Enable bloom glow for plasma
