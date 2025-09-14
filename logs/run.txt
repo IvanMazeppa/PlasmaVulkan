@@ -48,3 +48,92 @@ STBN textures loaded successfully (64 layers)
 Creating preintegrated optical depth LUT...
 Optical depth LUT created successfully (256 entries)
 Creating TAA (Temporal Anti-Aliasing) resources...
+
+========================================
+     PLASMAVULKAN SIMULATION MENU
+========================================
+
+PRESETS:
+  1. Stellar Formation (Default)
+  2. Galaxy Spiral Arms
+  3. Black Hole Accretion Disk
+  4. Globular Cluster
+  5. Protoplanetary Disk
+  6. Galaxy Collision (Dual Gravity)
+  7. Quasar Jets (High Energy)
+  8. Volumetric Plasma (Swirling Energy)
+  9. Custom Settings
+  10. Start with Current Settings
+
+Enter choice (1-10): Starting PlasmaVulkan application...
+Creating Vulkan instance...
+Setting up debug messenger...
+Creating surface...
+Picking physical device...
+Selected GPU: NVIDIA GeForce RTX 4060 Ti
+Subgroup size: 32
+Subgroup ballot in fragment: YES
+Creating logical device...
+Ray Query extension enabled: YES
+Ray Query feature (rayQuery) enabled: YES
+Acceleration Structure extension enabled: YES
+Creating swap chain...
+Using VK_PRESENT_MODE_IMMEDIATE_KHR for maximum performance
+Creating command pool...
+Creating sync objects...
+VulkanContext initialization complete!
+VMA allocator disabled for now (needs investigation)
+Vulkan initialized successfully!
+Creating particle system with 2000000 particles...
+Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 1 not consumed by vertex shader.
+Particle system created successfully!
+Particle system created with 2000000 particles
+Creating volume renderer...
+Grid: 240x240x240
+Density splat mode: voxel gather (fallback)
+Creating density grid with 8 mip levels for LOD sampling
+Density image initialized: all 8 mip levels cleared and transitioned to SHADER_READ_ONLY_OPTIMAL
+Loading STBN (Spatiotemporal Blue Noise) textures...
+STBN textures loaded successfully (64 layers)
+Creating preintegrated optical depth LUT...
+Optical depth LUT created successfully (256 entries)
+Creating TAA (Temporal Anti-Aliasing) resources...
+TAA resources created successfully (1920x1080)
+Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID = 0x215f02cd
+vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) but was not declared in the pipeline layout.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+Objects: 2
+    [0] VkShaderModule 0x440000000044
+    [1] VkPipelineLayout 0x460000000046
+
+Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) but was not declared in the pipeline layout.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+TAA pipeline created successfully!
+Ray tracing acceleration structures initialized successfully
+Volume renderer created successfully!
+Volume renderer created successfully!
+Creating mesh shader particle renderer...
+Mesh shader properties:
+  Max work group invocations: 128
+  Max work group size X: 128
+  Max output vertices: 256
+  Max output primitives: 256
+SPH mesh shader loaded successfully!
+🚀 SPH mesh shader pipeline created successfully!
+Creating acceleration structures for RT occluders...
+  Creating sphere and disc geometry buffers...
+  Sphere: 6 vertices, 24 indices
+  Disc: 5 vertices, 12 indices
+  Building BLAS for sphere and disc occluders...
+  Building TLAS with occluder instances...
+  TLAS device address: 0x1234567890abcdef
+Acceleration structures created successfully!
+Mesh shader particle renderer created successfully!
+Mesh shader particle renderer initialized successfully!
+HDR framebuffer created successfully (1920x1080)
+Bloom pipeline and shaders loaded successfully!
+Application created, starting main loop...
+First render frame starting...
+[PARTICLE DEBUG] Dual galaxy mode: DISABLED, Gravity: 0.6, Active: 1000000
+[RENDERER] Mesh shaders ENABLED - GPU-driven particle generation!
+           Faster performance, better quality rendering

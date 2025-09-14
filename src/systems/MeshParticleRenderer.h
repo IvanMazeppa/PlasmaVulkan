@@ -103,6 +103,27 @@ private:
     uint32_t m_maxMeshWorkGroupSizeX = 0;
     uint32_t m_maxMeshOutputVertices = 0;
     uint32_t m_maxMeshOutputPrimitives = 0;
+
+    // Job 1002: Acceleration structures for RT occluders
+    VkAccelerationStructureKHR m_sphereBLAS = VK_NULL_HANDLE;
+    VkAccelerationStructureKHR m_discBLAS = VK_NULL_HANDLE;
+    VkAccelerationStructureKHR m_topLevelAS = VK_NULL_HANDLE;
+
+    VkBuffer m_sphereVertexBuffer = VK_NULL_HANDLE;
+    VkBuffer m_sphereIndexBuffer = VK_NULL_HANDLE;
+    VkBuffer m_discVertexBuffer = VK_NULL_HANDLE;
+    VkBuffer m_discIndexBuffer = VK_NULL_HANDLE;
+
+    VkBuffer m_sphereBLASBuffer = VK_NULL_HANDLE;
+    VkBuffer m_discBLASBuffer = VK_NULL_HANDLE;
+    VkBuffer m_topLevelASBuffer = VK_NULL_HANDLE;
+    VkBuffer m_instancesBuffer = VK_NULL_HANDLE;
+
+    void createAccelerationStructures();
+    void createOccluderGeometry();
+    void buildBLAS();
+    void buildTLAS();
+    void cleanupAccelerationStructures();
 };
 
 } // namespace plasma

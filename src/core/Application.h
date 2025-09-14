@@ -220,7 +220,7 @@ private:
     float m_volumeVoxelSize = 0.25f;         // NUM9: Voxel size (smaller = finer detail, higher memory cost)
     
     // Bloom post-processing
-    bool m_bloomEnabled = true;              // Enable bloom glow for plasma
+    bool m_bloomEnabled = false;              // Enable bloom glow for plasma (disabled by default)
     float m_bloomThreshold = 0.8f;           // Brightness threshold
     float m_bloomIntensity = 1.5f;           // Glow intensity
     float m_bloomStrength = 0.6f;            // Final blend strength

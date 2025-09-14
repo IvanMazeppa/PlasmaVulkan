@@ -1172,12 +1172,7 @@ void Application::renderBloomPass(VkCommandBuffer commandBuffer) {
         );
     }
     
-    // Visual indicator that bloom processing is active (every 60 frames)
-    if (frameCounter % 60 == 0) {
-        std::cout << "[BLOOM] Active - Threshold: " << m_bloomThreshold 
-                  << ", Intensity: " << m_bloomIntensity 
-                  << ", Strength: " << m_bloomStrength << std::endl;
-    }
+    // Remove bloom log spam - only log on state change now
 }
 
 void Application::enableBloomMode(bool enabled) {
