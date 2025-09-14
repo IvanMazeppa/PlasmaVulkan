@@ -78,6 +78,10 @@ public:
     float getLightIntensity() const { return m_lightIntensity; }
     bool getOcclusionAmplifyEnabled() const { return m_occlusionAmplifyEnabled; }
 
+    // Job 1006: Bounds visualization methods
+    void toggleBoundsOverlay();
+    bool getBoundsOverlayEnabled() const { return m_showBounds; }
+
 private:
     void createDescriptorSetLayout();
     void createPipelineLayout();
@@ -165,6 +169,17 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+    // Job 1006: AABB structure for bounds visualization
+    struct AABB {
+        glm::vec3 min, max;
+    };
+
+    // Job 1006: AABB computation for bounds visualization
+    void computeWorldAABBs();
+    AABB transformAABB(const AABB& aabb, const glm::mat4& transform);
+    void renderBoundsOverlay(VkCommandBuffer cmd, const glm::mat4& viewProj);
+    std::vector<glm::vec3> generateAABBWireframe(const AABB& aabb);
+
     // Job 1003: RT control
     bool m_rtShadowsEnabled = true;  // Runtime RT toggle
 
@@ -172,6 +187,10 @@ private:
     glm::vec3 m_lightDirection = glm::normalize(glm::vec3(-0.5f, -0.8f, -0.6f));
     float m_lightIntensity = 1.0f;
     bool m_occlusionAmplifyEnabled = false;
+
+    // Job 1006: Bounds visualization
+    bool m_showBounds = false;
+    AABB m_sphereAABB, m_discAABB;
 };
 
 } // namespace plasma

@@ -2170,6 +2170,17 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             std::cout << "[LIGHT] Light intensity requires mesh shader mode (press Y)" << std::endl;
         }
     }
+    // Job 1006: Bounds overlay toggle
+    else if (key == GLFW_KEY_F6 && action == GLFW_PRESS) {
+        // Toggle occluder bounds overlay
+        if (app->m_meshRenderer && app->m_meshRenderer->isSupported()) {
+            app->m_meshRenderer->toggleBoundsOverlay();
+            bool enabled = app->m_meshRenderer->getBoundsOverlayEnabled();
+            std::cout << "[BOUNDS] Occluder bounds overlay " << (enabled ? "ENABLED" : "DISABLED") << std::endl;
+        } else {
+            std::cout << "[BOUNDS] Bounds overlay requires mesh shader mode (press Y)" << std::endl;
+        }
+    }
 }
 
 void Application::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {

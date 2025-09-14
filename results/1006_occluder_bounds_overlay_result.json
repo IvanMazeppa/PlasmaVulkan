@@ -1,0 +1,32 @@
+{
+  "id": "1008_occluder_bounds_overlay",
+  "title": "Occluder bounds overlay and transform verification",
+  "purpose": "Provide fast visual confirmation that occluders are where we expect relative to particles and light.",
+  "steps": [
+    {
+      "action": "aabb_compute",
+      "detail": "Compute AABB for icosphere and disc in object space; transform to world using the TLAS instance transforms to get world-space AABB."
+    },
+    {
+      "action": "overlay",
+      "detail": "Render simple wireframe boxes or lines for the world-space AABBs using a lightweight debug pipeline (solid color lines). Add a toggle key (B) to show/hide."
+    },
+    {
+      "action": "logs",
+      "detail": "Print the instance 3x4 row-major matrices and the resulting AABB min/max once after build and whenever transforms change."
+    }
+  ],
+  "acceptance": [
+    "Toggling the bounds overlay shows boxes tightly wrapping occluders",
+    "Printed transforms and AABBs match visual placement"
+  ],
+  "touchpoints": [
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/systems/MeshParticleRenderer.h",
+    "src/core/Application.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('VkAccelerationStructureInstanceKHR transform row-major')"
+  ],
+  "notes": "Overlay can be drawn in the same pass with a simple line list, or a tiny secondary pipeline. Aim for minimal interference with main render."
+}

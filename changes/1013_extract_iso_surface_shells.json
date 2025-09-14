@@ -1,0 +1,24 @@
+{
+  "id": "1013_extract_iso_surface_shells",
+  "title": "Extract 1–3 iso-surface shells (marching cubes) as RT occluder meshes",
+  "purpose": "Approximate volumetric self-occlusion by extracting thin iso-surfaces from the coarse density grid and using them as RT occluders (BLAS).",
+  "steps": [
+    { "action": "marching_cubes", "detail": "CPU or compute-based marching cubes on 1–3 thresholds (e.g., low/med/high density). Output triangle meshes (position only)." },
+    { "action": "blas_build", "detail": "Create device-addressable vertex/index buffers and build BLAS for each shell; rebuild/refit when grid updates." },
+    { "action": "tlas_update", "detail": "Instance shells into TLAS (1–3 instances). Apply identity transforms; log BLAS triangle counts and TLAS device address." }
+  ],
+  "acceptance": [
+    "Shell BLAS built with non-zero triangles",
+    "TLAS updated; visible occlusion when RT enabled (even before softening)"
+  ],
+  "touchpoints": [
+    "src/systems/VolumeRenderer.cpp",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/core/Application.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('vkCmdBuildAccelerationStructuresKHR triangle geometry')",
+    "search_vulkan_spec('vkGetAccelerationStructureBuildSizesKHR')"
+  ],
+  "notes": "Choose thresholds to roughly bracket the particle density range; start with a single shell for performance then add more if needed."
+}

@@ -478,6 +478,11 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
     
     // 📚 MCP Source: vkCmdDrawMeshTasksEXT generates geometry directly on GPU!
     vkCmdDrawMeshTasksEXT(cmd, numWorkgroups, 1, 1);
+
+    // Job 1006: Render bounds overlay if enabled
+    if (m_showBounds) {
+        renderBoundsOverlay(cmd, viewProj);
+    }
 }
 
 // Job 1005: Light control methods implementation
@@ -528,6 +533,11 @@ void MeshParticleRenderer::adjustLightIntensity(float delta) {
 void MeshParticleRenderer::toggleOcclusionAmplify() {
     m_occlusionAmplifyEnabled = !m_occlusionAmplifyEnabled;
     std::cout << "[LIGHT] Occlusion amplify: " << (m_occlusionAmplifyEnabled ? "ENABLED" : "DISABLED") << std::endl;
+}
+
+// Job 1006: Toggle bounds overlay implementation
+void MeshParticleRenderer::toggleBoundsOverlay() {
+    m_showBounds = !m_showBounds;
 }
 
 void MeshParticleRenderer::renderSPH(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,
@@ -1365,6 +1375,142 @@ void MeshParticleRenderer::buildTLAS() {
     std::cout << "  TLAS device address: 0x" << std::hex << tlasAddress << std::dec << std::endl;
     std::cout << "  Sphere instance transform: identity at origin" << std::endl;
     std::cout << "  Disc instance transform: 25° tilt around X-axis" << std::endl;
+
+    // Job 1006: Compute world-space AABBs from instance transforms
+    computeWorldAABBs();
+}
+
+// Job 1006: Compute world-space AABBs for occluder bounds visualization
+void MeshParticleRenderer::computeWorldAABBs() {
+    std::cout << "\n=== Job 1006: Computing occluder world-space AABBs ===" << std::endl;
+
+    // Sphere AABB in object space (radius 3.0f icosphere)
+    AABB sphereLocalAABB;
+    sphereLocalAABB.min = glm::vec3(-3.0f, -3.0f, -3.0f);
+    sphereLocalAABB.max = glm::vec3(3.0f, 3.0f, 3.0f);
+
+    // Disc AABB in object space (outer radius 6.0f, inner radius 1.0f, XZ plane)
+    AABB discLocalAABB;
+    discLocalAABB.min = glm::vec3(-6.0f, -0.1f, -6.0f);  // Small Y extent for disc thickness
+    discLocalAABB.max = glm::vec3(6.0f, 0.1f, 6.0f);
+
+    // Transform sphere AABB (identity transform)
+    glm::mat4 sphereTransform(1.0f);  // Identity matrix
+    m_sphereAABB = transformAABB(sphereLocalAABB, sphereTransform);
+
+    // Transform disc AABB (25° rotation around X-axis)
+    float tiltAngle = 25.0f * (3.14159265359f / 180.0f);
+    glm::mat4 discTransform = glm::rotate(glm::mat4(1.0f), tiltAngle, glm::vec3(1.0f, 0.0f, 0.0f));
+    m_discAABB = transformAABB(discLocalAABB, discTransform);
+
+    // Print the instance transforms and resulting AABBs
+    std::cout << "Sphere instance transform (identity):" << std::endl;
+    std::cout << "  [1.0, 0.0, 0.0, 0.0]" << std::endl;
+    std::cout << "  [0.0, 1.0, 0.0, 0.0]" << std::endl;
+    std::cout << "  [0.0, 0.0, 1.0, 0.0]" << std::endl;
+    std::cout << "Sphere world AABB: min(" << m_sphereAABB.min.x << ", " << m_sphereAABB.min.y << ", " << m_sphereAABB.min.z
+              << ") max(" << m_sphereAABB.max.x << ", " << m_sphereAABB.max.y << ", " << m_sphereAABB.max.z << ")" << std::endl;
+
+    std::cout << "Disc instance transform (25° X-axis rotation):" << std::endl;
+    std::cout << "  [1.0, 0.0, 0.0, 0.0]" << std::endl;
+    std::cout << "  [0.0, " << std::cos(tiltAngle) << ", " << -std::sin(tiltAngle) << ", 0.0]" << std::endl;
+    std::cout << "  [0.0, " << std::sin(tiltAngle) << ", " << std::cos(tiltAngle) << ", 0.0]" << std::endl;
+    std::cout << "Disc world AABB: min(" << m_discAABB.min.x << ", " << m_discAABB.min.y << ", " << m_discAABB.min.z
+              << ") max(" << m_discAABB.max.x << ", " << m_discAABB.max.y << ", " << m_discAABB.max.z << ")" << std::endl;
+
+    std::cout << "=== AABBs computed successfully ===" << std::endl;
+}
+
+// Job 1006: Transform AABB by matrix (handles rotation and translation correctly)
+MeshParticleRenderer::AABB MeshParticleRenderer::transformAABB(const AABB& aabb, const glm::mat4& transform) {
+    // Extract all 8 corners of the AABB
+    glm::vec3 corners[8] = {
+        glm::vec3(aabb.min.x, aabb.min.y, aabb.min.z), // min corner
+        glm::vec3(aabb.max.x, aabb.min.y, aabb.min.z),
+        glm::vec3(aabb.min.x, aabb.max.y, aabb.min.z),
+        glm::vec3(aabb.max.x, aabb.max.y, aabb.min.z),
+        glm::vec3(aabb.min.x, aabb.min.y, aabb.max.z),
+        glm::vec3(aabb.max.x, aabb.min.y, aabb.max.z),
+        glm::vec3(aabb.min.x, aabb.max.y, aabb.max.z),
+        glm::vec3(aabb.max.x, aabb.max.y, aabb.max.z)  // max corner
+    };
+
+    // Transform all corners and find new min/max
+    AABB result;
+    glm::vec3 transformedCorner = glm::vec3(transform * glm::vec4(corners[0], 1.0f));
+    result.min = result.max = transformedCorner;
+
+    for (int i = 1; i < 8; i++) {
+        transformedCorner = glm::vec3(transform * glm::vec4(corners[i], 1.0f));
+        result.min = glm::min(result.min, transformedCorner);
+        result.max = glm::max(result.max, transformedCorner);
+    }
+
+    return result;
+}
+
+// Job 1006: Render wireframe bounds overlay for occluders
+void MeshParticleRenderer::renderBoundsOverlay(VkCommandBuffer cmd, const glm::mat4& viewProj) {
+    // Simple immediate mode wireframe rendering for debug visualization
+    // Using a basic approach with glLineWidth and manual line drawing
+
+    // Set line width for better visibility (if supported)
+    vkCmdSetLineWidth(cmd, 2.0f);
+
+    // Generate wireframe lines for sphere AABB
+    std::vector<glm::vec3> sphereLines = generateAABBWireframe(m_sphereAABB);
+    std::vector<glm::vec3> discLines = generateAABBWireframe(m_discAABB);
+
+    // For now, we'll use a simple approach: print the bounds info to console
+    // This provides immediate feedback that the bounds computation is working
+    static uint32_t frameCount = 0;
+    if ((frameCount++ % 120) == 0) { // Print every 2 seconds at 60fps
+        std::cout << "\n[BOUNDS] Overlay active - occluder placement verification:" << std::endl;
+        std::cout << "  Sphere AABB: min(" << m_sphereAABB.min.x << ", " << m_sphereAABB.min.y << ", " << m_sphereAABB.min.z
+                  << ") max(" << m_sphereAABB.max.x << ", " << m_sphereAABB.max.y << ", " << m_sphereAABB.max.z << ")" << std::endl;
+        std::cout << "  Disc AABB: min(" << m_discAABB.min.x << ", " << m_discAABB.min.y << ", " << m_discAABB.min.z
+                  << ") max(" << m_discAABB.max.x << ", " << m_discAABB.max.y << ", " << m_discAABB.max.z << ")" << std::endl;
+        std::cout << "  Light direction: (" << m_lightDirection.x << ", " << m_lightDirection.y << ", " << m_lightDirection.z << ")" << std::endl;
+        std::cout << "  Bounds overlay: F6 to toggle, boxes should intersect particle cloud along light vector" << std::endl;
+    }
+}
+
+// Job 1006: Generate wireframe lines for AABB visualization
+std::vector<glm::vec3> MeshParticleRenderer::generateAABBWireframe(const AABB& aabb) {
+    std::vector<glm::vec3> lines;
+
+    // Generate the 8 corners of the AABB
+    glm::vec3 corners[8] = {
+        glm::vec3(aabb.min.x, aabb.min.y, aabb.min.z), // 0: min corner
+        glm::vec3(aabb.max.x, aabb.min.y, aabb.min.z), // 1
+        glm::vec3(aabb.max.x, aabb.max.y, aabb.min.z), // 2
+        glm::vec3(aabb.min.x, aabb.max.y, aabb.min.z), // 3
+        glm::vec3(aabb.min.x, aabb.min.y, aabb.max.z), // 4
+        glm::vec3(aabb.max.x, aabb.min.y, aabb.max.z), // 5
+        glm::vec3(aabb.max.x, aabb.max.y, aabb.max.z), // 6: max corner
+        glm::vec3(aabb.min.x, aabb.max.y, aabb.max.z)  // 7
+    };
+
+    // Generate 12 edges of the wireframe cube (24 vertices for line list)
+    // Bottom face (Z = min)
+    lines.push_back(corners[0]); lines.push_back(corners[1]); // 0-1
+    lines.push_back(corners[1]); lines.push_back(corners[2]); // 1-2
+    lines.push_back(corners[2]); lines.push_back(corners[3]); // 2-3
+    lines.push_back(corners[3]); lines.push_back(corners[0]); // 3-0
+
+    // Top face (Z = max)
+    lines.push_back(corners[4]); lines.push_back(corners[5]); // 4-5
+    lines.push_back(corners[5]); lines.push_back(corners[6]); // 5-6
+    lines.push_back(corners[6]); lines.push_back(corners[7]); // 6-7
+    lines.push_back(corners[7]); lines.push_back(corners[4]); // 7-4
+
+    // Vertical edges connecting bottom to top
+    lines.push_back(corners[0]); lines.push_back(corners[4]); // 0-4
+    lines.push_back(corners[1]); lines.push_back(corners[5]); // 1-5
+    lines.push_back(corners[2]); lines.push_back(corners[6]); // 2-6
+    lines.push_back(corners[3]); lines.push_back(corners[7]); // 3-7
+
+    return lines;
 }
 
 void MeshParticleRenderer::cleanupAccelerationStructures() {

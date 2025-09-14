@@ -22,6 +22,7 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
     m_useAtomicScatter = m_context->supportsShaderAtomicFloat();
 
     createDensityGrid();
+    createCoarseDensityGrid();  // Job 1012: Coarse grid for RT self-shadowing
     createSTBNTexture();
     createOpticalDepthLUT();
     createTAAResources();
@@ -173,6 +174,354 @@ void VolumeRenderer::createDensityGrid() {
     m_context->endSingleTimeCommands(cmd);
     
     std::cout << "Density image initialized: all " << m_densityMipLevels << " mip levels cleared and transitioned to SHADER_READ_ONLY_OPTIMAL" << std::endl;
+}
+
+// Job 1012: Create coarse density grid for RT self-shadowing
+void VolumeRenderer::createCoarseDensityGrid() {
+    std::cout << "Creating coarse density grid (" << m_coarseParams.gridDimensions.x << "³) for RT self-shadowing..." << std::endl;
+
+    // Calculate 3D texture dimensions for coarse grid
+    uint32_t width = m_coarseParams.gridDimensions.x;
+    uint32_t height = m_coarseParams.gridDimensions.y;
+    uint32_t depth = m_coarseParams.gridDimensions.z;
+
+    // Calculate mip levels for coarse grid (fewer than main grid)
+    uint32_t maxDim = std::max({width, height, depth});
+    m_coarseDensityMipLevels = static_cast<uint32_t>(std::floor(std::log2(maxDim))) + 1;
+
+    // Create 3D image for coarse density storage with mip chain
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = depth;
+    imageInfo.mipLevels = m_coarseDensityMipLevels;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R16_SFLOAT;  // R16 sufficient for coarse density as per job spec
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(m_context->getDevice(), &imageInfo, nullptr, &m_coarseDensityImage) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create coarse density image!");
+    }
+
+    // Allocate memory for coarse density image
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(m_context->getDevice(), m_coarseDensityImage, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    if (vkAllocateMemory(m_context->getDevice(), &allocInfo, nullptr, &m_coarseDensityImageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate coarse density image memory!");
+    }
+
+    vkBindImageMemory(m_context->getDevice(), m_coarseDensityImage, m_coarseDensityImageMemory, 0);
+
+    // Create image view for coarse density (full mip chain)
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_coarseDensityImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+    viewInfo.format = VK_FORMAT_R16_SFLOAT;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = m_coarseDensityMipLevels;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(m_context->getDevice(), &viewInfo, nullptr, &m_coarseDensityImageView) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create coarse density image view!");
+    }
+
+    // Create sampler for coarse density with mip mapping
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = static_cast<float>(m_coarseDensityMipLevels - 1);
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+    if (vkCreateSampler(m_context->getDevice(), &samplerInfo, nullptr, &m_coarseDensitySampler) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create coarse density sampler!");
+    }
+
+    // Initialize coarse density grid (clear and transition)
+    VkCommandBuffer cmd = m_context->beginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_coarseDensityImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = m_coarseDensityMipLevels;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    VkClearColorValue clearValue{}; // all zeros
+    VkImageSubresourceRange clearRange{};
+    clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    clearRange.baseMipLevel = 0;
+    clearRange.levelCount = m_coarseDensityMipLevels;
+    clearRange.baseArrayLayer = 0;
+    clearRange.layerCount = 1;
+
+    vkCmdClearColorImage(cmd, m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &clearRange);
+
+    // Transition to SHADER_READ_ONLY_OPTIMAL
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    m_context->endSingleTimeCommands(cmd);
+
+    std::cout << "Coarse density grid initialized: " << m_coarseDensityMipLevels << " mip levels cleared and ready" << std::endl;
+}
+
+// Job 1012: Update coarse density grid from particles (for RT self-shadowing)
+void VolumeRenderer::updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount) {
+    // Clear coarse density image to zero each frame
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_coarseDensityImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;  // Only base mip for compute writes
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    // Transition from SHADER_READ_ONLY_OPTIMAL to TRANSFER_DST_OPTIMAL for clearing
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    VkClearColorValue zero{}; // all zeros
+    VkImageSubresourceRange clearRange{};
+    clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    clearRange.baseMipLevel = 0;
+    clearRange.levelCount = 1;  // Clear only base mip
+    clearRange.baseArrayLayer = 0;
+    clearRange.layerCount = 1;
+    vkCmdClearColorImage(cmd, m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &zero, 1, &clearRange);
+
+    // Transition to GENERAL for compute writes
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    // Use existing density splat pipeline but with coarse grid parameters
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_densitySplatPipeline);
+
+    // Push descriptors for coarse density grid
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = particleBuffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = VK_WHOLE_SIZE;
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageView = m_coarseDensityImageView;
+
+    std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = VK_NULL_HANDLE;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstSet = VK_NULL_HANDLE;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pImageInfo = &imageInfo;
+
+    vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_densitySplatPipelineLayout,
+        0, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data());
+
+    // Push constants with coarse grid parameters
+    DensityPushConstants pushConstants{};
+    pushConstants.gridOrigin = m_coarseParams.gridOrigin;
+    pushConstants.voxelSize = m_coarseParams.voxelSize;
+    pushConstants.gridDimensions = m_coarseParams.gridDimensions;
+    pushConstants.particleCount = particleCount;
+    pushConstants.splatRadius = m_coarseParams.splatRadius;
+
+    vkCmdPushConstants(cmd, m_densitySplatPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+        0, sizeof(DensityPushConstants), &pushConstants);
+
+    // Dispatch compute for coarse grid
+    if (m_useAtomicScatter) {
+        // Per-particle scatter: 128 threads per group
+        uint32_t groups = (particleCount + 127u) / 128u;
+        vkCmdDispatch(cmd, groups, 1, 1);
+    } else {
+        // Voxel-gather: 4x4x4 workgroups over the coarse volume
+        uint32_t groupsX = (m_coarseParams.gridDimensions.x + 3) / 4;
+        uint32_t groupsY = (m_coarseParams.gridDimensions.y + 3) / 4;
+        uint32_t groupsZ = (m_coarseParams.gridDimensions.z + 3) / 4;
+        vkCmdDispatch(cmd, groupsX, groupsY, groupsZ);
+    }
+
+    // Mark coarse density as initialized
+    m_coarseDensityInitialized = true;
+}
+
+// Job 1012: Generate mip chain for coarse density grid using Synchronization2
+void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
+    if (m_coarseDensityMipLevels <= 1) {
+        return; // No mips to generate
+    }
+
+    // Transition base mip from GENERAL to TRANSFER_SRC_OPTIMAL
+    VkImageMemoryBarrier2 srcBarrier{};
+    srcBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    srcBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    srcBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    srcBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    srcBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    srcBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    srcBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    srcBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    srcBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    srcBarrier.image = m_coarseDensityImage;
+    srcBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    srcBarrier.subresourceRange.baseMipLevel = 0;
+    srcBarrier.subresourceRange.levelCount = 1;
+    srcBarrier.subresourceRange.baseArrayLayer = 0;
+    srcBarrier.subresourceRange.layerCount = 1;
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &srcBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+
+    // Generate each mip level
+    for (uint32_t mipLevel = 1; mipLevel < m_coarseDensityMipLevels; mipLevel++) {
+        // Calculate dimensions for current and previous mip levels
+        uint32_t srcWidth = std::max(1u, m_coarseParams.gridDimensions.x >> (mipLevel - 1));
+        uint32_t srcHeight = std::max(1u, m_coarseParams.gridDimensions.y >> (mipLevel - 1));
+        uint32_t srcDepth = std::max(1u, m_coarseParams.gridDimensions.z >> (mipLevel - 1));
+
+        uint32_t dstWidth = std::max(1u, m_coarseParams.gridDimensions.x >> mipLevel);
+        uint32_t dstHeight = std::max(1u, m_coarseParams.gridDimensions.y >> mipLevel);
+        uint32_t dstDepth = std::max(1u, m_coarseParams.gridDimensions.z >> mipLevel);
+
+        // Transition destination mip level to TRANSFER_DST_OPTIMAL
+        VkImageMemoryBarrier2 dstBarrier{};
+        dstBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        dstBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+        dstBarrier.srcAccessMask = 0;
+        dstBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+        dstBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        dstBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        dstBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        dstBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        dstBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        dstBarrier.image = m_coarseDensityImage;
+        dstBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        dstBarrier.subresourceRange.baseMipLevel = mipLevel;
+        dstBarrier.subresourceRange.levelCount = 1;
+        dstBarrier.subresourceRange.baseArrayLayer = 0;
+        dstBarrier.subresourceRange.layerCount = 1;
+
+        depInfo.pImageMemoryBarriers = &dstBarrier;
+        vkCmdPipelineBarrier2(cmd, &depInfo);
+
+        // Blit from previous to current mip level
+        VkImageBlit blitRegion{};
+        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.srcSubresource.mipLevel = mipLevel - 1;
+        blitRegion.srcSubresource.baseArrayLayer = 0;
+        blitRegion.srcSubresource.layerCount = 1;
+        blitRegion.srcOffsets[0] = {0, 0, 0};
+        blitRegion.srcOffsets[1] = {static_cast<int32_t>(srcWidth), static_cast<int32_t>(srcHeight), static_cast<int32_t>(srcDepth)};
+
+        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.dstSubresource.mipLevel = mipLevel;
+        blitRegion.dstSubresource.baseArrayLayer = 0;
+        blitRegion.dstSubresource.layerCount = 1;
+        blitRegion.dstOffsets[0] = {0, 0, 0};
+        blitRegion.dstOffsets[1] = {static_cast<int32_t>(dstWidth), static_cast<int32_t>(dstHeight), static_cast<int32_t>(dstDepth)};
+
+        vkCmdBlitImage(cmd, m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &blitRegion, VK_FILTER_LINEAR);
+
+        // Transition current mip level to TRANSFER_SRC_OPTIMAL for next iteration
+        dstBarrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+        dstBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        dstBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+        dstBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+        dstBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        dstBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
+        vkCmdPipelineBarrier2(cmd, &depInfo);
+    }
+
+    // Final transition: All mip levels to SHADER_READ_ONLY_OPTIMAL
+    VkImageMemoryBarrier2 finalBarrier{};
+    finalBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    finalBarrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    finalBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    finalBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    finalBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    finalBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    finalBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    finalBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    finalBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    finalBarrier.image = m_coarseDensityImage;
+    finalBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    finalBarrier.subresourceRange.baseMipLevel = 0;
+    finalBarrier.subresourceRange.levelCount = m_coarseDensityMipLevels;
+    finalBarrier.subresourceRange.baseArrayLayer = 0;
+    finalBarrier.subresourceRange.layerCount = 1;
+
+    depInfo.pImageMemoryBarriers = &finalBarrier;
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
 void VolumeRenderer::createSTBNTexture() {
@@ -1850,20 +2199,41 @@ void VolumeRenderer::cleanup() {
         vkDestroySampler(m_context->getDevice(), m_densitySampler, nullptr);
         m_densitySampler = VK_NULL_HANDLE;
     }
-    
+
     if (m_densityImageView != VK_NULL_HANDLE) {
         vkDestroyImageView(m_context->getDevice(), m_densityImageView, nullptr);
         m_densityImageView = VK_NULL_HANDLE;
     }
-    
+
     if (m_densityImage != VK_NULL_HANDLE) {
         vkDestroyImage(m_context->getDevice(), m_densityImage, nullptr);
         m_densityImage = VK_NULL_HANDLE;
     }
-    
+
     if (m_densityImageMemory != VK_NULL_HANDLE) {
         vkFreeMemory(m_context->getDevice(), m_densityImageMemory, nullptr);
         m_densityImageMemory = VK_NULL_HANDLE;
+    }
+
+    // Job 1012: Clean up coarse density grid resources
+    if (m_coarseDensitySampler != VK_NULL_HANDLE) {
+        vkDestroySampler(m_context->getDevice(), m_coarseDensitySampler, nullptr);
+        m_coarseDensitySampler = VK_NULL_HANDLE;
+    }
+
+    if (m_coarseDensityImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_context->getDevice(), m_coarseDensityImageView, nullptr);
+        m_coarseDensityImageView = VK_NULL_HANDLE;
+    }
+
+    if (m_coarseDensityImage != VK_NULL_HANDLE) {
+        vkDestroyImage(m_context->getDevice(), m_coarseDensityImage, nullptr);
+        m_coarseDensityImage = VK_NULL_HANDLE;
+    }
+
+    if (m_coarseDensityImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(m_context->getDevice(), m_coarseDensityImageMemory, nullptr);
+        m_coarseDensityImageMemory = VK_NULL_HANDLE;
     }
     
     // Clean up STBN resources

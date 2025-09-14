@@ -1,0 +1,26 @@
+{
+  "id": "1010_build_particle_transmittance_map",
+  "title": "Build light-space particle transmittance map (R16) via compute",
+  "purpose": "Generate a deep-shadow-like 2D transmittance (light-space) texture each frame to approximate self-shadowing for the mesh particle cloud.",
+  "steps": [
+    { "action": "image_create", "detail": "Create an R16_SFLOAT 2D image (DSM_SIZE, DSM_SIZE), usage: STORAGE | SAMPLED | TRANSFER_DST. Create storage and sampled views; sampler with clamp and linear filter." },
+    { "action": "clear", "detail": "At frame start, transition to GENERAL and clear to transmittance=1 (white) with compute or vkCmdClearColorImage." },
+    { "action": "compute_shader", "detail": "Add shaders/mesh_dsm_build.comp: for each pixel, march along light ray through the particle cloud bounds (use lightView/proj), sample particle density proxy (e.g., screen-space splat accumulation or a particle buffer read + projected footprint) and accumulate optical depth; write exp(-tau) to the image." },
+    { "action": "dispatch", "detail": "Bind LightUBO and particle buffer; dispatch over DSM_SIZE in tiles. Use Sync2 barriers before mesh shading samples it." }
+  ],
+  "acceptance": [
+    "DSM image created and updated per frame; average transmittance < 1.0 when particles present",
+    "No validation errors; image layout transitions correct"
+  ],
+  "touchpoints": [
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/systems/MeshParticleRenderer.h",
+    "shaders/mesh_dsm_build.comp",
+    "src/core/Application.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('vkCmdClearColorImage layout requirements')",
+    "search_vulkan_spec('VkImageMemoryBarrier2 for GENERAL→SHADER_READ_ONLY_OPTIMAL')"
+  ],
+  "notes": "Keep the marching cheap: small fixed steps across the cloud depth; or rasterize projected particle contributions into a temporary light-space buffer as a proxy for density."
+}

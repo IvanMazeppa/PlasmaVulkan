@@ -1,0 +1,28 @@
+{
+  "id": "1012_density_grid_from_particles",
+  "title": "Low-res density grid from particles (reuse VolumeRenderer path)",
+  "purpose": "Generate a coarse 3D density grid (e.g., 96^3–128^3) from particle positions to support iso-surface shell extraction for RT self-shadowing.",
+  "steps": [
+    { "action": "grid_create", "detail": "Create a 3D R16_SFLOAT density image with mip chain and views (GENERAL for compute, SAMPLED for reads)." },
+    { "action": "splat_compute", "detail": "Add/repurpose a compute pass to splat particles into the grid (Gaussian or box) using atomic adds; clear base mip at frame start." },
+    { "action": "mips", "detail": "Generate mip chain (vkCmdBlitImage or compute). Use Sync2 barriers between passes; no transitions inside dynamic rendering." },
+    { "action": "extents", "detail": "Fit grid bounds tightly around current particle AABB; log origin/extent."
+    }
+  ],
+  "acceptance": [
+    "Density grid updated per frame; average density > 0 when particles present",
+    "No validation errors; correct transitions GENERAL↔SHADER_READ_ONLY_OPTIMAL"
+  ],
+  "touchpoints": [
+    "src/systems/VolumeRenderer.cpp",
+    "src/systems/VolumeRenderer.h",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/core/Application.cpp",
+    "shaders/density_splat.comp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('3D image layouts and barriers with Synchronization2')",
+    "search_vulkan_spec('vkCmdBlitImage 3D mip generation')"
+  ],
+  "notes": "Keep resolution modest for speed; this grid is for shell extraction, not final volume rendering."
+}

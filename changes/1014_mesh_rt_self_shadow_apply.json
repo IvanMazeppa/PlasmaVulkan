@@ -1,0 +1,24 @@
+{
+  "id": "1014_mesh_rt_self_shadow_apply",
+  "title": "Apply RT occlusion from density shells in particle_mesh.frag",
+  "purpose": "Use ray queries against shell TLAS to self-shadow the particle cloud efficiently on RTX.",
+  "steps": [
+    { "action": "binding", "detail": "Ensure mesh descriptor set has binding 3 = AS_KHR (already present)." },
+    { "action": "ray_query", "detail": "In particle_mesh.frag, cast a ray from fragWorldPos along -lightDir with TerminateOnFirstHit|Opaque; if any hit, reduce lighting (e.g., shadowVis=0 or 0.2)." },
+    { "action": "toggle", "detail": "Add a runtime toggle 'rtSelfShadow' to enable/disable shell-based occlusion independent of external occluders." },
+    { "action": "perf", "detail": "Optionally skip queries for very low brightness fragments to keep cost low (early-out on alpha)." }
+  ],
+  "acceptance": [
+    "Clear self-shadowing visible with shells enabled and RT toggle ON",
+    "No new validation errors; stable performance at target FPS"
+  ],
+  "touchpoints": [
+    "shaders/particle_mesh.frag",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/core/Application.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('GL_EXT_ray_query flags and usage')"
+  ],
+  "notes": "Add softening/temporal (1008) after hard shadows are confirmed."
+}

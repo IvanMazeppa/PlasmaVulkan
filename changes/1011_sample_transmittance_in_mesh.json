@@ -1,0 +1,26 @@
+{
+  "id": "1011_sample_transmittance_in_mesh",
+  "title": "Sample light-space transmittance in particle_mesh.frag for self-shadow",
+  "purpose": "Modulate particle lighting by light-space transmittance to achieve self-shadowing with minimal cost.",
+  "steps": [
+    { "action": "binding", "detail": "Add a combined image sampler binding for the DSM/transmittance image in the mesh descriptor set (new binding)." },
+    { "action": "coords", "detail": "In particle_mesh.frag, transform fragWorldPos by lightView and lightProj to get NDC; map to [0,1] UV and sample the DSM; clamp UV in-bounds." },
+    { "action": "apply", "detail": "Multiply the lighting term by sampled transmittance; add a runtime toggle to enable/disable DSM-based self-shadowing quickly." },
+    { "action": "barriers", "detail": "Ensure a Sync2 barrier transitions the DSM image to SHADER_READ_ONLY_OPTIMAL before sampling in the mesh pass." }
+  ],
+  "acceptance": [
+    "Self-shadowing visible and controllable via toggle; darker where integrated particle depth is high",
+    "No descriptor layout mismatches; correct image layout during sampling"
+  ],
+  "touchpoints": [
+    "shaders/particle_mesh.frag",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/systems/MeshParticleRenderer.h",
+    "src/core/Application.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('Descriptor image layout matching at draw')",
+    "search_vulkan_spec('Coordinate transforms for NDC to UV')"
+  ],
+  "notes": "Keep DSM resolution modest (e.g., 1024) for speed; consider bilateral blur later for smoother look."
+}

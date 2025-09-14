@@ -1,0 +1,26 @@
+{
+  "id": "1009_mesh_light_matrices_ubo",
+  "title": "Mesh light matrices UBO + runtime controls (light view/proj)",
+  "purpose": "Provide a consistent directional light with view/projection to support a light-space transmittance map used for particle self-shadowing.",
+  "steps": [
+    { "action": "ubo", "detail": "Create LightUBO { mat4 lightView; mat4 lightProj; vec3 lightDir; float intensity; } and allocate a descriptor for the mesh path." },
+    { "action": "compute_mats", "detail": "Compute tight orthographic light matrices covering the particle cloud AABB. Update each frame or on-demand when bounds change." },
+    { "action": "controls", "detail": "Add runtime controls to yaw/pitch lightDir and adjust ortho extents; print values throttled to logs." },
+    { "action": "bind", "detail": "Bind UBO to the mesh fragment shader set and consume lightDir for baseline Lambert shading (kept simple)." }
+  ],
+  "acceptance": [
+    "Light matrices logged; light frustum visually matches particle cloud extent",
+    "Mesh fragment uses lightDir for a simple Lambert term"
+  ],
+  "touchpoints": [
+    "src/core/Application.cpp",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/systems/MeshParticleRenderer.h",
+    "shaders/particle_mesh.frag"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('VkDescriptorBufferInfo for UBO')",
+    "search_vulkan_spec('Orthographic projection matrix conventions')"
+  ],
+  "notes": "Keep UBO small and updated alongside existing push constants; avoid conflicts with current descriptor set layout by allocating a new binding if needed."
+}

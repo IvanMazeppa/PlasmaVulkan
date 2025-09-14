@@ -155,6 +155,20 @@ public:
     void createAccelerationStructures();
     void buildAccelerationStructures(VkCommandBuffer cmd);
 
+    // Job 1012: Coarse density grid for RT self-shadowing
+    struct CoarseDensityParams {
+        glm::uvec3 gridDimensions = glm::uvec3(96, 96, 96);  // Low-res for RT shells
+        glm::vec3 gridOrigin = glm::vec3(-30.0f, -30.0f, -30.0f);
+        float voxelSize = 0.625f;  // 60/96 = 0.625
+        float splatRadius = 1.5f;  // Slightly larger for coarse grid
+    };
+
+    void createCoarseDensityGrid();
+    void updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount);
+    void generateCoarseMipChain(VkCommandBuffer cmd);
+    VkImageView getCoarseDensityImageView() const { return m_coarseDensityImageView; }
+    VkImage getCoarseDensityImage() const { return m_coarseDensityImage; }
+
 private:
     void createDensityGrid();
     void createDensitySplatPipeline();
@@ -177,7 +191,16 @@ private:
     VkImageView m_densityImageView = VK_NULL_HANDLE;
     VkSampler m_densitySampler = VK_NULL_HANDLE;
     uint32_t m_densityMipLevels = 1;
-    
+
+    // Job 1012: Coarse density grid for RT self-shadowing (96³ for iso-surface shells)
+    CoarseDensityParams m_coarseParams;
+    VkImage m_coarseDensityImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_coarseDensityImageMemory = VK_NULL_HANDLE;
+    VkImageView m_coarseDensityImageView = VK_NULL_HANDLE;
+    VkSampler m_coarseDensitySampler = VK_NULL_HANDLE;
+    uint32_t m_coarseDensityMipLevels = 1;
+    bool m_coarseDensityInitialized = false;
+
     // Density splatting compute pipeline
     VkPipeline m_densitySplatPipeline = VK_NULL_HANDLE;
     VkPipelineLayout m_densitySplatPipelineLayout = VK_NULL_HANDLE;
