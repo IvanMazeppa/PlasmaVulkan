@@ -150,6 +150,11 @@ public:
     // First-frame crash prevention
     bool needsInitialUpdate() const { return !m_densityInitialized; }
 
+    // Ray tracing support
+    bool supportsRayTracing() const;
+    void createAccelerationStructures();
+    void buildAccelerationStructures(VkCommandBuffer cmd);
+
 private:
     void createDensityGrid();
     void createDensitySplatPipeline();
@@ -245,7 +250,20 @@ private:
     
     // First-frame crash prevention
     bool m_densityInitialized = false;    // Track if density grid has been updated at least once
-    
+
+    // Ray tracing acceleration structures for hardware RT shadows
+    VkAccelerationStructureKHR m_bottomLevelAS = VK_NULL_HANDLE;
+    VkAccelerationStructureKHR m_topLevelAS = VK_NULL_HANDLE;
+    VkBuffer m_blasBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_blasMemory = VK_NULL_HANDLE;
+    VkBuffer m_tlasBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_tlasMemory = VK_NULL_HANDLE;
+    VkBuffer m_instanceBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_instanceMemory = VK_NULL_HANDLE;
+    VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
+    bool m_rayTracingInitialized = false;
+
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     VkShaderModule createShaderModule(const std::vector<char>& code);

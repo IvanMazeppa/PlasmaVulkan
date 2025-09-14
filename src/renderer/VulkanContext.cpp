@@ -227,10 +227,21 @@ void VulkanContext::createLogicalDevice() {
     meshShader.meshShader = m_supportsMeshShaders ? VK_TRUE : VK_FALSE;
     meshShader.taskShader = m_supportsMeshShaders ? VK_TRUE : VK_FALSE;
 
+    // Ray tracing features for hardware RT shadows
+    VkPhysicalDeviceRayQueryFeaturesKHR rayQuery{};
+    rayQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+    rayQuery.pNext = m_supportsMeshShaders ? (void*)&meshShader : (void*)&vk12Features;
+    rayQuery.rayQuery = VK_TRUE;
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructure{};
+    accelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    accelerationStructure.pNext = &rayQuery;
+    accelerationStructure.accelerationStructure = VK_TRUE;
+
     // Optional: atomic float features
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloat{};
     atomicFloat.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
-    atomicFloat.pNext = m_supportsMeshShaders ? (void*)&meshShader : (void*)&vk12Features;
+    atomicFloat.pNext = &accelerationStructure;
     atomicFloat.shaderImageFloat32AtomicAdd = m_supportsAtomicFloat ? VK_TRUE : VK_FALSE;
     atomicFloat.shaderBufferFloat32AtomicAdd = m_supportsAtomicFloat ? VK_TRUE : VK_FALSE;
 
@@ -267,6 +278,11 @@ void VulkanContext::createLogicalDevice() {
     if (m_supportsMeshShaders) {
         deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
+
+    // Ray tracing extensions for hardware RT shadows
+    deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
