@@ -1,0 +1,26 @@
+{
+    "id": "0003",
+    "title": "Unify volume descriptor layout (binding 3 = AS_KHR) and push TLAS (KHR)",
+    "rationale": "Prevent shader–layout mismatches by using a single descriptor set layout for both SDR/HDR volume pipelines when RT is enabled, and standardize TLAS push on KHR APIs.",
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createVolumeRenderPipeline",
+            "action": "Introduce a helper that builds the volume descriptor set layout. When RT is enabled, define binding 3 as VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR. Reuse the same layout for both SDR and HDR pipelines."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "render / renderToTAATarget (descriptor writes)",
+            "action": "If (rtEnabled && m_topLevelAS!=VK_NULL_HANDLE), write binding 3 using VkWriteDescriptorSetAccelerationStructureKHR via pNext and push with vkCmdPushDescriptorSetKHR. Otherwise skip binding 3. Add a one-time log confirming the push."
+        }
+    ],
+    "acceptance": [
+        "No VUID 07990 at pipeline creation for SDR/HDR volume pipelines",
+        "Frame runs without push-descriptor errors"
+    ],
+    "mcp": [
+        "search_vulkan_spec(\"VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR\")",
+        "search_vulkan_spec(\"vkCmdPushDescriptorSetKHR\")"
+    ]
+}
+

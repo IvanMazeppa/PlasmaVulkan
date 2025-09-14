@@ -158,6 +158,7 @@ public:
 private:
     void createDensityGrid();
     void createDensitySplatPipeline();
+    VkDescriptorSetLayout createUnifiedVolumeDescriptorSetLayout();
     void createVolumeRenderPipeline();
     void createTAAPipeline();
     void createTAAResources();     // TAA history buffer and pipeline

@@ -1,0 +1,1235 @@
+
+========================================
+     PLASMAVULKAN SIMULATION MENU
+========================================
+
+PRESETS:
+  1. Stellar Formation (Default)
+  2. Galaxy Spiral Arms
+  3. Black Hole Accretion Disk
+  4. Globular Cluster
+  5. Protoplanetary Disk
+  6. Galaxy Collision (Dual Gravity)
+  7. Quasar Jets (High Energy)
+  8. Volumetric Plasma (Swirling Energy)
+  9. Custom Settings
+  10. Start with Current Settings
+
+Enter choice (1-10): 
+=== STARTING SIMULATION ===
+Preset: Volumetric Plasma
+Swirling energy field with volumetric rendering
+Particles: 150000
+===========================
+
+Starting PlasmaVulkan application...
+Creating Vulkan instance...
+Setting up debug messenger...
+Creating surface...
+Picking physical device...
+Selected GPU: NVIDIA GeForce RTX 4060 Ti
+Subgroup size: 32
+Subgroup ballot in fragment: YES
+Creating logical device...
+[RT] RayQuery=YES, AccelStruct=YES, DeferredHostOps=YES
+Creating swap chain...
+Using VK_PRESENT_MODE_IMMEDIATE_KHR for maximum performance
+Creating command pool...
+Creating sync objects...
+VulkanContext initialization complete!
+VMA allocator disabled for now (needs investigation)
+Vulkan initialized successfully!
+Creating particle system with 2000000 particles...
+Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 1 not consumed by vertex shader.
+Particle system created successfully!
+Particle system created with 2000000 particles
+Creating volume renderer...
+Grid: 240x240x240
+Density splat mode: voxel gather (fallback)
+Creating density grid with 8 mip levels for LOD sampling
+Density image initialized: all 8 mip levels cleared and transitioned to SHADER_READ_ONLY_OPTIMAL
+Loading STBN (Spatiotemporal Blue Noise) textures...
+STBN textures loaded successfully (64 layers)
+Creating preintegrated optical depth LUT...
+Optical depth LUT created successfully (256 entries)
+Creating TAA (Temporal Anti-Aliasing) resources...
+TAA resources created successfully (1920x1080)
+Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID = 0x215f02cd
+vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) but was not declared in the pipeline layout.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+Objects: 2
+    [0] VkShaderModule 0x440000000044
+    [1] VkPipelineLayout 0x460000000046
+
+Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) but was not declared in the pipeline layout.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+TAA pipeline created successfully!
+[RT] BLAS created successfully - shadow catcher disc ready
+Volume renderer created successfully!
+Volume renderer created successfully!
+Creating mesh shader particle renderer...
+Mesh shader properties:
+  Max work group invocations: 128
+  Max work group size X: 128
+  Max output vertices: 256
+  Max output primitives: 256
+SPH mesh shader loaded successfully!
+­ƒÜÇ SPH mesh shader pipeline created successfully!
+Mesh shader particle renderer created successfully!
+Mesh shader particle renderer initialized successfully!
+HDR framebuffer created successfully (1920x1080)
+Bloom pipeline and shaders loaded successfully!
+Active particles: 150000 / 2000000
+Volumetric rendering mode enabled
+Volumetric Plasma mode enabled - Swirling energy field!
+Optimized for 150k particles at high performance
+Application created, starting main loop...
+First render frame starting...
+Performing first-frame volume initialization (physics accumulator not ready)
+Initializing volume with 150000 particles
+First-frame volume initialization completed successfully
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[1].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[1].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 3
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x4c000000004c
+    [2] VkImageView 0x390000000039
+
+Validation layer: vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 3
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x4c000000004c
+    [2] VkImageView 0x390000000039
+
+Validation layer: vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[1].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[1].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 3
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkPipeline 0x4c000000004c
+    [2] VkImageView 0x390000000039
+
+Validation layer: vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 3
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkPipeline 0x4c000000004c
+    [2] VkImageView 0x390000000039
+
+Validation layer: vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x370000000037 usage flags VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[1].newLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-VkImageMemoryBarrier-oldLayout-01212 ] | MessageID = 0xff795e16
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): pImageMemoryBarriers[1].oldLayout (VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) is not compatible with VkImage 0x3b000000003b usage flags VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, and oldLayout or newLayout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL then image must have been created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier-oldLayout-01212)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 3
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkPipeline 0x4c000000004c
+    [2] VkImageView 0x390000000039
+
+Validation layer: vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 3
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkPipeline 0x4c000000004c
+    [2] VkImageView 0x390000000039
+
+Validation layer: vkCmdDraw(): Image layout specified by vkCmdPushDescriptorSet doesn't match actual image layout at time descriptor is used. See previous error callback for specific details.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 1, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 1, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 2, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 2, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 3, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 3, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 4, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 4, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 5, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 5, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 6, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 6, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 7, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x270000000027
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x270000000027 (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 7, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_GENERAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-None-08114 ] | MessageID = 0x2ba3a98e
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x470000000047
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): VkDescriptorSet 0x0 [Set 0, Binding 3] is invalid.
+The Vulkan spec states: Descriptors in each bound descriptor set, specified via vkCmdBindDescriptorSets, must be valid as described by descriptor validity if they are statically used by the VkPipeline bound to the pipeline bind point used by this command and the bound VkPipeline was not created with VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-08114)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f6003070 expects VkImage 0x3b000000003b (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 0, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f6003070 expects VkImage 0x3b000000003b (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 0, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): dstStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-VkDescriptorImageInfo-imageLayout-00344 ] | MessageID = 0xde55a405
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): Cannot use VkImage 0x370000000037 (layer=0 mip=0) with specific layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL that doesn't match the previous known layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: imageLayout must match the actual VkImageLayout of each subresource accessible from imageView at the time this descriptor is accessed as defined by the image layout matching rules (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/descriptorsets.html#VUID-VkDescriptorImageInfo-imageLayout-00344)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09553 ] | MessageID = 0xb6fd5768
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): can not be called inside a dynamic rendering instance. This can be fixed by enabling the VK_KHR_dynamic_rendering_local_read or VK_EXT_shader_tile_image features.
+The Vulkan spec states: If none of the shaderTileImageColorReadAccess, shaderTileImageStencilReadAccess, or shaderTileImageDepthReadAccess features are enabled, and the dynamicRenderingLocalRead feature is not enabled, vkCmdPipelineBarrier must not be called within a render pass instance started with vkCmdBeginRendering (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09553)
+Validation Error: [ VUID-vkCmdPipelineBarrier-None-09554 ] | MessageID = 0xdbf37c73
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): can only include memory barriers, while application specify image barrier count 1 and buffer barrier count 0.
+The Vulkan spec states: If the dynamicRenderingLocalRead feature is not enabled, and vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, there must be no buffer or image memory barriers specified by this command (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-None-09554)
+Validation Error: [ VUID-vkCmdPipelineBarrier-srcStageMask-09556 ] | MessageID = 0xbdd4774a
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): srcStageMask (VK_PIPELINE_STAGE_TRANSFER_BIT) is restricted to framebuffer space stages (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT).
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance started with vkCmdBeginRendering, this command must only specify framebuffer-space stages in srcStageMask and dstStageMask (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-srcStageMask-09556)
+Validation Error: [ VUID-vkCmdPipelineBarrier-oldLayout-01181 ] | MessageID = 0x5b2c982a
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x370000000037
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): pImageMemoryBarriers[0] defines image layout transition (oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) within a render pass instance, which is not allowed.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, the oldLayout and newLayout members of any image memory barrier included in this command must be equal (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-oldLayout-01181)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f600a6b0 expects VkImage 0x3b000000003b (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 0, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f600a6b0 expects VkImage 0x3b000000003b (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 0, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdDraw-None-09600 ] | MessageID = 0x46582f7b
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x3b000000003b (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 0, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x3b000000003b
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkQueueSubmit2(): pSubmits[0] command buffer VkCommandBuffer 0x218f5c15960 expects VkImage 0x3b000000003b (subresource: aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, mipLevel = 0, arrayLayer = 0) to be in layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+The Vulkan spec states: If a descriptor with type equal to any of VK_DESCRIPTOR_TYPE_SAMPLE_WEIGHT_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_BLOCK_MATCH_IMAGE_QCOM, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT is accessed as a result of this command, all image subresources identified by that descriptor must be in the image layout identified when the descriptor was written (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-None-09600)
+[PARTICLE DEBUG] Dual galaxy mode: DISABLED, Gravity: 0.4, Active: 150000
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f6003070
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f6003070
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkPipeline 0x470000000047
+
+Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f600a6b0
+    [1] VkImage 0x3b000000003b
+
+Validation layer: vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f600a6b0
+
+Validation layer: vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkPipeline 0x470000000047
+
+Validation Error: [ VUID-vkCmdDraw-renderpass ] | MessageID = 0xf58328d8
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation Error: [ VUID-vkCmdCopyImage-aspect-06662 ] | MessageID = 0x2c4809f4
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Objects: 2
+    [0] VkCommandBuffer 0x218f5c15960
+    [1] VkImage 0x3b000000003b
+
+Validation Error: [ VUID-vkCmdPipelineBarrier-dependencyFlags-07891 ] | MessageID = 0xaa119072
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+Objects: 1
+    [0] VkCommandBuffer 0x218f5c15960
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
+The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdDraw(): This call must be issued inside an active render pass.
+The Vulkan spec states: This command must only be called inside of a render pass instance (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-renderpass)
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdCopyImage(): srcImage (VkImage 0x3b000000003b) was created with VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT but requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT.
+The Vulkan spec states: If the aspect member of any element of pRegions includes any flag other than VK_IMAGE_ASPECT_STENCIL_BIT or srcImage was not created with separate stencil usage, VK_IMAGE_USAGE_TRANSFER_SRC_BIT must have been included in the VkImageCreateInfo::usage used to create srcImage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/copies.html#VUID-vkCmdCopyImage-aspect-06662)
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier(): srcStageMask must contain VK_DEPENDENCY_BY_REGION_BIT.
+The Vulkan spec states: If vkCmdPipelineBarrier is called within a render pass instance, and the source stage masks of any memory barriers include framebuffer-space stages, then dependencyFlags must include VK_DEPENDENCY_BY_REGION_BIT (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-dependencyFlags-07891)
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
+Application finished normally.
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkBuffer 0x140000000014 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkBuffer 0x140000000014
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkBuffer 0x140000000014 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkBuffer 0x4f000000004f has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkBuffer 0x4f000000004f
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkBuffer 0x4f000000004f has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkBuffer 0x4d000000004d has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkBuffer 0x4d000000004d
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkBuffer 0x4d000000004d has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x2b000000002b has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x2b000000002b
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x2b000000002b has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x3b000000003b has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x3b000000003b
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x3b000000003b has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x5c000000005c has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x5c000000005c
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x5c000000005c has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x370000000037 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x370000000037
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x370000000037 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x310000000031 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x310000000031
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x310000000031 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x270000000027 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x270000000027
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkImage 0x270000000027 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkDeviceMemory 0x150000000015 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkDeviceMemory 0x150000000015
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkDestroyDevice(): Object Tracking - For VkDevice 0x218f8571900, VkDeviceMemory 0x150000000015 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)

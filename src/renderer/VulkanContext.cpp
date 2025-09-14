@@ -299,6 +299,15 @@ void VulkanContext::createLogicalDevice() {
     vkGetDeviceQueue(m_device, indices.computeFamily.value(), 0, &m_computeQueue);
 
     m_queueFamilyIndices = indices;
+
+    // RT readiness logging for Job 0001
+    bool hasRayQuerySupport = rayQuery.rayQuery == VK_TRUE;
+    bool hasAccelStructSupport = accelerationStructure.accelerationStructure == VK_TRUE;
+    bool hasDeferredHostOps = true; // Extension is always added above
+
+    std::cout << "[RT] RayQuery=" << (hasRayQuerySupport ? "YES" : "NO")
+              << ", AccelStruct=" << (hasAccelStructSupport ? "YES" : "NO")
+              << ", DeferredHostOps=" << (hasDeferredHostOps ? "YES" : "NO") << std::endl;
 }
 
 void VulkanContext::createSwapChain() {

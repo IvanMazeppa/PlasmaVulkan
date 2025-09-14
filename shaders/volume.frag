@@ -1,6 +1,7 @@
-#version 450
+#version 460 core
 #extension GL_KHR_shader_subgroup_ballot : enable
 #extension GL_KHR_shader_subgroup_vote : enable
+#extension GL_EXT_ray_query : require
 
 // Volumetric ray marching fragment shader with subgroup-coherent early exit
 // Renders 3D density grid as glowing plasma
@@ -33,6 +34,7 @@ layout(push_constant) uniform PushConstants {
 layout(binding = 0) uniform sampler3D densityTexture;
 layout(binding = 1) uniform sampler2DArray stbnTexture;
 layout(binding = 2) uniform sampler1D opticalDepthLUT;
+layout(binding = 3) uniform accelerationStructureEXT topLevelAS;
 
 // Generate world space ray from screen coordinate
 vec3 getRayDirection(vec2 screenPos) {
@@ -242,6 +244,15 @@ vec3 radialTemperatureColor(vec3 worldPos, float density) {
     return color * intensity * density; // Modulate by density
 }
 
+// Job 0004: Ray query occlusion function for RT shadows
+bool hasOccluderRT(vec3 originWS, vec3 dirWS, float tMax) {
+    rayQueryEXT rq;
+    const uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT;
+    rayQueryInitializeEXT(rq, topLevelAS, flags, 0xFF, originWS, 0.001, normalize(dirWS), tMax);
+    while (rayQueryProceedEXT(rq)) {}
+    return rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
 void main() {
     // Generate ray
     vec3 rd = getRayDirection(fragCoord);
@@ -334,7 +345,16 @@ void main() {
                 float scatteringStrength = 0.4 * (1.0 - clamp(dens * 2.0, 0.0, 0.8)); // Reduce in dense regions
                 vec3 scatteredLight = lightColor * phase * scatteringStrength;
                 emission += scatteredLight;
-                
+
+                // Job 0004: RT shadow visibility with gating
+                float shadowVis = 1.0;
+                if (dens > 0.01 && (shadeStride % 4u == 0u)) {
+                    vec3 rtLightDir = normalize(vec3(-0.5, -0.8, -0.6)); // Same light direction
+                    shadowVis = hasOccluderRT(pos, rtLightDir, 200.0) ? 0.0 : 1.0;
+                }
+                // Apply RT shadow to emission
+                emission *= shadowVis;
+
                 // Edge enhancement with adaptive gradient computation for better quality
                 vec3 N = normalize(adaptiveGradient(pos, lod, currentStep) + 1e-5);
                 float edgeEnhancement = clamp(dot(-rd, N) * 0.2 + 0.8, 0.6, 1.1); // Gentler enhancement

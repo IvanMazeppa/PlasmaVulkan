@@ -1,0 +1,30 @@
+{
+    "id": "0004",
+    "title": "Minimal ray query occlusion in volume.frag (gated)",
+    "rationale": "Introduce a boolean RT shadow term with strict gating to validate the full RT path without heavy cost.",
+    "edits": [
+        {
+            "file": "shaders/volume.frag",
+            "region": "bindings header",
+            "action": "Add #extension GL_EXT_ray_query : require and layout(binding=3) uniform accelerationStructureEXT topLevelAS; under an RT compile define (e.g., USE_RT)."
+        },
+        {
+            "file": "shaders/volume.frag",
+            "region": "functions section",
+            "action": "Add hasOccluderRT(originWS, dirWS, tMax) using rayQueryInitializeEXT/ProceedEXT; terminate on first hit; opaque flag."
+        },
+        {
+            "file": "shaders/volume.frag",
+            "region": "main shading block",
+            "action": "Compute shadowVis=1.0; if (USE_RT && dens>0.01 && (shadeStride%4u==0u)) evaluate hasOccluderRT(pos, lightDir, 200.0) and multiply emission by shadowVis. Add a runtime toggle via push constants or a uniform to disable RT quickly."
+        }
+    ],
+    "acceptance": [
+        "No RT validation errors",
+        "Visible occlusion under the proxy when RT on; toggling off restores baseline"
+    ],
+    "mcp": [
+        "search_vulkan_spec(\"GL_EXT_ray_query\")"
+    ]
+}
+

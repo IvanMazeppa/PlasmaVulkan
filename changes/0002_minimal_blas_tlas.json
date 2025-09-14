@@ -1,0 +1,27 @@
+{
+    "id": "0002",
+    "title": "Minimal BLAS/TLAS build with sync and non-null TLAS logging",
+    "rationale": "Establish a working acceleration structure foundation with a single proxy (plane/disc), synchronized for same-frame sampling.",
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createAccelerationStructures + buildAccelerationStructures",
+            "action": "Create a small static vertex buffer (plane or ring) with USAGE ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | SHADER_DEVICE_ADDRESS_BIT; build BLAS; build TLAS with a single instance; add Synchronization2 barrier from AS build to FRAGMENT_SHADER read; print TLAS handle and device address; assert non-null."
+        }
+    ],
+    "instrumentation": [
+        "Print: [RT] BLAS built, TLAS handle, TLAS device address",
+        "If null, print error and gate off RT path"
+    ],
+    "acceptance": [
+        "No validation errors during AS build",
+        "TLAS handle is non-null and device address is logged"
+    ],
+    "mcp": [
+        "search_vulkan_spec(\"vkGetAccelerationStructureBuildSizesKHR\")",
+        "search_vulkan_spec(\"vkCmdBuildAccelerationStructuresKHR\")",
+        "search_vulkan_spec(\"vkGetAccelerationStructureDeviceAddressKHR\")",
+        "search_vulkan_spec(\"vkCmdPipelineBarrier2\")"
+    ]
+}
+

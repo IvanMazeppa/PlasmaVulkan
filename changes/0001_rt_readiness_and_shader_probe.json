@@ -1,0 +1,29 @@
+{
+    "id": "0001",
+    "title": "RT readiness and shader toolchain probe",
+    "rationale": "Verify device extensions/features for ray query are enabled and the shader toolchain emits SPV_KHR_ray_query before touching the main pipeline.",
+    "edits": [
+        {
+            "file": "src/renderer/VulkanContext.cpp",
+            "region": "createLogicalDevice",
+            "action": "Log once after device creation: Ray Query support (YES/NO), Acceleration Structure support (YES/NO), and confirm VK_KHR_DEFERRED_HOST_OPERATIONS present in deviceExtensions."
+        },
+        {
+            "file": "shaders/CMakeLists.txt",
+            "region": "shader_rules",
+            "action": "Add a compile rule for shaders/test_ray_query.frag -> shaders/test_ray_query.spv with target env >= vulkan1.2 and GL_EXT_ray_query."
+        }
+    ],
+    "instrumentation": [
+        "Print: [RT] RayQuery=YES/NO, AccelStruct=YES/NO, DeferredHostOps=YES/NO",
+        "Optionally dump the first 2 OpExtension lines of test_ray_query.spv via spirv-dis (manual check)"
+    ],
+    "acceptance": [
+        "Console logs show Ray Query and Acceleration Structure support",
+        "test_ray_query.spv compiles successfully and contains SPV_KHR_ray_query ops"
+    ],
+    "mcp": [
+        "search_vulkan_spec(\"VK_KHR_ray_query\")",
+        "search_vulkan_spec(\"VK_KHR_acceleration_structure\")"
+    ]
+}

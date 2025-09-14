@@ -19,6 +19,8 @@ set(SHADER_SOURCES
     density_splat_scatter.comp
     volume.vert
     volume.frag
+    # Ray tracing test shader for RT toolchain verification
+    test_ray_query.frag
     # TAA (Temporal Anti-Aliasing) shaders for noise reduction
     taa.vert
     taa.frag
@@ -45,6 +47,9 @@ foreach(SHADER ${SHADER_SOURCES})
         # Use SPIR-V 1.3 and Vulkan 1.1 for volume.frag which uses subgroup operations
         if(${SHADER_NAME} STREQUAL "volume")
             set(EXTRA_ARGS "--target-spv=spv1.3" "--target-env=vulkan1.1")
+        # Use SPIR-V 1.4 and Vulkan 1.2 for ray query test shader
+        elseif(${SHADER_NAME} STREQUAL "test_ray_query")
+            set(EXTRA_ARGS "--target-spv=spv1.4" "--target-env=vulkan1.2")
         else()
             set(EXTRA_ARGS "")
         endif()
