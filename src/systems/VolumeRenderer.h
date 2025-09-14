@@ -156,12 +156,14 @@ public:
     // Ray tracing support
     bool supportsRayTracing() const;
     void createAccelerationStructures();
+    void createTLAS();
     void buildAccelerationStructures(VkCommandBuffer cmd);
 
 private:
     void createDensityGrid();
     void createDensitySplatPipeline();
     void createVolumeRenderPipeline();
+    VkDescriptorSetLayout buildVolumeDescriptorSetLayout(bool rtEnabled);
     VkPipeline createVolumePipelineForFormat(VkFormat colorFormat, const char* tag);
     void createTAAPipeline();
     void createTAAResources();     // TAA history buffer and pipeline

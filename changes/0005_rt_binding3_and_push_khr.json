@@ -1,0 +1,40 @@
+{
+    "id": "0005",
+    "title": "RT binding 3 = ACCELERATION_STRUCTURE_KHR + KHR push descriptors",
+    "rationale": "VUID 07990 indicates the fragment shader expects an acceleration structure at binding 3, but the pipeline layout or writes use COMBINED_IMAGE_SAMPLER. Also mixed use of vkCmdPushDescriptorSet and vkCmdPushDescriptorSetKHR risks driver issues.",
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createVolumeRenderPipeline",
+            "action": "When RT is enabled, set volumeBindings[3].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR; keep binding index == 3. Ensure the same descriptor set layout object is used for both SDR and HDR volume pipelines to avoid layout divergence."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "render (descriptor writes)",
+            "action": "For binding 3 (when RT is supported): create VkWriteDescriptorSetAccelerationStructureKHR accelInfo { sType=..., accelerationStructureCount=1, pAccelerationStructures=&m_topLevelAS }; set descriptorWrites[3].sType=WRITE_DESCRIPTOR_SET; descriptorType=ACCELERATION_STRUCTURE_KHR; pNext=&accelInfo; dstBinding=3; descriptorCount=1. Use vkCmdPushDescriptorSetKHR for the push."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "renderToTAATarget (descriptor writes)",
+            "action": "Mirror the binding 3 AS write as above and push with vkCmdPushDescriptorSetKHR."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "all push descriptor call sites",
+            "action": "Replace any vkCmdPushDescriptorSet(...) with vkCmdPushDescriptorSetKHR(...). After volkLoadDevice, assert vkCmdPushDescriptorSetKHR != nullptr once (e.g., in VulkanContext or VolumeRenderer init)."
+        },
+        {
+            "file": "shaders/volume.frag",
+            "region": "bindings header",
+            "action": "Ensure #extension GL_EXT_ray_query : require is present and layout(binding=3) uniform accelerationStructureEXT topLevelAS; matches runtime binding index and descriptor type."
+        }
+    ],
+    "instrumentation": [
+        "Log once per frame (guarded) when RT is enabled: pushed binding 3 as ACCELERATION_STRUCTURE_KHR; AS handle non-null",
+        "On pipeline creation, print descriptor types for bindings 0..3"
+    ],
+    "acceptance": [
+        "No VUID 07990 at pipeline creation for both SDR and HDR volume pipelines",
+        "Frame renders without push-descriptor related errors"
+    ]
+}

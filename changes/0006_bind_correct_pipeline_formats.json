@@ -1,0 +1,25 @@
+{
+    "id": "0006",
+    "title": "Bind correct SDR/HDR volume pipelines per render target (fix VUID 08910)",
+    "rationale": "Validation shows vkCmdDraw format mismatch (R16G16B16A16_SFLOAT target bound with pipeline created for B8G8R8A8_SRGB). This indicates the SDR pipeline is being bound when rendering to the HDR TAA target.",
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "renderToTAATarget",
+            "action": "Explicitly bind m_volumePipelineHDR (not m_volumePipeline) before drawing to m_taaCurrentImage. Add a one-time debug log printing the chosen pipeline handle and the HDR format (VK_FORMAT_R16G16B16A16_SFLOAT)."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "render (swapchain path)",
+            "action": "Ensure that the SDR pipeline (m_volumePipeline) is bound only when the active color attachment is a swapchain image. Optionally add a one-time debug log printing the pipeline handle and swapchain format."
+        }
+    ],
+    "instrumentation": [
+        "Print [PIPE] volume-HDR or volume-SDR with pipeline handle and pColorAttachmentFormats[0] at bind time",
+        "Optional: assert that when drawing to TAA current, bound pipeline == m_volumePipelineHDR"
+    ],
+    "acceptance": [
+        "No VUID 08910 for the entire frame",
+        "Logs show HDR pipeline bound in renderToTAATarget and SDR pipeline bound for swapchain rendering"
+    ]
+}

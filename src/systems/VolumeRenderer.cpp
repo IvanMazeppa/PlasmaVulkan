@@ -21,6 +21,11 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
     
     m_useAtomicScatter = m_context->supportsShaderAtomicFloat();
 
+    // Verify VK_KHR_push_descriptor extension loading
+    if (vkCmdPushDescriptorSetKHR == nullptr) {
+        throw std::runtime_error("VK_KHR_push_descriptor extension not loaded - vkCmdPushDescriptorSetKHR is null");
+    }
+
     createDensityGrid();
     createSTBNTexture();
     createOpticalDepthLUT();
@@ -31,7 +36,15 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
     createDescriptorSets();
 
     // Initialize ray tracing for hardware RT shadows
-    createAccelerationStructures();
+    try {
+        createAccelerationStructures();
+        std::cout << "[DEBUG] Ray tracing acceleration structures initialized successfully" << std::endl;
+        std::cout << "[DEBUG] m_topLevelAS handle: " << (void*)m_topLevelAS << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Failed to initialize ray tracing: " << e.what() << std::endl;
+        std::cerr << "[ERROR] Continuing without ray tracing support" << std::endl;
+        m_rayTracingInitialized = false;
+    }
 
     std::cout << "Volume renderer created successfully!" << std::endl;
 }
@@ -852,32 +865,10 @@ void VolumeRenderer::createDensitySplatPipeline() {
     }
 }
 
-void VolumeRenderer::createVolumeRenderPipeline() {
-    // Load shaders
-    auto vertShaderCode = readFile("shaders/volume.vert.spv");
-    auto fragShaderCode = readFile("shaders/volume.frag.spv");
-    
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    
-    // Vertex shader
-    createInfo.codeSize = vertShaderCode.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(vertShaderCode.data());
-    if (vkCreateShaderModule(m_context->getDevice(), &createInfo, nullptr, &m_volumeVertShader) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create volume vertex shader module!");
-    }
-    
-    // Fragment shader
-    createInfo.codeSize = fragShaderCode.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(fragShaderCode.data());
-    if (vkCreateShaderModule(m_context->getDevice(), &createInfo, nullptr, &m_volumeFragShader) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create volume fragment shader module!");
-    }
-    
-    // Create descriptor set layout for volume rendering (density + STBN + optical depth LUT + TLAS for RT)
-    // FORCE RT support since shader now unconditionally uses TLAS
-    uint32_t bindingCount = 4;  // Always include TLAS binding since shader expects it
-    std::cout << "[DEBUG] createVolumeRenderPipeline: FORCING bindingCount=" << bindingCount << " (hardcoded RT support)" << std::endl;
+VkDescriptorSetLayout VolumeRenderer::buildVolumeDescriptorSetLayout(bool rtEnabled) {
+    // Create descriptor set layout for volume rendering (density + STBN + optical depth LUT + optional TLAS)
+    uint32_t bindingCount = rtEnabled ? 4 : 3;  // Include TLAS binding only when RT enabled
+    std::cout << "[DEBUG] buildVolumeDescriptorSetLayout: rtEnabled=" << rtEnabled << ", bindingCount=" << bindingCount << std::endl;
     std::vector<VkDescriptorSetLayoutBinding> volumeBindings(bindingCount);
 
     // Binding 0: Density texture
@@ -898,18 +889,13 @@ void VolumeRenderer::createVolumeRenderPipeline() {
     volumeBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     volumeBindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    // Binding 3: TLAS for ray tracing (Stage 1: shadow catcher disc) - ALWAYS CREATED
-    volumeBindings[3].binding = 3;
-    volumeBindings[3].descriptorCount = 1;
-    volumeBindings[3].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    volumeBindings[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    std::cout << "[DEBUG] HARDCODED RT descriptor layout - added TLAS binding at 3, type=ACCELERATION_STRUCTURE_KHR" << std::endl;
-
-    // Clean up any existing descriptor set layout first
-    if (m_volumeDescriptorSetLayout != VK_NULL_HANDLE) {
-        std::cout << "[DEBUG] Cleaning up existing volume descriptor set layout" << std::endl;
-        vkDestroyDescriptorSetLayout(m_context->getDevice(), m_volumeDescriptorSetLayout, nullptr);
-        m_volumeDescriptorSetLayout = VK_NULL_HANDLE;
+    if (rtEnabled) {
+        // Binding 3: TLAS for ray tracing (shadow catcher disc)
+        volumeBindings[3].binding = 3;
+        volumeBindings[3].descriptorCount = 1;
+        volumeBindings[3].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        volumeBindings[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        std::cout << "[DEBUG] Added TLAS binding at 3, type=ACCELERATION_STRUCTURE_KHR" << std::endl;
     }
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -918,11 +904,52 @@ void VolumeRenderer::createVolumeRenderPipeline() {
     layoutInfo.bindingCount = bindingCount;
     layoutInfo.pBindings = volumeBindings.data();
 
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     std::cout << "[DEBUG] Creating descriptor layout with " << bindingCount << " bindings" << std::endl;
-    if (vkCreateDescriptorSetLayout(m_context->getDevice(), &layoutInfo, nullptr,
-        &m_volumeDescriptorSetLayout) != VK_SUCCESS) {
+    if (vkCreateDescriptorSetLayout(m_context->getDevice(), &layoutInfo, nullptr, &layout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create volume descriptor set layout!");
     }
+
+    std::cout << "[DEBUG] Binding types for layout " << (void*)layout << ":";
+    for (uint32_t i = 0; i < bindingCount; i++) {
+        std::cout << " [" << i << "]=" << volumeBindings[i].descriptorType;
+    }
+    std::cout << std::endl;
+
+    return layout;
+}
+
+void VolumeRenderer::createVolumeRenderPipeline() {
+    // Load shaders
+    auto vertShaderCode = readFile("shaders/volume.vert.spv");
+    auto fragShaderCode = readFile("shaders/volume.frag.spv");
+
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+
+    // Vertex shader
+    createInfo.codeSize = vertShaderCode.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(vertShaderCode.data());
+    if (vkCreateShaderModule(m_context->getDevice(), &createInfo, nullptr, &m_volumeVertShader) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create volume vertex shader module!");
+    }
+
+    // Fragment shader
+    createInfo.codeSize = fragShaderCode.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(fragShaderCode.data());
+    if (vkCreateShaderModule(m_context->getDevice(), &createInfo, nullptr, &m_volumeFragShader) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create volume fragment shader module!");
+    }
+
+    // Clean up any existing descriptor set layout first
+    if (m_volumeDescriptorSetLayout != VK_NULL_HANDLE) {
+        std::cout << "[DEBUG] Cleaning up existing volume descriptor set layout" << std::endl;
+        vkDestroyDescriptorSetLayout(m_context->getDevice(), m_volumeDescriptorSetLayout, nullptr);
+        m_volumeDescriptorSetLayout = VK_NULL_HANDLE;
+    }
+
+    // Create unified descriptor set layout (always enable RT for now since shader expects it)
+    m_volumeDescriptorSetLayout = buildVolumeDescriptorSetLayout(true);
     std::cout << "[DEBUG] New volume descriptor set layout created: " << m_volumeDescriptorSetLayout << std::endl;
     
     // Push constants for volume rendering
@@ -1153,7 +1180,8 @@ VkPipeline VolumeRenderer::createVolumePipelineForFormat(VkFormat colorFormat, c
         throw std::runtime_error("Failed to create volume graphics pipeline!");
     }
 
-    std::cout << "[DEBUG] " << tag << " pipeline created successfully" << std::endl;
+    std::cout << "[DEBUG] " << tag << " pipeline created successfully: " << (void*)pipeline << std::endl;
+    std::cout << "[DEBUG] Pipeline " << tag << " layout handle: " << (void*)m_volumePipelineLayout << std::endl;
     return pipeline;
 }
 
@@ -1411,7 +1439,7 @@ void VolumeRenderer::updateDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuf
     
     // Bind compute pipeline and push descriptors (no more vkUpdateDescriptorSets!)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_densitySplatPipeline);
-    vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_densitySplatPipelineLayout, 
+    vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_densitySplatPipelineLayout,
         0, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data());
     
     // Push constants
@@ -1479,6 +1507,12 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     
     // Bind volume rendering pipeline and push descriptors
+    static bool s_loggedSDRPipeline = false;
+    if (!s_loggedSDRPipeline) {
+        std::cout << "[PIPE] volume-SDR pipeline bound in render(): " << (void*)m_volumePipeline
+                  << " for swapchain format" << std::endl;
+        s_loggedSDRPipeline = true;
+    }
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipeline);
     
     // Push descriptors for density + STBN + optical depth LUT (Vulkan 1.4)
@@ -1499,8 +1533,8 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     imageInfos[2].imageView = m_opticalDepthLUTView;
     imageInfos[2].sampler = m_opticalDepthLUTSampler;
     
-    // Prepare descriptor writes (3 or 4 depending on RT support)
-    uint32_t descriptorCount = supportsRayTracing() ? 4 : 3;
+    // Prepare descriptor writes (3 or 4 depending on RT support and TLAS creation)
+    uint32_t descriptorCount = (supportsRayTracing() && m_topLevelAS != VK_NULL_HANDLE) ? 4 : 3;
     std::vector<VkWriteDescriptorSet> descriptorWrites(descriptorCount);
     VkWriteDescriptorSetAccelerationStructureKHR accelStructInfo{};
 
@@ -1540,8 +1574,8 @@ void VolumeRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, cons
     descriptorWrites[2].pBufferInfo = nullptr;
     descriptorWrites[2].pTexelBufferView = nullptr;
 
-    // TLAS descriptor (binding 3) - only when RT is supported
-    if (supportsRayTracing()) {
+    // TLAS descriptor (binding 3) - only when RT is supported and TLAS is created
+    if (supportsRayTracing() && m_topLevelAS != VK_NULL_HANDLE) {
         accelStructInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
         accelStructInfo.accelerationStructureCount = 1;
         accelStructInfo.pAccelerationStructures = &m_topLevelAS;
@@ -1653,6 +1687,12 @@ void VolumeRenderer::renderToTAATarget(VkCommandBuffer cmd, const glm::mat4& vie
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     
     // Bind HDR volume rendering pipeline for TAA target and push descriptors
+    static bool s_loggedHDRPipeline = false;
+    if (!s_loggedHDRPipeline) {
+        std::cout << "[PIPE] volume-HDR pipeline bound in renderToTAATarget: " << (void*)m_volumePipelineHDR
+                  << " for format VK_FORMAT_R16G16B16A16_SFLOAT" << std::endl;
+        s_loggedHDRPipeline = true;
+    }
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_volumePipelineHDR);
     
     // Push descriptors for density + STBN + optical depth LUT (Vulkan 1.4)
@@ -1673,8 +1713,8 @@ void VolumeRenderer::renderToTAATarget(VkCommandBuffer cmd, const glm::mat4& vie
     imageInfos[2].imageView = m_opticalDepthLUTView;
     imageInfos[2].sampler = m_opticalDepthLUTSampler;
     
-    // RT-aware descriptor count
-    uint32_t descriptorCount = supportsRayTracing() ? 4 : 3;
+    // RT-aware descriptor count (only include TLAS if handle is non-null)
+    uint32_t descriptorCount = (supportsRayTracing() && m_topLevelAS != VK_NULL_HANDLE) ? 4 : 3;
     VkWriteDescriptorSet descriptorWrites[4] = {};  // Max size for RT support
     VkWriteDescriptorSetAccelerationStructureKHR accelDescriptor{};
     
@@ -1702,8 +1742,8 @@ void VolumeRenderer::renderToTAATarget(VkCommandBuffer cmd, const glm::mat4& vie
     descriptorWrites[2].descriptorCount = 1;
     descriptorWrites[2].pImageInfo = &imageInfos[2];
     
-    // Add TLAS descriptor when RT is supported
-    if (supportsRayTracing()) {
+    // Add TLAS descriptor when RT is supported and TLAS is created
+    if (supportsRayTracing() && m_topLevelAS != VK_NULL_HANDLE) {
         accelDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
         accelDescriptor.accelerationStructureCount = 1;
         accelDescriptor.pAccelerationStructures = &m_topLevelAS;
@@ -1871,8 +1911,8 @@ void VolumeRenderer::renderTAA(VkCommandBuffer cmd, const glm::mat4& viewProj, V
     descriptorWrites[1].pImageInfo = &imageInfos[1];
     
     // Push descriptors (Vulkan 1.1+)
-    vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_taaPipelineLayout,
-                           0, 2, descriptorWrites);
+    vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_taaPipelineLayout,
+                              0, 2, descriptorWrites);
     
     // Draw fullscreen triangle (TAA shader generates vertices procedurally)
     vkCmdDraw(cmd, 3, 1, 0, 0);
@@ -2370,8 +2410,8 @@ void VolumeRenderer::compositeTAAResult(VkCommandBuffer cmd) {
     descriptorWrites[1].descriptorCount = 1;
     descriptorWrites[1].pImageInfo = &imageInfos[1];
 
-    vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_taaPipelineLayout,
-                           0, 2, descriptorWrites);
+    vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_taaPipelineLayout,
+                              0, 2, descriptorWrites);
 
     // Draw fullscreen triangle to show TAA result
     vkCmdDraw(cmd, 3, 1, 0, 0);
@@ -2628,7 +2668,143 @@ void VolumeRenderer::createAccelerationStructures() {
     }
 
     std::cout << "BLAS created successfully - shadow catcher disc ready" << std::endl;
+
+    // Now create the TLAS with a dummy instance (will be properly built later)
+    createTLAS();
+
     m_rayTracingInitialized = true;
+}
+
+void VolumeRenderer::createTLAS() {
+    VkDevice device = m_context->getDevice();
+
+    // Create TLAS instance referencing the BLAS
+    VkAccelerationStructureDeviceAddressInfoKHR blasAddrInfo{};
+    blasAddrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    blasAddrInfo.accelerationStructure = m_bottomLevelAS;
+    VkDeviceAddress blasAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &blasAddrInfo);
+
+    VkAccelerationStructureInstanceKHR instance{};
+    instance.transform = { 1,0,0,0,  0,1,0,0,  0,0,1,0 };  // Identity transform
+    instance.instanceCustomIndex = 0;
+    instance.mask = 0xFF;
+    instance.instanceShaderBindingTableRecordOffset = 0;
+    instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+    instance.accelerationStructureReference = blasAddress;
+
+    // Create instance buffer
+    VkBufferCreateInfo instanceBufferInfo{};
+    instanceBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    instanceBufferInfo.size = sizeof(VkAccelerationStructureInstanceKHR);
+    instanceBufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                               VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+    if (vkCreateBuffer(device, &instanceBufferInfo, nullptr, &m_instanceBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create instance buffer!");
+    }
+
+    VkMemoryRequirements instanceMemReqs;
+    vkGetBufferMemoryRequirements(device, m_instanceBuffer, &instanceMemReqs);
+
+    VkMemoryAllocateFlagsInfo instanceAllocFlags{};
+    instanceAllocFlags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    instanceAllocFlags.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+    VkMemoryAllocateInfo instanceAllocInfo{};
+    instanceAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    instanceAllocInfo.pNext = &instanceAllocFlags;
+    instanceAllocInfo.allocationSize = instanceMemReqs.size;
+    instanceAllocInfo.memoryTypeIndex = findMemoryType(instanceMemReqs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    if (vkAllocateMemory(device, &instanceAllocInfo, nullptr, &m_instanceMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate instance buffer memory!");
+    }
+
+    vkBindBufferMemory(device, m_instanceBuffer, m_instanceMemory, 0);
+
+    // Upload instance data
+    void* instanceData;
+    vkMapMemory(device, m_instanceMemory, 0, sizeof(instance), 0, &instanceData);
+    memcpy(instanceData, &instance, sizeof(instance));
+    vkUnmapMemory(device, m_instanceMemory);
+
+    // Get instance buffer device address
+    VkBufferDeviceAddressInfo instanceAddrInfo{};
+    instanceAddrInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    instanceAddrInfo.buffer = m_instanceBuffer;
+    VkDeviceAddress instanceAddress = vkGetBufferDeviceAddress(device, &instanceAddrInfo);
+
+    // Create TLAS geometry
+    VkAccelerationStructureGeometryKHR tlasGeometry{};
+    tlasGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    tlasGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlasGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    tlasGeometry.geometry.instances.data.deviceAddress = instanceAddress;
+
+    // Get TLAS build sizes
+    VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo{};
+    tlasBuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    tlasBuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    tlasBuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    tlasBuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    tlasBuildInfo.geometryCount = 1;
+    tlasBuildInfo.pGeometries = &tlasGeometry;
+
+    uint32_t instanceCount = 1;
+    VkAccelerationStructureBuildSizesInfoKHR tlasBuildSizes{};
+    tlasBuildSizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &tlasBuildInfo, &instanceCount, &tlasBuildSizes);
+
+    // Create TLAS buffer
+    VkBufferCreateInfo tlasBufferInfo{};
+    tlasBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    tlasBufferInfo.size = tlasBuildSizes.accelerationStructureSize;
+    tlasBufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+                           VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+    if (vkCreateBuffer(device, &tlasBufferInfo, nullptr, &m_tlasBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create TLAS buffer!");
+    }
+
+    VkMemoryRequirements tlasMemReqs;
+    vkGetBufferMemoryRequirements(device, m_tlasBuffer, &tlasMemReqs);
+
+    VkMemoryAllocateFlagsInfo tlasAllocFlags{};
+    tlasAllocFlags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    tlasAllocFlags.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+    VkMemoryAllocateInfo tlasAllocInfo{};
+    tlasAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    tlasAllocInfo.pNext = &tlasAllocFlags;
+    tlasAllocInfo.allocationSize = tlasMemReqs.size;
+    tlasAllocInfo.memoryTypeIndex = findMemoryType(tlasMemReqs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    if (vkAllocateMemory(device, &tlasAllocInfo, nullptr, &m_tlasMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate TLAS memory!");
+    }
+
+    vkBindBufferMemory(device, m_tlasBuffer, m_tlasMemory, 0);
+
+    // Create TLAS acceleration structure
+    VkAccelerationStructureCreateInfoKHR tlasCreateInfo{};
+    tlasCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+    tlasCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    tlasCreateInfo.buffer = m_tlasBuffer;
+    tlasCreateInfo.size = tlasBuildSizes.accelerationStructureSize;
+
+    if (vkCreateAccelerationStructureKHR(device, &tlasCreateInfo, nullptr, &m_topLevelAS) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create TLAS!");
+    }
+
+    std::cout << "[DEBUG] TLAS created successfully, handle: " << (void*)m_topLevelAS << std::endl;
+    if (m_topLevelAS != VK_NULL_HANDLE) {
+        std::cout << "[DEBUG] TLAS handle is non-null after creation" << std::endl;
+    } else {
+        throw std::runtime_error("TLAS handle is null after creation!");
+    }
 }
 
 void VolumeRenderer::buildAccelerationStructures(VkCommandBuffer cmd) {

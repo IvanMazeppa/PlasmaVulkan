@@ -85,6 +85,8 @@ The Vulkan spec states: If a resource variable is declared in a shader, and the 
 [DEBUG] volume-HDR pipeline created successfully
 TAA pipeline created successfully!
 BLAS created successfully - shadow catcher disc ready
+[DEBUG] Ray tracing acceleration structures initialized successfully
+[DEBUG] m_topLevelAS handle: 0000000000000000
 Volume renderer created successfully!
 Volume renderer created successfully!
 Creating mesh shader particle renderer...
@@ -109,11 +111,12 @@ Performing first-frame volume initialization (physics accumulator not ready)
 Initializing volume with 150000 particles
 First-frame volume initialization completed successfully
 BLAS and TLAS built successfully with proper synchronization!
+[PIPE] volume-HDR pipeline bound in renderToTAATarget: 0000490000000049 for format VK_FORMAT_R16G16B16A16_SFLOAT
 Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | MessageID = 0x4df5ffd4
 vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
 The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
 Objects: 2
-    [0] VkCommandBuffer 0x18d663ad180
+    [0] VkCommandBuffer 0x276d8703060
     [1] VkPipeline 0x4e000000004e
 
 Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
@@ -122,7 +125,7 @@ Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | M
 vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
 The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
 Objects: 2
-    [0] VkCommandBuffer 0x18d56f600e0
+    [0] VkCommandBuffer 0x276d8705e90
     [1] VkPipeline 0x4e000000004e
 
 Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
@@ -131,7 +134,7 @@ Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | M
 vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
 The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
 Objects: 2
-    [0] VkCommandBuffer 0x18d56f62ba0
+    [0] VkCommandBuffer 0x276d870d820
     [1] VkPipeline 0x4e000000004e
 
 Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
@@ -140,90 +143,90 @@ Validation Error: [ VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910 ] | M
 vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
 The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
 Objects: 2
-    [0] VkCommandBuffer 0x18d663ad180
+    [0] VkCommandBuffer 0x276d8703060
     [1] VkPipeline 0x4e000000004e
 
 Validation layer: vkCmdDraw(): VkRenderingInfo::pColorAttachments[0].imageView format (VK_FORMAT_R16G16B16A16_SFLOAT) must match the corresponding format in VkPipelineRenderingCreateInfo::pColorAttachmentFormats[0] (VK_FORMAT_B8G8R8A8_SRGB).
 The Vulkan spec states: If the dynamicRenderingUnusedAttachments feature is not enabled, and the current render pass instance was begun with vkCmdBeginRendering and VkRenderingInfo::colorAttachmentCount greater than 0, then each element of the VkRenderingInfo::pColorAttachments array with an imageView not equal to VK_NULL_HANDLE must have been created with a VkFormat equal to the corresponding element of VkPipelineRenderingCreateInfo::pColorAttachmentFormats used to create the bound graphics pipeline (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/drawing.html#VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x140000000014 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x140000000014 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkBuffer 0x140000000014
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x140000000014 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x140000000014 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x6a000000006a has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x6a000000006a has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkBuffer 0x6a000000006a
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x6a000000006a has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x6a000000006a has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x680000000068 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x680000000068 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkBuffer 0x680000000068
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x680000000068 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x680000000068 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x510000000051 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x510000000051 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkBuffer 0x510000000051
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x510000000051 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x510000000051 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x4f000000004f has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x4f000000004f has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkBuffer 0x4f000000004f
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkBuffer 0x4f000000004f has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkBuffer 0x4f000000004f has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x3c000000003c has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x3c000000003c has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x3c000000003c
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x3c000000003c has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x3c000000003c has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x380000000038 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x380000000038 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x380000000038
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x380000000038 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x380000000038 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x2c000000002c has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x2c000000002c has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x2c000000002c
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x2c000000002c has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x2c000000002c has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x5e000000005e has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x5e000000005e has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x5e000000005e
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x5e000000005e has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x5e000000005e has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
 (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x320000000032 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x320000000032 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x320000000032
 
 Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
-vkDestroyDevice(): Object Tracking - For VkDevice 0x18d56f80900, VkImage 0x320000000032 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x276c91b4330, VkImage 0x320000000032 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)

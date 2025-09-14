@@ -1,0 +1,41 @@
+{
+    "id": "0007",
+    "title": "Fix null TLAS handle and unify volume descriptor layout (resolve VUID 07990)",
+    "rationale": "Validation shows VUID 07990 at pipeline creation (shader expects ACCELERATION_STRUCTURE_KHR at binding 3; layout expects COMBINED_IMAGE_SAMPLER). Logs also show m_topLevelAS handle is VK_NULL_HANDLE at init. This CR ensures the descriptor set layout used by BOTH volume pipelines defines binding 3 as AS_KHR when RT is enabled, removes legacy DSM binding-3 code paths, and fixes TLAS construction so the handle is non-null before first use.",
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createVolumeRenderPipeline",
+            "action": "Create a single function (e.g., buildVolumeDescriptorSetLayout(bool rtEnabled)) that always constructs the descriptor set layout fresh and returns it. When rtEnabled==true, binding 3 descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR; when false, either (a) remove binding 3 entirely if shader compiled without RT, or (b) keep binding 3 as DSM only in a non-RT shader variant (do not mix). Use the same returned layout for BOTH SDR and HDR pipeline creation calls. Remove/replace any legacy code that sets binding 3 to COMBINED_IMAGE_SAMPLER in RT builds."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "constructor + createAccelerationStructures/buildAccelerationStructures",
+            "action": "Ensure TLAS is actually created (vkCreateAccelerationStructureKHR returns non-null handle) and built once before first volume draw. After TLAS creation, log the handle value and assert m_topLevelAS != VK_NULL_HANDLE. If TLAS build is deferred, gate RT path off (no binding 3 use) until the build completes, or create non-RT pipeline variant for the first frame."
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "render / renderToTAATarget descriptor writes",
+            "action": "Guard: only write/push binding 3 when (rtEnabled && m_topLevelAS != VK_NULL_HANDLE). Otherwise skip binding 3 entirely."
+        },
+        {
+            "file": "shaders/volume.frag",
+            "region": "build variants",
+            "action": "Provide two shader variants: (A) RT variant with layout(binding=3) accelerationStructureEXT; (B) non-RT variant with no binding 3 (or DSM only). Ensure the runtime chooses the matching pipeline/shader combo to avoid layout mismatch at creation."
+        }
+    ],
+    "instrumentation": [
+        "At descriptor layout build: print binding types for 0..3 and the descriptor set layout handle",
+        "After vkCreateAccelerationStructureKHR(TLAS): print handle value; assert non-null",
+        "At pipeline creation: print pipeline layout handle and confirm it references the descriptor set layout from this frame"
+    ],
+    "acceptance": [
+        "No VUID 07990 at pipeline creation for both SDR and HDR volume pipelines",
+        "Log shows m_topLevelAS != VK_NULL_HANDLE before first RT descriptor push",
+        "Frame runs without RT layout/type validation errors"
+    ],
+    "notes": [
+        "Do not mix DSM and RT on the same binding index in a single shader variant",
+        "If RT is disabled at runtime, compile/bind the non-RT pipeline so that binding 3 is absent, avoiding layout mismatch"
+    ]
+}
