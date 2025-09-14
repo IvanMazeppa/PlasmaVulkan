@@ -1,0 +1,50 @@
+
+========================================
+     PLASMAVULKAN SIMULATION MENU
+========================================
+
+PRESETS:
+  1. Stellar Formation (Default)
+  2. Galaxy Spiral Arms
+  3. Black Hole Accretion Disk
+  4. Globular Cluster
+  5. Protoplanetary Disk
+  6. Galaxy Collision (Dual Gravity)
+  7. Quasar Jets (High Energy)
+  8. Volumetric Plasma (Swirling Energy)
+  9. Custom Settings
+  10. Start with Current Settings
+
+Enter choice (1-10): Starting PlasmaVulkan application...
+Creating Vulkan instance...
+Setting up debug messenger...
+Creating surface...
+Picking physical device...
+Selected GPU: NVIDIA GeForce RTX 4060 Ti
+Subgroup size: 32
+Subgroup ballot in fragment: YES
+Creating logical device...
+Ray Query extension enabled: YES
+Ray Query feature (rayQuery) enabled: YES
+Acceleration Structure extension enabled: YES
+Creating swap chain...
+Using VK_PRESENT_MODE_IMMEDIATE_KHR for maximum performance
+Creating command pool...
+Creating sync objects...
+VulkanContext initialization complete!
+VMA allocator disabled for now (needs investigation)
+Vulkan initialized successfully!
+Creating particle system with 2000000 particles...
+Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 1 not consumed by vertex shader.
+Particle system created successfully!
+Particle system created with 2000000 particles
+Creating volume renderer...
+Grid: 240x240x240
+Density splat mode: voxel gather (fallback)
+Creating density grid with 8 mip levels for LOD sampling
+Density image initialized: all 8 mip levels cleared and transitioned to SHADER_READ_ONLY_OPTIMAL
+Loading STBN (Spatiotemporal Blue Noise) textures...
+STBN textures loaded successfully (64 layers)
+Creating preintegrated optical depth LUT...
+Optical depth LUT created successfully (256 entries)
+Creating TAA (Temporal Anti-Aliasing) resources...

@@ -78,6 +78,8 @@ public:
     bool supportsShaderAtomicFloat() const { return m_supportsAtomicFloat; }
     bool supportsMeshShaders() const { return m_supportsMeshShaders; }
     bool supportsSubgroupBallot() const { return m_supportsSubgroupBallot; }
+    bool supportsRayQuery() const { return m_supportsRayQuery; }
+    bool supportsAccelerationStructure() const { return m_supportsAccelerationStructure; }
     uint32_t getSubgroupSize() const { return m_subgroupSize; }
     
     // Command buffer helpers
@@ -144,6 +146,8 @@ private:
     bool m_supportsAtomicFloat = false; // VK_EXT_shader_atomic_float
     bool m_supportsMeshShaders = false; // VK_EXT_mesh_shader
     bool m_supportsSubgroupBallot = false; // Core Vulkan 1.1 subgroup ballot operations
+    bool m_supportsRayQuery = false; // VK_KHR_ray_query
+    bool m_supportsAccelerationStructure = false; // VK_KHR_acceleration_structure
     uint32_t m_subgroupSize = 0;
     
     // Configuration

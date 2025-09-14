@@ -1,0 +1,39 @@
+{
+    "id": "1003_mesh_bind3_and_ray_query",
+    "title": "Mesh descriptor binding 3 = AS_KHR, push TLAS, minimal ray query in fragment",
+    "purpose": "Wire TLAS into the mesh renderer and implement a minimal ray query-based shadow factor with a runtime toggle.",
+    "steps": [
+        {
+            "action": "layout",
+            "detail": "In mesh material/scene descriptor set layout, add binding 3 as VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR when RT is enabled. Ensure SDR/HDR mesh pipelines share the same layout."
+        },
+        {
+            "action": "push",
+            "detail": "At draw time, use VkWriteDescriptorSetAccelerationStructureKHR + vkCmdPushDescriptorSetKHR to bind TLAS to binding 3. Add a throttled per-frame log: 'Pushed TLAS at binding 3 (AS_KHR)'."
+        },
+        {
+            "action": "shader",
+            "detail": "In shaders/particle_mesh.frag (or the active mesh fragment shader), add GL_EXT_ray_query, declare layout(binding=3) uniform accelerationStructureEXT topLevelAS; implement hasOccluderRT(originWS, dirWS, tMax) with TerminateOnFirstHit|Opaque flags, and multiply a visibility factor into finalColor."
+        },
+        {
+            "action": "toggle",
+            "detail": "Add a runtime toggle (push constant/UBO) to enable/disable RT quickly for triage."
+        }
+    ],
+    "acceptance": [
+        "Toggling RT flag visibly changes shading (darker under occluders)",
+        "No VUID 07990 (layout mismatch) or push-descriptor errors",
+        "Logs show TLAS push once per frame (throttled)"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/MeshParticleRenderer.h",
+        "shaders/particle_mesh.frag"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR')",
+        "search_vulkan_spec('GL_EXT_ray_query')",
+        "search_vulkan_spec('vkCmdPushDescriptorSetKHR')"
+    ],
+    "notes": "Ensure worldPos and lightDir are in world space. Keep cost minimal (one ray query per fragment)."
+}

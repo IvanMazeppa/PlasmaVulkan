@@ -200,6 +200,8 @@ void VulkanContext::createLogicalDevice() {
 
     m_supportsAtomicFloat = hasExtension(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
     m_supportsMeshShaders = hasExtension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+    m_supportsRayQuery = hasExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    m_supportsAccelerationStructure = hasExtension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 
     // Enable Vulkan 1.4 features
     VkPhysicalDeviceVulkan14Features vk14Features{};
@@ -227,16 +229,16 @@ void VulkanContext::createLogicalDevice() {
     meshShader.meshShader = m_supportsMeshShaders ? VK_TRUE : VK_FALSE;
     meshShader.taskShader = m_supportsMeshShaders ? VK_TRUE : VK_FALSE;
 
-    // Ray tracing features for hardware RT shadows
+    // Ray tracing features for hardware RT shadows (only enable if supported)
     VkPhysicalDeviceRayQueryFeaturesKHR rayQuery{};
     rayQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
     rayQuery.pNext = m_supportsMeshShaders ? (void*)&meshShader : (void*)&vk12Features;
-    rayQuery.rayQuery = VK_TRUE;
+    rayQuery.rayQuery = m_supportsRayQuery ? VK_TRUE : VK_FALSE;
 
     VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructure{};
     accelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
     accelerationStructure.pNext = &rayQuery;
-    accelerationStructure.accelerationStructure = VK_TRUE;
+    accelerationStructure.accelerationStructure = m_supportsAccelerationStructure ? VK_TRUE : VK_FALSE;
 
     // Optional: atomic float features
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloat{};
@@ -247,14 +249,8 @@ void VulkanContext::createLogicalDevice() {
 
     VkPhysicalDeviceFeatures2 deviceFeatures{};
     deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    // Build pNext chain based on supported features
-    if (m_supportsAtomicFloat) {
-        deviceFeatures.pNext = (void*)&atomicFloat;
-    } else if (m_supportsMeshShaders) {
-        deviceFeatures.pNext = (void*)&meshShader;
-    } else {
-        deviceFeatures.pNext = (void*)&vk12Features;
-    }
+    // Always use the full pNext chain to preserve all features
+    deviceFeatures.pNext = (void*)&atomicFloat;
     deviceFeatures.features.geometryShader = VK_TRUE;
     deviceFeatures.features.tessellationShader = VK_TRUE;
 
@@ -279,10 +275,14 @@ void VulkanContext::createLogicalDevice() {
         deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
 
-    // Ray tracing extensions for hardware RT shadows
-    deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-    deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-    deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+    // Ray tracing extensions for hardware RT shadows (only add if supported)
+    if (m_supportsAccelerationStructure) {
+        deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+    }
+    if (m_supportsRayQuery) {
+        deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    }
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -299,6 +299,11 @@ void VulkanContext::createLogicalDevice() {
     vkGetDeviceQueue(m_device, indices.computeFamily.value(), 0, &m_computeQueue);
 
     m_queueFamilyIndices = indices;
+
+    // Job 1001: Log RT support status once after device creation
+    std::cout << "Ray Query extension enabled: " << (m_supportsRayQuery ? "YES" : "NO") << std::endl;
+    std::cout << "Ray Query feature (rayQuery) enabled: " << (m_supportsRayQuery ? "YES" : "NO") << std::endl;
+    std::cout << "Acceleration Structure extension enabled: " << (m_supportsAccelerationStructure ? "YES" : "NO") << std::endl;
 }
 
 void VulkanContext::createSwapChain() {

@@ -1,0 +1,41 @@
+{
+    "job_id": "1001_rayquery_feature_logs",
+    "status": "completed",
+    "timestamp": "2025-09-14T20:30:00",
+    "implementation_summary": "Successfully added RayQuery and AccelerationStructure feature detection, conditional enabling, and explicit logging to VulkanContext",
+    "changes_made": [
+        {
+            "file": "src/renderer/VulkanContext.h",
+            "changes": [
+                "Added m_supportsRayQuery and m_supportsAccelerationStructure member variables",
+                "Added getter methods supportsRayQuery() and supportsAccelerationStructure()"
+            ]
+        },
+        {
+            "file": "src/renderer/VulkanContext.cpp",
+            "changes": [
+                "Added extension checking for VK_KHR_RAY_QUERY_EXTENSION_NAME and VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME",
+                "Conditional enabling of ray query and acceleration structure features based on support",
+                "Conditional addition of RT extensions to device extension list",
+                "Added explicit logging after device creation showing RT support status",
+                "Fixed pNext chain to preserve all features (atomic float -> acceleration structure -> ray query -> mesh shader -> vk12 -> vk13 -> vk14)"
+            ]
+        }
+    ],
+    "validation_results": {
+        "build": "successful",
+        "runtime_logs": [
+            "Ray Query extension enabled: YES",
+            "Ray Query feature (rayQuery) enabled: YES",
+            "Acceleration Structure extension enabled: YES"
+        ],
+        "validation_errors": "None related to RT feature enabling",
+        "performance": "No impact, feature detection only"
+    },
+    "acceptance_criteria_met": [
+        "✅ logs/run.txt contains the three support lines once per run",
+        "✅ Application runs without new validation errors",
+        "✅ m_supportsRayQuery and m_supportsAccelerationStructure reflect actual enablement (both true on RTX 4060 Ti)"
+    ],
+    "notes": "pNext chain properly maintained without overwriting pointers. RT features are now conditionally enabled based on hardware support, preventing issues on non-RT GPUs."
+}

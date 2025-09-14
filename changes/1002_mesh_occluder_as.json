@@ -1,0 +1,37 @@
+{
+    "id": "1002_mesh_occluder_as",
+    "title": "Occluder BLAS/TLAS utilities + synchronization + teardown hygiene",
+    "purpose": "Introduce minimal occluder acceleration structures (sphere, disc) and clean destruction order to remove exit-time VUIDs.",
+    "steps": [
+        {
+            "action": "blas_build",
+            "detail": "Create unit sphere and unit disc/annulus triangle meshes with device-addressable vertex/index buffers. Build BLAS with vkCmdBuildAccelerationStructuresKHR and scratch buffers."
+        },
+        {
+            "action": "tlas_build",
+            "detail": "Create TLAS with 1–3 instances (BH sphere, tilted disc). After build, issue vkCmdPipelineBarrier2 from ACCELERATION_STRUCTURE_BUILD_BIT_KHR to FRAGMENT_SHADER_BIT. Log TLAS device address."
+        },
+        {
+            "action": "teardown",
+            "detail": "On shutdown: vkDeviceWaitIdle, then destroy pipelines/descriptors, TLAS, BLAS, and free buffers in safe order. Null handles and optionally log destructions (guarded)."
+        }
+    ],
+    "acceptance": [
+        "TLAS device address printed in logs after build",
+        "No validation errors during AS build or use",
+        "Exit-time VUIDs related to AS/descriptor/pipeline destruction eliminated on 3 consecutive runs"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/MeshParticleRenderer.h",
+        "src/core/Application.cpp"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('vkGetAccelerationStructureBuildSizesKHR')",
+        "search_vulkan_spec('vkCmdBuildAccelerationStructuresKHR')",
+        "search_vulkan_spec('vkGetAccelerationStructureDeviceAddressKHR')",
+        "search_vulkan_spec('VkAccelerationStructureGeometryKHR')",
+        "search_vulkan_spec('vkDestroyAccelerationStructureKHR')"
+    ],
+    "notes": "Use VMA for buffers where available. Keep scratch buffers transient. Prefer build-once; we can refit later when transforms animate."
+}

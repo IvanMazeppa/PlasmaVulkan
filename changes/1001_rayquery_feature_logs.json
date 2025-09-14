@@ -1,0 +1,33 @@
+{
+    "id": "1001_rayquery_feature_logs",
+    "title": "RayQuery feature/extension reconciliation and explicit support logs",
+    "purpose": "Guarantee VK_KHR_ray_query is enabled correctly and print authoritative support logs; persist flags for later CRs.",
+    "steps": [
+        {
+            "action": "feature_chain",
+            "detail": "In VulkanContext::createLogicalDevice, ensure VkPhysicalDeviceRayQueryFeaturesKHR{rayQuery=VK_TRUE} is chained through to vkCreateDevice along with VkPhysicalDeviceAccelerationStructureFeaturesKHR and bufferDeviceAddress. Do not drop structs by overwriting pNext."
+        },
+        {
+            "action": "flags",
+            "detail": "Set and store m_supportsRayQuery and m_supportsAccelerationStructure based on extension presence and enabled features."
+        },
+        {
+            "action": "logs",
+            "detail": "After device creation, print once per run: 'Ray Query extension enabled: <YES/NO>', 'Ray Query feature (rayQuery) enabled: <YES/NO>', 'Acceleration Structure extension enabled: <YES/NO>'."
+        }
+    ],
+    "acceptance": [
+        "logs/run.txt contains the three support lines once per run",
+        "Application runs without new validation errors",
+        "m_supportsRayQuery and m_supportsAccelerationStructure reflect actual enablement"
+    ],
+    "touchpoints": [
+        "src/renderer/VulkanContext.cpp"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('VK_KHR_ray_query')",
+        "search_vulkan_spec('VkPhysicalDeviceRayQueryFeaturesKHR')",
+        "search_vulkan_spec('vkCreateDevice pNext feature chain')"
+    ],
+    "notes": "Ensure pNext chain continuity: atomicFloat -> accelerationStructure -> rayQuery -> meshShader? -> vk12Features -> vk13 -> vk14 (or equivalent ordering used)."
+}
