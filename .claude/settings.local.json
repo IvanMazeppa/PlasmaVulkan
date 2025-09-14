@@ -55,7 +55,8 @@
       "mcp__enhanced-vulkan-docs__get_spec_section",
       "mcp__enhanced-vulkan-docs__get_vulkan_entity",
       "Bash(/mnt/c/Windows/System32/taskkill.exe /F /IM PlasmaVulkan.exe)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe -B cmake-build-debug-visual-studio -S . -G \"Visual Studio 17 2022\" -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake)"
     ],
     "deny": [],
     "ask": []

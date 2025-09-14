@@ -1,0 +1,48 @@
+{
+    "id": "1004_real_occluder_geometry_and_placement",
+    "title": "Real occluder geometry (icosphere + disc) and correct TLAS placement",
+    "purpose": "Replace placeholder meshes with proper geometry and place occluders to intersect the particle cloud so ray-query shadows become visibly testable.",
+    "steps": [
+        {
+            "action": "geometry_sphere",
+            "detail": "Implement CPU-side icosphere generation (subdivisions 2–3). Produce position-only vertex buffer and index buffer with SHADER_DEVICE_ADDRESS_BIT. Radius paramizable (default 3.0)."
+        },
+        {
+            "action": "geometry_disc",
+            "detail": "Implement CPU-side disc/annulus mesh in the XZ plane with N segments (e.g., 128). Parameters: innerRadius (default 1.0), outerRadius (default 6.0)."
+        },
+        {
+            "action": "blas_rebuild",
+            "detail": "Rebuild BLAS for both meshes using the new vertex/index buffers and update stored handles."
+        },
+        {
+            "action": "tlas_instances",
+            "detail": "Create TLAS instances: (1) Sphere at world origin with uniform scale=radius, (2) Disc centered at origin tilted 20–35 degrees around X or Z. Ensure instance transform (3x4, row-major) is populated correctly. Mask=0xFF."
+        },
+        {
+            "action": "light_dir_and_toggle",
+            "detail": "Expose a scene-level light direction (default normalize(-0.5,-0.8,-0.6)) and ensure the occluders sit between light and particles. Add runtime UI/toggles to tweak sphere radius, disc tilt, and light direction for quick validation."
+        },
+        {
+            "action": "logs",
+            "detail": "Log occluder instance transforms and bounds once after build. Optionally draw debug wireframe of occluder bounds (toggle) to confirm placement."
+        }
+    ],
+    "acceptance": [
+        "TLAS updated with two instances (sphere + disc) and non-null device address",
+        "Particles visibly darken when occluders intersect them with RT enabled",
+        "Debug toggle shows occluder bounds aligned with shadows"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/MeshParticleRenderer.h",
+        "src/core/Application.cpp",
+        "shaders/particle_mesh.frag"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('VkAccelerationStructureInstanceKHR transform')",
+        "search_vulkan_spec('vkCmdBuildAccelerationStructuresKHR')",
+        "search_vulkan_spec('vkCmdPipelineBarrier2')"
+    ],
+    "notes": "VkAccelerationStructureInstanceKHR.transform is a row-major 3x4. Ensure consistent world-space conventions for instance placement and light direction."
+}

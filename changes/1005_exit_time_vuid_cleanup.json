@@ -1,0 +1,38 @@
+{
+    "id": "1005_exit_time_vuid_cleanup",
+    "title": "Exit-time VUID cleanup: destroy all VkBuffer/VkImage/VkDeviceMemory in correct order",
+    "purpose": "Eliminate shutdown validation errors (VUID-vkDestroyDevice-device-05137) by ensuring all child objects are destroyed/free before vkDestroyDevice.",
+    "steps": [
+        {
+            "action": "inventory",
+            "detail": "Add debug-only tracking of created VkBuffer, VkImage, and VkDeviceMemory (or VMA allocations) per subsystem (mesh, volume, bloom, TAA, swapchain)."
+        },
+        {
+            "action": "teardown_order",
+            "detail": "On Application::cleanup(): stop rendering, vkDeviceWaitIdle, then destroy pipelines and descriptor pools/sets/layouts, then AS (TLAS, BLAS), then destroy all remaining images, image views, buffers, and finally free memory (or call vmaDestroy*). Null handles after destroy."
+        },
+        {
+            "action": "taa_bloom_volume",
+            "detail": "Ensure TAA images (history/current), bloom images, and any volume images created are explicitly destroyed before device."
+        },
+        {
+            "action": "logs",
+            "detail": "Print a compact summary of destroyed counts per resource type in debug builds (e.g., 'Destroyed: 5 images, 6 buffers, 2 memories')."
+        }
+    ],
+    "acceptance": [
+        "No 05137 VUIDs on three consecutive runs/shutdowns",
+        "Resource destruction summary appears once per shutdown in logs/run.txt"
+    ],
+    "touchpoints": [
+        "src/core/Application.cpp",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/VolumeRenderer.cpp",
+        "src/renderer/VulkanContext.cpp"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('Object lifetime and destruction order')",
+        "search_vulkan_spec('vkDestroyDevice children must be destroyed')"
+    ],
+    "notes": "If using VMA later, rely on vmaDestroyBuffer/vmaDestroyImage instead of raw vk*; until then, free VkDeviceMemory explicitly for manually allocated resources."
+}

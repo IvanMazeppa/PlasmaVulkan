@@ -662,63 +662,654 @@ void MeshParticleRenderer::createAccelerationStructures() {
 void MeshParticleRenderer::createOccluderGeometry() {
     VkDevice device = m_context->getDevice();
 
-    // Create simple unit sphere vertices (icosphere approximation)
-    std::vector<glm::vec3> sphereVertices = {
-        {0.0f, 1.0f, 0.0f},     // Top
-        {0.0f, -1.0f, 0.0f},    // Bottom
-        {1.0f, 0.0f, 0.0f},     // Right
-        {-1.0f, 0.0f, 0.0f},    // Left
-        {0.0f, 0.0f, 1.0f},     // Front
-        {0.0f, 0.0f, -1.0f}     // Back
-    };
+    // Job 1004: Generate proper icosphere with 2 subdivisions
+    auto [sphereVertices, sphereIndices] = generateIcosphere(3.0f, 2);
 
-    std::vector<uint32_t> sphereIndices = {
-        0, 2, 4,  0, 4, 3,  0, 3, 5,  0, 5, 2,  // Top triangles
-        1, 4, 2,  1, 3, 4,  1, 5, 3,  1, 2, 5   // Bottom triangles
-    };
-
-    // Create unit disc vertices (ring/annulus)
-    std::vector<glm::vec3> discVertices = {
-        {0.0f, 0.0f, 0.0f},     // Center
-        {1.0f, 0.0f, 0.0f},     // Right
-        {0.0f, 1.0f, 0.0f},     // Top
-        {-1.0f, 0.0f, 0.0f},    // Left
-        {0.0f, -1.0f, 0.0f}     // Bottom
-    };
-
-    std::vector<uint32_t> discIndices = {
-        0, 1, 2,  0, 2, 3,  0, 3, 4,  0, 4, 1
-    };
+    // Job 1004: Generate disc/annulus mesh in XZ plane
+    auto [discVertices, discIndices] = generateDisc(1.0f, 6.0f, 64);
 
     // Create vertex buffers with device address capability
     VkBufferUsageFlags vertexUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                     VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+                                     VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
     VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
                                     VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    // Note: Using simplified buffer creation (would need proper VMA integration)
-    // For now, creating basic buffers - proper implementation would use VMA
     std::cout << "  Creating sphere and disc geometry buffers..." << std::endl;
     std::cout << "  Sphere: " << sphereVertices.size() << " vertices, " << sphereIndices.size() << " indices" << std::endl;
     std::cout << "  Disc: " << discVertices.size() << " vertices, " << discIndices.size() << " indices" << std::endl;
+
+    // Create sphere vertex buffer
+    createBufferWithData(device, sphereVertices.data(), sphereVertices.size() * sizeof(glm::vec3),
+                        vertexUsage, m_sphereVertexBuffer, m_sphereVertexMemory);
+
+    // Create sphere index buffer
+    createBufferWithData(device, sphereIndices.data(), sphereIndices.size() * sizeof(uint32_t),
+                        indexUsage, m_sphereIndexBuffer, m_sphereIndexMemory);
+
+    // Create disc vertex buffer
+    createBufferWithData(device, discVertices.data(), discVertices.size() * sizeof(glm::vec3),
+                        vertexUsage, m_discVertexBuffer, m_discVertexMemory);
+
+    // Create disc index buffer
+    createBufferWithData(device, discIndices.data(), discIndices.size() * sizeof(uint32_t),
+                        indexUsage, m_discIndexBuffer, m_discIndexMemory);
+
+    // Store geometry counts for BLAS building
+    m_sphereVertexCount = sphereVertices.size();
+    m_sphereIndexCount = sphereIndices.size();
+    m_discVertexCount = discVertices.size();
+    m_discIndexCount = discIndices.size();
+
+    // Get device addresses for BLAS building
+    VkBufferDeviceAddressInfo sphereVertexAddressInfo{};
+    sphereVertexAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    sphereVertexAddressInfo.buffer = m_sphereVertexBuffer;
+    m_sphereVertexAddress = vkGetBufferDeviceAddress(device, &sphereVertexAddressInfo);
+
+    VkBufferDeviceAddressInfo sphereIndexAddressInfo{};
+    sphereIndexAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    sphereIndexAddressInfo.buffer = m_sphereIndexBuffer;
+    m_sphereIndexAddress = vkGetBufferDeviceAddress(device, &sphereIndexAddressInfo);
+
+    VkBufferDeviceAddressInfo discVertexAddressInfo{};
+    discVertexAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    discVertexAddressInfo.buffer = m_discVertexBuffer;
+    m_discVertexAddress = vkGetBufferDeviceAddress(device, &discVertexAddressInfo);
+
+    VkBufferDeviceAddressInfo discIndexAddressInfo{};
+    discIndexAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    discIndexAddressInfo.buffer = m_discIndexBuffer;
+    m_discIndexAddress = vkGetBufferDeviceAddress(device, &discIndexAddressInfo);
+
+    std::cout << "  Sphere vertex device address: 0x" << std::hex << m_sphereVertexAddress << std::dec << std::endl;
+    std::cout << "  Disc vertex device address: 0x" << std::hex << m_discVertexAddress << std::dec << std::endl;
+}
+
+// Job 1004: Icosphere generation with subdivision
+std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> MeshParticleRenderer::generateIcosphere(float radius, int subdivisions) {
+    // Start with icosahedron vertices
+    const float t = (1.0f + std::sqrt(5.0f)) / 2.0f; // Golden ratio
+
+    std::vector<glm::vec3> vertices = {
+        {-1, t, 0}, {1, t, 0}, {-1, -t, 0}, {1, -t, 0},
+        {0, -1, t}, {0, 1, t}, {0, -1, -t}, {0, 1, -t},
+        {t, 0, -1}, {t, 0, 1}, {-t, 0, -1}, {-t, 0, 1}
+    };
+
+    // Normalize to unit sphere
+    for (auto& vertex : vertices) {
+        vertex = normalize(vertex);
+    }
+
+    // Icosahedron faces
+    std::vector<uint32_t> indices = {
+        0,11,5, 0,5,1, 0,1,7, 0,7,10, 0,10,11,
+        1,5,9, 5,11,4, 11,10,2, 10,7,6, 7,1,8,
+        3,9,4, 3,4,2, 3,2,6, 3,6,8, 3,8,9,
+        4,9,5, 2,4,11, 6,2,10, 8,6,7, 9,8,1
+    };
+
+    // Subdivide faces
+    for (int i = 0; i < subdivisions; ++i) {
+        std::vector<uint32_t> newIndices;
+
+        for (size_t j = 0; j < indices.size(); j += 3) {
+            uint32_t v1 = indices[j];
+            uint32_t v2 = indices[j + 1];
+            uint32_t v3 = indices[j + 2];
+
+            // Create midpoint vertices
+            glm::vec3 mid12 = normalize(vertices[v1] + vertices[v2]);
+            glm::vec3 mid23 = normalize(vertices[v2] + vertices[v3]);
+            glm::vec3 mid31 = normalize(vertices[v3] + vertices[v1]);
+
+            uint32_t mid12Idx = vertices.size();
+            uint32_t mid23Idx = vertices.size() + 1;
+            uint32_t mid31Idx = vertices.size() + 2;
+
+            vertices.push_back(mid12);
+            vertices.push_back(mid23);
+            vertices.push_back(mid31);
+
+            // Create 4 new triangles
+            newIndices.insert(newIndices.end(), {v1, mid12Idx, mid31Idx});
+            newIndices.insert(newIndices.end(), {v2, mid23Idx, mid12Idx});
+            newIndices.insert(newIndices.end(), {v3, mid31Idx, mid23Idx});
+            newIndices.insert(newIndices.end(), {mid12Idx, mid23Idx, mid31Idx});
+        }
+
+        indices = newIndices;
+    }
+
+    // Scale to desired radius
+    for (auto& vertex : vertices) {
+        vertex *= radius;
+    }
+
+    return {vertices, indices};
+}
+
+// Job 1004: Disc/annulus generation in XZ plane
+std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> MeshParticleRenderer::generateDisc(float innerRadius, float outerRadius, int segments) {
+    std::vector<glm::vec3> vertices;
+    std::vector<uint32_t> indices;
+    const float PI = 3.14159265359f;
+
+    // Generate ring vertices
+    for (int i = 0; i <= segments; ++i) {
+        float angle = 2.0f * PI * i / segments;
+        float cosA = std::cos(angle);
+        float sinA = std::sin(angle);
+
+        // Inner ring vertex
+        vertices.push_back({innerRadius * cosA, 0.0f, innerRadius * sinA});
+        // Outer ring vertex
+        vertices.push_back({outerRadius * cosA, 0.0f, outerRadius * sinA});
+    }
+
+    // Generate quad indices (as triangles)
+    for (int i = 0; i < segments; ++i) {
+        uint32_t innerCurrent = i * 2;
+        uint32_t outerCurrent = i * 2 + 1;
+        uint32_t innerNext = ((i + 1) % (segments + 1)) * 2;
+        uint32_t outerNext = ((i + 1) % (segments + 1)) * 2 + 1;
+
+        // First triangle
+        indices.insert(indices.end(), {innerCurrent, outerCurrent, outerNext});
+        // Second triangle
+        indices.insert(indices.end(), {innerCurrent, outerNext, innerNext});
+    }
+
+    return {vertices, indices};
+}
+
+// Job 1004: Helper to create buffer with data (since VMA is disabled)
+void MeshParticleRenderer::createBufferWithData(VkDevice device, const void* data, VkDeviceSize size,
+                                                VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& memory) {
+    // Create buffer
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create buffer for occluder geometry!");
+    }
+
+    // Get memory requirements
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+    // Allocate memory with device address bit for shader device address buffers
+    VkMemoryAllocateFlagsInfo allocFlagsInfo{};
+    allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.pNext = &allocFlagsInfo;  // Required for device address buffers
+    allocInfo.allocationSize = memRequirements.size;
+
+    // Find memory type that supports host visible + coherent
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(m_context->getPhysicalDevice(), &memProperties);
+
+    uint32_t memoryTypeIndex = UINT32_MAX;
+    VkMemoryPropertyFlags requiredProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((memRequirements.memoryTypeBits & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties) {
+            memoryTypeIndex = i;
+            break;
+        }
+    }
+
+    if (memoryTypeIndex == UINT32_MAX) {
+        throw std::runtime_error("Failed to find suitable memory type for buffer!");
+    }
+
+    allocInfo.memoryTypeIndex = memoryTypeIndex;
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate buffer memory!");
+    }
+
+    vkBindBufferMemory(device, buffer, memory, 0);
+
+    // Copy data
+    void* mappedData;
+    vkMapMemory(device, memory, 0, size, 0, &mappedData);
+    memcpy(mappedData, data, size);
+    vkUnmapMemory(device, memory);
+}
+
+// Job 1004: Helper to create buffer for acceleration structures
+void MeshParticleRenderer::createBufferForAS(VkDevice device, VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& memory) {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create AS buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+    // Device address flag required for AS buffers too
+    VkMemoryAllocateFlagsInfo allocFlagsInfo{};
+    allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.pNext = &allocFlagsInfo;
+    allocInfo.allocationSize = memRequirements.size;
+
+    // Find device-local memory for AS
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(m_context->getPhysicalDevice(), &memProperties);
+
+    uint32_t memoryTypeIndex = UINT32_MAX;
+    VkMemoryPropertyFlags requiredProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((memRequirements.memoryTypeBits & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties) {
+            memoryTypeIndex = i;
+            break;
+        }
+    }
+
+    if (memoryTypeIndex == UINT32_MAX) {
+        // Fallback to any available memory type
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+            if (memRequirements.memoryTypeBits & (1 << i)) {
+                memoryTypeIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (memoryTypeIndex == UINT32_MAX) {
+        throw std::runtime_error("Failed to find suitable memory type for AS buffer!");
+    }
+
+    allocInfo.memoryTypeIndex = memoryTypeIndex;
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate AS buffer memory!");
+    }
+
+    vkBindBufferMemory(device, buffer, memory, 0);
+}
+
+// Job 1004: Command buffer helpers for AS building
+VkCommandBuffer MeshParticleRenderer::beginSingleTimeCommands() {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_context->getCommandPool();
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(m_context->getDevice(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void MeshParticleRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(m_context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_context->getGraphicsQueue());
+
+    vkFreeCommandBuffers(m_context->getDevice(), m_context->getCommandPool(), 1, &commandBuffer);
 }
 
 void MeshParticleRenderer::buildBLAS() {
     std::cout << "  Building BLAS for sphere and disc occluders..." << std::endl;
-    // BLAS building implementation would go here
-    // This is a placeholder - full implementation needed
+
+    VkDevice device = m_context->getDevice();
+
+    // Build sphere BLAS
+    {
+        // Setup geometry data for sphere
+        VkAccelerationStructureGeometryTrianglesDataKHR sphereTriangles{};
+        sphereTriangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+        sphereTriangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+        sphereTriangles.vertexData.deviceAddress = m_sphereVertexAddress;
+        sphereTriangles.vertexStride = sizeof(glm::vec3);
+        sphereTriangles.indexType = VK_INDEX_TYPE_UINT32;
+        sphereTriangles.indexData.deviceAddress = m_sphereIndexAddress;
+        sphereTriangles.transformData.deviceAddress = 0; // No transform matrix
+
+        VkAccelerationStructureGeometryKHR sphereGeometry{};
+        sphereGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        sphereGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+        sphereGeometry.geometry.triangles = sphereTriangles;
+        sphereGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+        // Build geometry info
+        VkAccelerationStructureBuildGeometryInfoKHR sphereBuildInfo{};
+        sphereBuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        sphereBuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+        sphereBuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+        sphereBuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        sphereBuildInfo.geometryCount = 1;
+        sphereBuildInfo.pGeometries = &sphereGeometry;
+
+        // Get size requirements
+        uint32_t primitiveCount = m_sphereIndexCount / 3;
+        VkAccelerationStructureBuildSizesInfoKHR sphereSizeInfo{};
+        sphereSizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+        vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                                               &sphereBuildInfo, &primitiveCount, &sphereSizeInfo);
+
+        // Create BLAS buffer
+        createBufferForAS(device, sphereSizeInfo.accelerationStructureSize, m_sphereBLASBuffer, m_sphereBLASMemory);
+
+        // Create acceleration structure
+        VkAccelerationStructureCreateInfoKHR sphereCreateInfo{};
+        sphereCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        sphereCreateInfo.buffer = m_sphereBLASBuffer;
+        sphereCreateInfo.size = sphereSizeInfo.accelerationStructureSize;
+        sphereCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+
+        if (vkCreateAccelerationStructureKHR(device, &sphereCreateInfo, nullptr, &m_sphereBLAS) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create sphere BLAS!");
+        }
+
+        // Create scratch buffer
+        VkBuffer scratchBuffer;
+        VkDeviceMemory scratchMemory;
+        createBufferForAS(device, sphereSizeInfo.buildScratchSize, scratchBuffer, scratchMemory);
+
+        VkBufferDeviceAddressInfo scratchAddressInfo{};
+        scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        scratchAddressInfo.buffer = scratchBuffer;
+        VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(device, &scratchAddressInfo);
+
+        // Update build info with AS and scratch
+        sphereBuildInfo.dstAccelerationStructure = m_sphereBLAS;
+        sphereBuildInfo.scratchData.deviceAddress = scratchAddress;
+
+        // Build range info
+        VkAccelerationStructureBuildRangeInfoKHR sphereRangeInfo{};
+        sphereRangeInfo.primitiveCount = primitiveCount;
+        sphereRangeInfo.primitiveOffset = 0;
+        sphereRangeInfo.firstVertex = 0;
+        sphereRangeInfo.transformOffset = 0;
+
+        const VkAccelerationStructureBuildRangeInfoKHR* pSphereRangeInfo = &sphereRangeInfo;
+
+        // Record build commands
+        VkCommandBuffer cmdBuffer = beginSingleTimeCommands();
+        vkCmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &sphereBuildInfo, &pSphereRangeInfo);
+        endSingleTimeCommands(cmdBuffer);
+
+        // Cleanup scratch buffer
+        vkDestroyBuffer(device, scratchBuffer, nullptr);
+        vkFreeMemory(device, scratchMemory, nullptr);
+    }
+
+    // Build disc BLAS (similar process)
+    {
+        // Setup geometry data for disc
+        VkAccelerationStructureGeometryTrianglesDataKHR discTriangles{};
+        discTriangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+        discTriangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+        discTriangles.vertexData.deviceAddress = m_discVertexAddress;
+        discTriangles.vertexStride = sizeof(glm::vec3);
+        discTriangles.indexType = VK_INDEX_TYPE_UINT32;
+        discTriangles.indexData.deviceAddress = m_discIndexAddress;
+        discTriangles.transformData.deviceAddress = 0;
+
+        VkAccelerationStructureGeometryKHR discGeometry{};
+        discGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        discGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+        discGeometry.geometry.triangles = discTriangles;
+        discGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+        VkAccelerationStructureBuildGeometryInfoKHR discBuildInfo{};
+        discBuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        discBuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+        discBuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+        discBuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        discBuildInfo.geometryCount = 1;
+        discBuildInfo.pGeometries = &discGeometry;
+
+        uint32_t discPrimitiveCount = m_discIndexCount / 3;
+        VkAccelerationStructureBuildSizesInfoKHR discSizeInfo{};
+        discSizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+        vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                                               &discBuildInfo, &discPrimitiveCount, &discSizeInfo);
+
+        createBufferForAS(device, discSizeInfo.accelerationStructureSize, m_discBLASBuffer, m_discBLASMemory);
+
+        VkAccelerationStructureCreateInfoKHR discCreateInfo{};
+        discCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        discCreateInfo.buffer = m_discBLASBuffer;
+        discCreateInfo.size = discSizeInfo.accelerationStructureSize;
+        discCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+
+        if (vkCreateAccelerationStructureKHR(device, &discCreateInfo, nullptr, &m_discBLAS) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create disc BLAS!");
+        }
+
+        VkBuffer scratchBuffer;
+        VkDeviceMemory scratchMemory;
+        createBufferForAS(device, discSizeInfo.buildScratchSize, scratchBuffer, scratchMemory);
+
+        VkBufferDeviceAddressInfo scratchAddressInfo{};
+        scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        scratchAddressInfo.buffer = scratchBuffer;
+        VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(device, &scratchAddressInfo);
+
+        discBuildInfo.dstAccelerationStructure = m_discBLAS;
+        discBuildInfo.scratchData.deviceAddress = scratchAddress;
+
+        VkAccelerationStructureBuildRangeInfoKHR discRangeInfo{};
+        discRangeInfo.primitiveCount = discPrimitiveCount;
+        discRangeInfo.primitiveOffset = 0;
+        discRangeInfo.firstVertex = 0;
+        discRangeInfo.transformOffset = 0;
+
+        const VkAccelerationStructureBuildRangeInfoKHR* pDiscRangeInfo = &discRangeInfo;
+
+        VkCommandBuffer cmdBuffer = beginSingleTimeCommands();
+        vkCmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &discBuildInfo, &pDiscRangeInfo);
+        endSingleTimeCommands(cmdBuffer);
+
+        vkDestroyBuffer(device, scratchBuffer, nullptr);
+        vkFreeMemory(device, scratchMemory, nullptr);
+    }
+
+    std::cout << "  BLAS build complete for both sphere and disc" << std::endl;
 }
 
 void MeshParticleRenderer::buildTLAS() {
     std::cout << "  Building TLAS with occluder instances..." << std::endl;
 
-    // Create TLAS instances: BH sphere at origin, tilted disc
-    // Log TLAS device address as required by job acceptance criteria
-    uint64_t tlasAddress = 0x1234567890ABCDEF; // Placeholder - would be real address
+    VkDevice device = m_context->getDevice();
+
+    // Get BLAS device addresses
+    VkAccelerationStructureDeviceAddressInfoKHR sphereAddressInfo{};
+    sphereAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    sphereAddressInfo.accelerationStructure = m_sphereBLAS;
+    VkDeviceAddress sphereBLASAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &sphereAddressInfo);
+
+    VkAccelerationStructureDeviceAddressInfoKHR discAddressInfo{};
+    discAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    discAddressInfo.accelerationStructure = m_discBLAS;
+    VkDeviceAddress discBLASAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &discAddressInfo);
+
+    // Create TLAS instances with proper transforms
+    std::vector<VkAccelerationStructureInstanceKHR> instances(2);
+
+    // Instance 0: Sphere at origin with radius scale
+    instances[0].transform.matrix[0][0] = 1.0f; // Scale X
+    instances[0].transform.matrix[0][1] = 0.0f;
+    instances[0].transform.matrix[0][2] = 0.0f;
+    instances[0].transform.matrix[0][3] = 0.0f; // Translation X
+
+    instances[0].transform.matrix[1][0] = 0.0f;
+    instances[0].transform.matrix[1][1] = 1.0f; // Scale Y
+    instances[0].transform.matrix[1][2] = 0.0f;
+    instances[0].transform.matrix[1][3] = 0.0f; // Translation Y
+
+    instances[0].transform.matrix[2][0] = 0.0f;
+    instances[0].transform.matrix[2][1] = 0.0f;
+    instances[0].transform.matrix[2][2] = 1.0f; // Scale Z
+    instances[0].transform.matrix[2][3] = 0.0f; // Translation Z
+
+    instances[0].instanceCustomIndex = 0;
+    instances[0].mask = 0xFF;
+    instances[0].instanceShaderBindingTableRecordOffset = 0;
+    instances[0].flags = 0;
+    instances[0].accelerationStructureReference = sphereBLASAddress;
+
+    // Instance 1: Disc tilted 25 degrees around X axis
+    float tiltAngle = 25.0f * (3.14159265359f / 180.0f); // Convert to radians
+    float cosAngle = std::cos(tiltAngle);
+    float sinAngle = std::sin(tiltAngle);
+
+    // Row-major rotation matrix around X-axis
+    instances[1].transform.matrix[0][0] = 1.0f;
+    instances[1].transform.matrix[0][1] = 0.0f;
+    instances[1].transform.matrix[0][2] = 0.0f;
+    instances[1].transform.matrix[0][3] = 0.0f; // Translation X
+
+    instances[1].transform.matrix[1][0] = 0.0f;
+    instances[1].transform.matrix[1][1] = cosAngle;
+    instances[1].transform.matrix[1][2] = -sinAngle;
+    instances[1].transform.matrix[1][3] = 0.0f; // Translation Y
+
+    instances[1].transform.matrix[2][0] = 0.0f;
+    instances[1].transform.matrix[2][1] = sinAngle;
+    instances[1].transform.matrix[2][2] = cosAngle;
+    instances[1].transform.matrix[2][3] = 0.0f; // Translation Z
+
+    instances[1].instanceCustomIndex = 1;
+    instances[1].mask = 0xFF;
+    instances[1].instanceShaderBindingTableRecordOffset = 0;
+    instances[1].flags = 0;
+    instances[1].accelerationStructureReference = discBLASAddress;
+
+    // Create instances buffer
+    VkDeviceSize instancesSize = sizeof(VkAccelerationStructureInstanceKHR) * instances.size();
+    createBufferWithData(device, instances.data(), instancesSize,
+                        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                        m_instancesBuffer, m_instancesMemory);
+
+    VkBufferDeviceAddressInfo instancesAddressInfo{};
+    instancesAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    instancesAddressInfo.buffer = m_instancesBuffer;
+    VkDeviceAddress instancesAddress = vkGetBufferDeviceAddress(device, &instancesAddressInfo);
+
+    // Setup TLAS geometry
+    VkAccelerationStructureGeometryInstancesDataKHR instancesData{};
+    instancesData.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    instancesData.arrayOfPointers = VK_FALSE;
+    instancesData.data.deviceAddress = instancesAddress;
+
+    VkAccelerationStructureGeometryKHR tlasGeometry{};
+    tlasGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    tlasGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlasGeometry.geometry.instances = instancesData;
+
+    // Build geometry info
+    VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo{};
+    tlasBuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    tlasBuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    tlasBuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    tlasBuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    tlasBuildInfo.geometryCount = 1;
+    tlasBuildInfo.pGeometries = &tlasGeometry;
+
+    // Get size requirements
+    uint32_t instanceCount = static_cast<uint32_t>(instances.size());
+    VkAccelerationStructureBuildSizesInfoKHR tlasSizeInfo{};
+    tlasSizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                                           &tlasBuildInfo, &instanceCount, &tlasSizeInfo);
+
+    // Create TLAS buffer
+    createBufferForAS(device, tlasSizeInfo.accelerationStructureSize, m_topLevelASBuffer, m_topLevelASMemory);
+
+    // Create acceleration structure
+    VkAccelerationStructureCreateInfoKHR tlasCreateInfo{};
+    tlasCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+    tlasCreateInfo.buffer = m_topLevelASBuffer;
+    tlasCreateInfo.size = tlasSizeInfo.accelerationStructureSize;
+    tlasCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+
+    if (vkCreateAccelerationStructureKHR(device, &tlasCreateInfo, nullptr, &m_topLevelAS) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create TLAS!");
+    }
+
+    // Create scratch buffer
+    VkBuffer scratchBuffer;
+    VkDeviceMemory scratchMemory;
+    createBufferForAS(device, tlasSizeInfo.buildScratchSize, scratchBuffer, scratchMemory);
+
+    VkBufferDeviceAddressInfo scratchAddressInfo{};
+    scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    scratchAddressInfo.buffer = scratchBuffer;
+    VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(device, &scratchAddressInfo);
+
+    // Update build info with AS and scratch
+    tlasBuildInfo.dstAccelerationStructure = m_topLevelAS;
+    tlasBuildInfo.scratchData.deviceAddress = scratchAddress;
+
+    // Build range info
+    VkAccelerationStructureBuildRangeInfoKHR tlasRangeInfo{};
+    tlasRangeInfo.primitiveCount = instanceCount;
+    tlasRangeInfo.primitiveOffset = 0;
+    tlasRangeInfo.firstVertex = 0;
+    tlasRangeInfo.transformOffset = 0;
+
+    const VkAccelerationStructureBuildRangeInfoKHR* pTlasRangeInfo = &tlasRangeInfo;
+
+    // Record build commands
+    VkCommandBuffer cmdBuffer = beginSingleTimeCommands();
+    vkCmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &tlasBuildInfo, &pTlasRangeInfo);
+    endSingleTimeCommands(cmdBuffer);
+
+    // Cleanup scratch buffer
+    vkDestroyBuffer(device, scratchBuffer, nullptr);
+    vkFreeMemory(device, scratchMemory, nullptr);
+
+    // Get and log TLAS device address as required by job acceptance criteria
+    VkAccelerationStructureDeviceAddressInfoKHR tlasAddressInfo{};
+    tlasAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    tlasAddressInfo.accelerationStructure = m_topLevelAS;
+    VkDeviceAddress tlasAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &tlasAddressInfo);
+
     std::cout << "  TLAS device address: 0x" << std::hex << tlasAddress << std::dec << std::endl;
+    std::cout << "  Sphere instance transform: identity at origin" << std::endl;
+    std::cout << "  Disc instance transform: 25° tilt around X-axis" << std::endl;
 }
 
 void MeshParticleRenderer::cleanupAccelerationStructures() {
@@ -783,6 +1374,47 @@ void MeshParticleRenderer::cleanupAccelerationStructures() {
     if (m_discIndexBuffer != VK_NULL_HANDLE) {
         vkDestroyBuffer(device, m_discIndexBuffer, nullptr);
         m_discIndexBuffer = VK_NULL_HANDLE;
+    }
+
+    // Job 1004: Free all device memory allocations
+    if (m_topLevelASMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_topLevelASMemory, nullptr);
+        m_topLevelASMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_sphereBLASMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_sphereBLASMemory, nullptr);
+        m_sphereBLASMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_discBLASMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_discBLASMemory, nullptr);
+        m_discBLASMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_instancesMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_instancesMemory, nullptr);
+        m_instancesMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_sphereVertexMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_sphereVertexMemory, nullptr);
+        m_sphereVertexMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_sphereIndexMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_sphereIndexMemory, nullptr);
+        m_sphereIndexMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_discVertexMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_discVertexMemory, nullptr);
+        m_discVertexMemory = VK_NULL_HANDLE;
+    }
+
+    if (m_discIndexMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_discIndexMemory, nullptr);
+        m_discIndexMemory = VK_NULL_HANDLE;
     }
 
     std::cout << "Acceleration structures cleanup complete" << std::endl;

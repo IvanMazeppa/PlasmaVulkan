@@ -119,11 +119,39 @@ private:
     VkBuffer m_topLevelASBuffer = VK_NULL_HANDLE;
     VkBuffer m_instancesBuffer = VK_NULL_HANDLE;
 
+    // Job 1004: Device memory for buffers (since VMA is disabled)
+    VkDeviceMemory m_sphereVertexMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_sphereIndexMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_discVertexMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_discIndexMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_sphereBLASMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_discBLASMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_topLevelASMemory = VK_NULL_HANDLE;
+    VkDeviceMemory m_instancesMemory = VK_NULL_HANDLE;
+
+    // Job 1004: Geometry data for AS building
+    uint32_t m_sphereVertexCount = 0;
+    uint32_t m_sphereIndexCount = 0;
+    uint32_t m_discVertexCount = 0;
+    uint32_t m_discIndexCount = 0;
+    VkDeviceAddress m_sphereVertexAddress = 0;
+    VkDeviceAddress m_sphereIndexAddress = 0;
+    VkDeviceAddress m_discVertexAddress = 0;
+    VkDeviceAddress m_discIndexAddress = 0;
+
     void createAccelerationStructures();
     void createOccluderGeometry();
     void buildBLAS();
     void buildTLAS();
     void cleanupAccelerationStructures();
+
+    // Job 1004: Geometry generation helpers
+    std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> generateIcosphere(float radius, int subdivisions);
+    std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> generateDisc(float innerRadius, float outerRadius, int segments);
+    void createBufferWithData(VkDevice device, const void* data, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& memory);
+    void createBufferForAS(VkDevice device, VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& memory);
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
     // Job 1003: RT control
     bool m_rtShadowsEnabled = true;  // Runtime RT toggle
