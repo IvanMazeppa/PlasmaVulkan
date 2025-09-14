@@ -27,6 +27,10 @@ set(SHADER_SOURCES
     bloom_bright.frag
     bloom_blur.frag
     bloom_combine.frag
+    # Mesh shaders for GPU-driven particle rendering
+    particle_mesh.mesh
+    particle_mesh.frag
+    sph_mesh_experimental.mesh
     # sph.comp           # Complex SPH - TODO later
     # spatial_hash.comp  # Spatial hashing - TODO later
 )
@@ -45,6 +49,9 @@ foreach(SHADER ${SHADER_SOURCES})
         # Use SPIR-V 1.3 and Vulkan 1.1 for volume.frag which uses subgroup operations
         if(${SHADER_NAME} STREQUAL "volume")
             set(EXTRA_ARGS "--target-spv=spv1.3" "--target-env=vulkan1.1")
+        # Use SPIR-V 1.4 and Vulkan 1.2 for particle_mesh.frag which uses ray query
+        elseif(${SHADER_NAME} STREQUAL "particle_mesh")
+            set(EXTRA_ARGS "--target-spv=spv1.4" "--target-env=vulkan1.2")
         else()
             set(EXTRA_ARGS "")
         endif()
@@ -56,7 +63,7 @@ foreach(SHADER ${SHADER_SOURCES})
         set(EXTRA_ARGS "")
     elseif(${SHADER_EXT} STREQUAL ".mesh")
         set(SHADER_STAGE "mesh")
-        set(EXTRA_ARGS "--target-spv=spv1.4" "-fshader-stage=mesh")
+        set(EXTRA_ARGS "--target-spv=spv1.4" "--target-env=vulkan1.2" "-fshader-stage=mesh")
     else()
         message(FATAL_ERROR "Unknown shader extension: ${SHADER_EXT}")
     endif()

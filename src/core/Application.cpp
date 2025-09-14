@@ -2134,6 +2134,42 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         app->m_particleSystem->setConstraintRadius(app->m_constraintRadius);
         app->printParameterChange("Constraint Radius", app->m_constraintRadius);
     }
+    // Job 1005: Light Controls for RT Shadows
+    else if (key == GLFW_KEY_F8 && action == GLFW_PRESS) {
+        // Toggle occlusion amplification debug
+        if (app->m_meshRenderer && app->m_meshRenderer->isSupported()) {
+            app->m_meshRenderer->toggleOcclusionAmplify();
+        } else {
+            std::cout << "[LIGHT] Occlusion amplify requires mesh shader mode (press Y)" << std::endl;
+        }
+    }
+    else if (key == GLFW_KEY_F9 && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Adjust light direction theta
+        if (app->m_meshRenderer && app->m_meshRenderer->isSupported()) {
+            float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
+            app->m_meshRenderer->adjustLightDirection(delta, 0.0f);
+        } else {
+            std::cout << "[LIGHT] Light direction requires mesh shader mode (press Y)" << std::endl;
+        }
+    }
+    else if (key == GLFW_KEY_F10 && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Adjust light direction phi
+        if (app->m_meshRenderer && app->m_meshRenderer->isSupported()) {
+            float delta = (mods & GLFW_MOD_SHIFT) ? -0.1f : 0.1f;
+            app->m_meshRenderer->adjustLightDirection(0.0f, delta);
+        } else {
+            std::cout << "[LIGHT] Light direction requires mesh shader mode (press Y)" << std::endl;
+        }
+    }
+    else if (key == GLFW_KEY_F11 && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // Adjust light intensity
+        if (app->m_meshRenderer && app->m_meshRenderer->isSupported()) {
+            float delta = (mods & GLFW_MOD_SHIFT) ? -0.2f : 0.2f;
+            app->m_meshRenderer->adjustLightIntensity(delta);
+        } else {
+            std::cout << "[LIGHT] Light intensity requires mesh shader mode (press Y)" << std::endl;
+        }
+    }
 }
 
 void Application::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {

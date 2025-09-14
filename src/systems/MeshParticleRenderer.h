@@ -28,7 +28,11 @@ public:
         uint32_t particleCount;
         float time;
         uint32_t rtEnabled;  // Job 1003: RT toggle
-        float _padding1;
+        // Job 1005: Directional light state
+        glm::vec3 lightDirection;
+        float lightIntensity;
+        uint32_t occlusionAmplify;  // Debug toggle for occlusion amplification
+        float _padding[3];  // Align to 16-byte boundary
     };
     
     struct SPHMeshPushConstants {
@@ -65,6 +69,14 @@ public:
     VkPipeline getPipeline() const { return m_pipeline; }
     VkPipelineLayout getPipelineLayout() const { return m_pipelineLayout; }
     VkPipeline getSPHPipeline() const { return m_sphPipeline; }
+
+    // Job 1005: Light control methods
+    void adjustLightDirection(float deltaTheta, float deltaPhi);
+    void adjustLightIntensity(float delta);
+    void toggleOcclusionAmplify();
+    glm::vec3 getLightDirection() const { return m_lightDirection; }
+    float getLightIntensity() const { return m_lightIntensity; }
+    bool getOcclusionAmplifyEnabled() const { return m_occlusionAmplifyEnabled; }
 
 private:
     void createDescriptorSetLayout();
@@ -155,6 +167,11 @@ private:
 
     // Job 1003: RT control
     bool m_rtShadowsEnabled = true;  // Runtime RT toggle
+
+    // Job 1005: Light control state
+    glm::vec3 m_lightDirection = glm::normalize(glm::vec3(-0.5f, -0.8f, -0.6f));
+    float m_lightIntensity = 1.0f;
+    bool m_occlusionAmplifyEnabled = false;
 };
 
 } // namespace plasma

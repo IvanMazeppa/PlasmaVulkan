@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <array>
+#include <chrono>
 
 namespace plasma {
 
@@ -462,6 +463,10 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
     pushConstants.particleCount = particleCount;
     pushConstants.time = time;
     pushConstants.rtEnabled = rtEnabled ? 1u : 0u;
+    // Job 1005: Light state
+    pushConstants.lightDirection = m_lightDirection;
+    pushConstants.lightIntensity = m_lightIntensity;
+    pushConstants.occlusionAmplify = m_occlusionAmplifyEnabled ? 1u : 0u;
     
     vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(MeshPushConstants), &pushConstants);
@@ -473,6 +478,56 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
     
     // 📚 MCP Source: vkCmdDrawMeshTasksEXT generates geometry directly on GPU!
     vkCmdDrawMeshTasksEXT(cmd, numWorkgroups, 1, 1);
+}
+
+// Job 1005: Light control methods implementation
+void MeshParticleRenderer::adjustLightDirection(float deltaTheta, float deltaPhi) {
+    // Convert current direction to spherical coordinates
+    float theta = atan2(m_lightDirection.z, m_lightDirection.x);
+    float phi = asin(m_lightDirection.y);
+
+    // Apply deltas
+    theta += deltaTheta;
+    phi += deltaPhi;
+
+    // Clamp phi to prevent gimbal lock
+    phi = glm::clamp(phi, -glm::pi<float>() * 0.4f, glm::pi<float>() * 0.4f);
+
+    // Convert back to Cartesian
+    m_lightDirection.x = cos(phi) * cos(theta);
+    m_lightDirection.y = sin(phi);
+    m_lightDirection.z = cos(phi) * sin(theta);
+
+    m_lightDirection = glm::normalize(m_lightDirection);
+
+    // Print current light state
+    static auto lastPrint = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPrint).count() > 200) {
+        std::cout << "[LIGHT] Direction: (" << m_lightDirection.x << ", " << m_lightDirection.y
+                  << ", " << m_lightDirection.z << "), Intensity: " << m_lightIntensity
+                  << ", Amplify: " << (m_occlusionAmplifyEnabled ? "ON" : "OFF") << std::endl;
+        lastPrint = now;
+    }
+}
+
+void MeshParticleRenderer::adjustLightIntensity(float delta) {
+    m_lightIntensity = glm::clamp(m_lightIntensity + delta, 0.1f, 3.0f);
+
+    // Print current light state
+    static auto lastPrint = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPrint).count() > 200) {
+        std::cout << "[LIGHT] Direction: (" << m_lightDirection.x << ", " << m_lightDirection.y
+                  << ", " << m_lightDirection.z << "), Intensity: " << m_lightIntensity
+                  << ", Amplify: " << (m_occlusionAmplifyEnabled ? "ON" : "OFF") << std::endl;
+        lastPrint = now;
+    }
+}
+
+void MeshParticleRenderer::toggleOcclusionAmplify() {
+    m_occlusionAmplifyEnabled = !m_occlusionAmplifyEnabled;
+    std::cout << "[LIGHT] Occlusion amplify: " << (m_occlusionAmplifyEnabled ? "ENABLED" : "DISABLED") << std::endl;
 }
 
 void MeshParticleRenderer::renderSPH(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,

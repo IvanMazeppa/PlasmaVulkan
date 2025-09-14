@@ -21,6 +21,10 @@ layout(push_constant) uniform PushConstants {
     uint particleCount;
     float time;
     uint rtEnabled;  // RT toggle
+    // Job 1005: Directional light state
+    vec3 lightDirection;
+    float lightIntensity;
+    uint occlusionAmplify;  // Debug toggle for occlusion amplification
 } pc;
 
 // Job 1003: Ray query occlusion function
@@ -49,27 +53,46 @@ void main() {
     vec3 toCamera = pc.cameraPos - fragWorldPos;
     float distance = length(toCamera);
     float brightness = 1.0 / (1.0 + distance * 0.01);
-    
+
     // Enhanced particle glow with velocity-based intensity
     float velocityIntensity = fragColor.a; // Store velocity magnitude in alpha
     float glowIntensity = 0.8 + velocityIntensity * 0.4;
-    
+
     // Core particle with bright center
     float centerGlow = 1.0 - smoothstep(0.0, 0.4, dist);
     float outerGlow = alpha * 0.6;
-    
-    vec3 finalColor = fragColor.rgb * brightness * glowIntensity;
-    finalColor += finalColor * centerGlow * 0.5; // Bright center
 
-    // Job 1003: RT shadow computation
+    // Job 1005: Lambert shading with directional light
+    vec3 baseColor = fragColor.rgb;
+
+    // Billboard normal approximation (view-facing)
+    vec3 normal = normalize(toCamera); // For billboards, approximate normal as view-facing
+
+    // Lambert lighting calculation
+    vec3 lightDir = normalize(pc.lightDirection);
+    float lambert = max(dot(normal, -lightDir), 0.0);
+    float lighting = 0.3 + 0.7 * lambert; // Ambient + diffuse
+
+    vec3 litColor = baseColor * lighting * pc.lightIntensity * brightness * glowIntensity;
+    litColor += litColor * centerGlow * 0.5; // Bright center
+
+    // Job 1005: RT shadow computation with amplification
     float shadowVis = 1.0;
     if (pc.rtEnabled != 0u) {
-        vec3 rtLightDir = normalize(vec3(-0.5, -0.8, -0.6));
-        if (hasOccluderRT(fragWorldPos, rtLightDir, 1000.0)) {
+        if (hasOccluderRT(fragWorldPos, lightDir, 1000.0)) {
             shadowVis = 0.0; // Fully shadowed
         }
+
+        // Job 1005: Debug occlusion amplification
+        if (pc.occlusionAmplify != 0u) {
+            // Amplify shadows by squaring the visibility (more aggressive darkening)
+            shadowVis = shadowVis * shadowVis;
+        }
     }
-    finalColor *= shadowVis;
+
+    // Apply shadow visibility with configurable weight
+    float shadowWeight = (pc.occlusionAmplify != 0u) ? 2.0 : 1.0;
+    vec3 finalColor = litColor * mix(1.0, shadowVis, clamp(shadowWeight, 0.0, 1.0));
 
     // Velocity-based saturation boost
     finalColor = mix(finalColor, finalColor * 1.3, velocityIntensity * 0.3);

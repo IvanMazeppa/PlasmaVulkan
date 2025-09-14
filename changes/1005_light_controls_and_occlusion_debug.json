@@ -1,0 +1,42 @@
+{
+    "id": "1007_light_controls_and_occlusion_debug",
+    "title": "Directional light + runtime controls + occlusion amplification (debug)",
+    "purpose": "Introduce an explicit directional light for the mesh path and tools to verify that ray-query occlusion is wired by making the effect highly visible.",
+    "steps": [
+        {
+            "action": "light_state",
+            "detail": "Add a global/light UBO or push constants for a directional light: direction (default normalize(-0.5,-0.8,-0.6)), intensity, enable flag. Bind for mesh fragment shader."
+        },
+        {
+            "action": "shading",
+            "detail": "In shaders/particle_mesh.frag, compute a simple Lambert/emissive mix: baseColor = fragColor.rgb; N = normalize(camera-facing normal or implicit billboard normal = +Z in view→world); lambert = max(dot(N, -lightDir), 0); finalColor = baseColor * (0.3 + 0.7*lambert)."
+        },
+        {
+            "action": "occlusion_apply",
+            "detail": "Apply shadowVis from ray query as a multiplier on the lighting term: finalColor *= mix(1.0, shadowVis, shadowWeight), with shadowWeight default 1.0."
+        },
+        {
+            "action": "amplify_debug",
+            "detail": "Add a debug toggle 'rtOcclusionAmplify' that, when enabled, sets shadowWeight=2.0 and clamps to [0,1], or simply darkens more aggressively (e.g., square the visibility)."
+        },
+        {
+            "action": "controls",
+            "detail": "Add keyboard controls: J/K to adjust light theta, H/N to adjust light phi, U/I to increase/decrease intensity, O to toggle occlusion amplify. Print current values every 1s while adjusting."
+        }
+    ],
+    "acceptance": [
+        "With RT enabled and amplify toggle ON, clear darkening is visible when occluders intersect particles",
+        "Directional light can be rotated live to move the shadow region"
+    ],
+    "touchpoints": [
+        "src/core/Application.cpp",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/MeshParticleRenderer.h",
+        "shaders/particle_mesh.frag"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('push constants pipeline stages')",
+        "search_vulkan_spec('descriptor updates and image layout consistency')"
+    ],
+    "notes": "Keep RT toggle path intact. Initial normal for particles can be approximated; for billboards use view-facing normal."
+}
