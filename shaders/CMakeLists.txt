@@ -14,7 +14,10 @@ set(SHADER_SOURCES
     particle.comp
     particle.vert
     particle.frag
+    particle_mesh.mesh
+    particle_mesh.frag
     sph_simple.comp
+    sph_mesh_experimental.mesh
     density_splat.comp
     density_splat_scatter.comp
     volume.vert
@@ -56,7 +59,7 @@ foreach(SHADER ${SHADER_SOURCES})
         set(EXTRA_ARGS "")
     elseif(${SHADER_EXT} STREQUAL ".mesh")
         set(SHADER_STAGE "mesh")
-        set(EXTRA_ARGS "--target-spv=spv1.4" "-fshader-stage=mesh")
+        set(EXTRA_ARGS "--target-spv=spv1.4" "--target-env=vulkan1.2" "-fshader-stage=mesh")
     else()
         message(FATAL_ERROR "Unknown shader extension: ${SHADER_EXT}")
     endif()

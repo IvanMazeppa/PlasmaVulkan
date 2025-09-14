@@ -1,0 +1,36 @@
+{
+    "id": "0003",
+    "title": "Fix TAA transfer usage + descriptor image layouts + ensure draw bracketing",
+    "rationale": "Remaining VUIDs indicate: (1) copies from images missing TRANSFER_SRC (06662); (2) descriptor imageLayout vs actual layout mismatches, plus storage view spanning all mips causing GENERAL vs SRV conflicts (09600/00344); (3) occasional draws outside active dynamic rendering (renderpass VUID).",
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createTAAResources",
+            "action": "Add VK_IMAGE_USAGE_TRANSFER_SRC_BIT to m_taaCurrentImage usage; keep history image with TRANSFER_DST_BIT"
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "updateTAAHistory",
+            "action": "Verify all image transitions occur outside dynamic rendering; ensure current -> TRANSFER_SRC_OPTIMAL, history -> TRANSFER_DST_OPTIMAL; after copy, transition both back to SHADER_READ_ONLY_OPTIMAL before sampling"
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createDensityGrid / compute path descriptor setup",
+            "action": "Create a dedicated storage image view restricted to mip 0 (levelCount=1) for compute writes (layout GENERAL) and use that in the compute descriptor; keep a separate sampled image view spanning all mips for rendering"
+        },
+        {
+            "file": "src/core/Application.cpp",
+            "region": "recordCommandBuffer (TAA path)",
+            "action": "Audit that every vkCmdDraw is bracketed by vkCmdBeginRendering/vkCmdEndRendering; after the first EndRendering to render TAA off-screen, ensure subsequent draws begin a new rendering instance"
+        }
+    ],
+    "acceptance": [
+        "No VUID 06662 when updating TAA history (copy source usage fixed or transitions correct)",
+        "No VUID 09600/00344 related to descriptor imageLayout or mip-level GENERAL vs SRV conflicts",
+        "No 'vkCmdDraw must be inside an active render pass' VUIDs across the frame"
+    ],
+    "notes": [
+        "If you later remove copies entirely (A3), you may drop TRANSFER_SRC usage for m_taaCurrentImage.",
+        "Keep all vkCmdPipelineBarrier/vkCmdCopyImage outside any active dynamic rendering instance"
+    ]
+}

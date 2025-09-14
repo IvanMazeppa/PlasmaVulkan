@@ -1,6 +1,7 @@
-#version 450
+#version 460
 #extension GL_KHR_shader_subgroup_ballot : enable
 #extension GL_KHR_shader_subgroup_vote : enable
+#extension GL_EXT_ray_query : enable
 
 // Volumetric ray marching fragment shader with subgroup-coherent early exit
 // Renders 3D density grid as glowing plasma
@@ -33,6 +34,7 @@ layout(push_constant) uniform PushConstants {
 layout(binding = 0) uniform sampler3D densityTexture;
 layout(binding = 1) uniform sampler2DArray stbnTexture;
 layout(binding = 2) uniform sampler1D opticalDepthLUT;
+layout(binding = 3) uniform accelerationStructureEXT topLevelAS;
 
 // Generate world space ray from screen coordinate
 vec3 getRayDirection(vec2 screenPos) {
@@ -142,6 +144,16 @@ float henyeyGreenstein(float cosTheta, float g) {
     float g2 = g * g;
     float denominator = 1.0 + g2 - 2.0 * g * cosTheta;
     return (1.0 - g2) / (4.0 * 3.14159265 * pow(denominator, 1.5));
+}
+
+// RT occlusion test for hard shadows
+bool hasOccluderRT(vec3 originWS, vec3 dirWS, float tMax)
+{
+    rayQueryEXT rq;
+    uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT;
+    rayQueryInitializeEXT(rq, topLevelAS, flags, 0xFF, originWS, 0.001, normalize(dirWS), tMax);
+    while (rayQueryProceedEXT(rq)) {}
+    return rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT;
 }
 
 // Improved plasma color with temperature remapping controls
@@ -329,10 +341,18 @@ void main() {
                 float cosTheta = dot(-rd, lightDir); // Angle between ray and light
                 float g = 0.75; // Forward scattering parameter (0.6-0.85 for plasma)
                 float phase = henyeyGreenstein(cosTheta, g);
-                
-                // Add single scattering contribution with density-based modulation
+
+                // RT shadow visibility
+                float shadowVisibility = 1.0;
+                // Only trace rays when density is significant for performance
+                if (dens > 0.01) {
+                    bool blocked = hasOccluderRT(pos, lightDir, 200.0);
+                    shadowVisibility = blocked ? 0.0 : 1.0;
+                }
+
+                // Add single scattering contribution with density-based modulation and shadow
                 float scatteringStrength = 0.4 * (1.0 - clamp(dens * 2.0, 0.0, 0.8)); // Reduce in dense regions
-                vec3 scatteredLight = lightColor * phase * scatteringStrength;
+                vec3 scatteredLight = lightColor * phase * scatteringStrength * shadowVisibility;
                 emission += scatteredLight;
                 
                 // Edge enhancement with adaptive gradient computation for better quality

@@ -583,6 +583,11 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         }
     }
 
+    // Build RT acceleration structures before dynamic rendering starts
+    if (m_volumetricMode && m_volumeRenderer) {
+        m_volumeRenderer->buildAccelerationStructures(commandBuffer);
+    }
+
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
     // Render particles if system exists
@@ -639,7 +644,27 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                     
                     // TAA ACTIVATED: Volume renders to intermediate target, then TAA processes it
                     m_volumeRenderer->renderToTAATarget(commandBuffer, viewProj, cameraPos, quality);
+
+                    // Set up dynamic rendering for TAA pass (renders to history buffer)
+                    VkRenderingAttachmentInfo taaColorAttachment{};
+                    taaColorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                    taaColorAttachment.imageView = m_volumeRenderer->getTAAHistoryImageView();  // Render to history buffer
+                    taaColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    taaColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                    taaColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                    taaColorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+
+                    VkRenderingInfo taaRenderingInfo{};
+                    taaRenderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+                    taaRenderingInfo.renderArea.offset = {0, 0};
+                    taaRenderingInfo.renderArea.extent = m_vulkanContext->getSwapChainExtent();
+                    taaRenderingInfo.layerCount = 1;
+                    taaRenderingInfo.colorAttachmentCount = 1;
+                    taaRenderingInfo.pColorAttachments = &taaColorAttachment;
+
+                    vkCmdBeginRendering(commandBuffer, &taaRenderingInfo);
                     m_volumeRenderer->renderTAA(commandBuffer, viewProj, m_volumeRenderer->getTAACurrentImageView());
+                    vkCmdEndRendering(commandBuffer);
                     
                     // Update history buffer after TAA pass for next frame
                     m_volumeRenderer->updateTAAHistory(commandBuffer);

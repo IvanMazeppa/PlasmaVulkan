@@ -142,6 +142,9 @@ public:
     
     // Get TAA current frame image view for final TAA pass
     VkImageView getTAACurrentImageView() const { return m_taaCurrentImageView; }
+
+    // Get TAA history frame image view for TAA rendering
+    VkImageView getTAAHistoryImageView() const { return m_taaHistoryImageView; }
     
     // Parameter controls
     void setVolumeParams(const VolumeParams& params) { m_params = params; }
@@ -159,6 +162,7 @@ private:
     void createDensityGrid();
     void createDensitySplatPipeline();
     void createVolumeRenderPipeline();
+    VkPipeline createVolumePipelineForFormat(VkFormat colorFormat, const char* tag);
     void createTAAPipeline();
     void createTAAResources();     // TAA history buffer and pipeline
     void createDescriptorSets();
@@ -174,7 +178,8 @@ private:
     // 3D density texture with mip chain
     VkImage m_densityImage = VK_NULL_HANDLE;
     VkDeviceMemory m_densityImageMemory = VK_NULL_HANDLE;
-    VkImageView m_densityImageView = VK_NULL_HANDLE;
+    VkImageView m_densityImageView = VK_NULL_HANDLE;           // All mips for sampling (SHADER_READ_ONLY_OPTIMAL)
+    VkImageView m_densityStorageView = VK_NULL_HANDLE;         // Mip 0 only for compute storage (GENERAL)
     VkSampler m_densitySampler = VK_NULL_HANDLE;
     uint32_t m_densityMipLevels = 1;
     
@@ -183,8 +188,9 @@ private:
     VkPipelineLayout m_densitySplatPipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_densitySplatDescriptorSetLayout = VK_NULL_HANDLE;
     
-    // Volume rendering graphics pipeline  
-    VkPipeline m_volumePipeline = VK_NULL_HANDLE;
+    // Volume rendering graphics pipelines
+    VkPipeline m_volumePipeline = VK_NULL_HANDLE;        // SDR pipeline for swapchain rendering
+    VkPipeline m_volumePipelineHDR = VK_NULL_HANDLE;     // HDR pipeline for TAA targets
     VkPipelineLayout m_volumePipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_volumeDescriptorSetLayout = VK_NULL_HANDLE;
     

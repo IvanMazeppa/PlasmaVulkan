@@ -54,7 +54,14 @@
       "mcp__enhanced-vulkan-docs__search_vulkan_spec",
       "mcp__enhanced-vulkan-docs__get_spec_section",
       "mcp__enhanced-vulkan-docs__get_vulkan_entity",
-      "Bash(/mnt/c/Windows/System32/taskkill.exe /F /IM PlasmaVulkan.exe)"
+      "Bash(/mnt/c/Windows/System32/taskkill.exe /F /IM PlasmaVulkan.exe)",
+      "mcp__enhanced-vulkan-docs__vulkan_quick_reference",
+      "Bash(/mnt/e/VulkanSDK/1.4.321.1/Bin/glslc.exe --target-spv=spv1.4 --target-env=vulkan1.2 /mnt/d/Users/dilli/AndroidStudioProjects/PlasmaVulkan/shaders/volume.frag -o /tmp/test_volume.spv)",
+      "Bash(/mnt/e/VulkanSDK/1.4.321.1/Bin/glslc.exe --target-spv=spv1.4 --target-env=vulkan1.2 shaders/volume.frag -o test_volume.spv)",
+      "Bash(VK_INSTANCE_LAYERS= ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(VK_INSTANCE_LAYERS= timeout 8s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(VK_INSTANCE_LAYERS= timeout 5s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

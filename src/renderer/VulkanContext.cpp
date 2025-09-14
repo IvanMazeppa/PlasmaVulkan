@@ -247,13 +247,11 @@ void VulkanContext::createLogicalDevice() {
 
     VkPhysicalDeviceFeatures2 deviceFeatures{};
     deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    // Build pNext chain based on supported features
+    // Always include RT features chain, conditionally add atomic float at the top
     if (m_supportsAtomicFloat) {
-        deviceFeatures.pNext = (void*)&atomicFloat;
-    } else if (m_supportsMeshShaders) {
-        deviceFeatures.pNext = (void*)&meshShader;
+        deviceFeatures.pNext = (void*)&atomicFloat;  // atomicFloat -> accelerationStructure -> rayQuery -> meshShader/vk12
     } else {
-        deviceFeatures.pNext = (void*)&vk12Features;
+        deviceFeatures.pNext = (void*)&accelerationStructure;  // accelerationStructure -> rayQuery -> meshShader/vk12
     }
     deviceFeatures.features.geometryShader = VK_TRUE;
     deviceFeatures.features.tessellationShader = VK_TRUE;

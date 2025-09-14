@@ -1,0 +1,120 @@
+{
+    "id": "0004",
+    "title": "TAA transfers, descriptor image layouts, and rendering bracketing — detailed implementation",
+    "rationale": "Remaining VUIDs map to three root causes: (1) copies from images missing TRANSFER_SRC (06662); (2) descriptor imageLayout vs actual layout conflicts (09600/00344), aggravated by using a storage image view that spans all mips while later mips are in SRV layouts; (3) draw calls placed outside dynamic rendering (renderpass VUID). This CR gives exact usage flags, barrier sequences (Synchronization2), view splits, and a rendering flow that eliminates the faults.",
+    "references": [
+        {
+            "vuid": "VUID-vkCmdCopyImage-aspect-06662",
+            "topic": "transfer usage for copy src"
+        },
+        {
+            "vuid": "VUID-vkCmdDraw-None-09600",
+            "topic": "descriptor imageLayout must match actual"
+        },
+        {
+            "vuid": "VUID-VkImageMemoryBarrier-oldLayout-01212",
+            "topic": "layout transitions vs usage"
+        },
+        {
+            "vuid": "VUID-vkCmdDraw-renderpass",
+            "topic": "draw must be in active render pass (dynamic rendering instance)"
+        }
+    ],
+    "edits": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createTAAResources",
+            "action": "Set explicit usage flags. For m_taaCurrentImage (HDR color target used as copy source), include VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT. For m_taaHistoryImage (copy destination + SRV), include VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT. Keep both in TILING_OPTIMAL.",
+            "notes": [
+                "Current: m_taaCurrentImage lacked TRANSFER_SRC; m_taaHistoryImage already had TRANSFER_DST.",
+                "Keep format VK_FORMAT_R16G16B16A16_SFLOAT."
+            ]
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "updateTAAHistory",
+            "action": "Use Synchronization2 barriers outside any dynamic rendering instance. Exact sequence:",
+            "sequence": [
+                "Barrier A: history SHADER_READ_ONLY_OPTIMAL -> TRANSFER_DST_OPTIMAL (srcStage=FRAGMENT_SHADER, srcAccess=SHADER_READ; dstStage=TRANSFER, dstAccess=TRANSFER_WRITE)",
+                "Barrier B: current SHADER_READ_ONLY_OPTIMAL (or COLOR_ATTACHMENT_OPTIMAL if just rendered) -> TRANSFER_SRC_OPTIMAL (srcStage=FRAGMENT_SHADER or COLOR_ATTACHMENT_OUTPUT, srcAccess=SHADER_READ or COLOR_ATTACHMENT_WRITE; dstStage=TRANSFER, dstAccess=TRANSFER_READ)",
+                "vkCmdCopyImage: src=current (TRANSFER_SRC_OPTIMAL), dst=history (TRANSFER_DST_OPTIMAL), extent=TAA extent",
+                "Barrier C: history TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL (srcStage=TRANSFER, srcAccess=TRANSFER_WRITE; dstStage=FRAGMENT_SHADER, dstAccess=SHADER_READ)",
+                "Barrier D: current TRANSFER_SRC_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL (srcStage=TRANSFER, srcAccess=TRANSFER_READ; dstStage=FRAGMENT_SHADER, dstAccess=SHADER_READ)"
+            ],
+            "notes": [
+                "Ensure updateTAAHistory() is called when no dynamic rendering instance is active. If needed, end the rendering instance before calling this function.",
+                "Descriptors sampling these images must specify imageLayout=VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL."
+            ]
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "createDensityGrid + compute/graphics descriptors",
+            "action": "Split views: create a dedicated storage image view that covers mip 0 only (levelCount=1) for compute writes (GENERAL), and a separate sampled image view covering all mips for graphics sampling (SHADER_READ_ONLY_OPTIMAL). Bind the storage-only view in the compute descriptor (binding = storage image).",
+            "view_create": {
+                "storageView": {
+                    "subresourceRange": {
+                        "baseMipLevel": 0,
+                        "levelCount": 1,
+                        "baseArrayLayer": 0,
+                        "layerCount": 1
+                    },
+                    "usage": "storage in GENERAL layout"
+                },
+                "sampledView": {
+                    "subresourceRange": {
+                        "baseMipLevel": 0,
+                        "levelCount": "all mips",
+                        "baseArrayLayer": 0,
+                        "layerCount": 1
+                    },
+                    "usage": "sampled in SHADER_READ_ONLY_OPTIMAL"
+                }
+            },
+            "notes": [
+                "This prevents validator from expecting all mips to remain in GENERAL when the descriptor is bound as storage across the full chain.",
+                "Graphics path must bind the sampled image view; compute path binds the storage-only view."
+            ]
+        },
+        {
+            "file": "src/core/Application.cpp",
+            "region": "recordCommandBuffer (TAA path)",
+            "action": "Enforce rendering bracketing. Pseudocode flow:",
+            "pseudocode": [
+                "vkCmdBeginRendering(swapchain target)",
+                "  ... non-TAA draws ...",
+                "vkCmdEndRendering()",
+                "// Render volume to HDR TAA current",
+                "vkCmdBeginRendering(HDR TAA current)",
+                "  bind volume-HDR pipeline; draw",
+                "vkCmdEndRendering()",
+                "// TAA resolve (if any): ensure both current/history are in SHADER_READ_ONLY before sampling, and do not transition inside rendering",
+                "vkCmdBeginRendering(swapchain target)",
+                "  bind TAA composite pipeline; draw fullscreen quad sampling history/current",
+                "vkCmdEndRendering()"
+            ],
+            "notes": [
+                "If updateTAAHistory() is used, place it between EndRendering and the next BeginRendering.",
+                "Add assertions/logs to verify no barriers are recorded inside an active rendering instance."
+            ]
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "region": "compositeTAAResult",
+            "action": "Ensure this function only binds pipeline and draws. Remove all transitions/copies; those must happen outside rendering in the caller."
+        }
+    ],
+    "instrumentation": [
+        "On pipeline creation, log tag and pColorAttachmentFormats[0] — e.g., [PIPE] volume-SDR=B8G8R8A8_*, volume-HDR=R16G16B16A16_SFLOAT",
+        "Log BEGIN/END of dynamic rendering instances with target and format",
+        "Log descriptor imageInfos for TAA history/current once: {binding, layout}"
+    ],
+    "acceptance": [
+        "No VUID 06662 during TAA history update (copy) or when copy path is avoided entirely",
+        "No VUID 09600/00344 related to image layout mismatches (including mip-level complaints)",
+        "No 'vkCmdDraw must be issued inside active render pass' VUIDs across the frame"
+    ],
+    "post_steps": [
+        "Run with validation layers enabled; tee output to logs/run.txt",
+        "If copies still produce overhead, consider removing copy path entirely and doing shader-only TAA composition (drop TRANSFER_SRC usage then)"
+    ]
+}
