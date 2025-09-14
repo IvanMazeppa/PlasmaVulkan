@@ -27,8 +27,8 @@ public:
         float particleSize;
         uint32_t particleCount;
         float time;
+        uint32_t rtEnabled;  // Job 1003: RT toggle
         float _padding1;
-        float _padding2;
     };
     
     struct SPHMeshPushConstants {
@@ -124,6 +124,9 @@ private:
     void buildBLAS();
     void buildTLAS();
     void cleanupAccelerationStructures();
+
+    // Job 1003: RT control
+    bool m_rtShadowsEnabled = true;  // Runtime RT toggle
 };
 
 } // namespace plasma
