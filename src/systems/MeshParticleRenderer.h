@@ -201,6 +201,10 @@ private:
     // Job 1006: Bounds visualization
     bool m_showBounds = false;
     AABB m_sphereAABB, m_discAABB;
+
+    // CR 1018: Ray query mask and overlay control state
+    bool m_rtSelfShadowOverlay = false;
+    uint32_t m_rtCullMaskMode = 0;  // 0=both, 1=external only, 2=shells only
 };
 
 } // namespace plasma

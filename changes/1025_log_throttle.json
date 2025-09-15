@@ -1,0 +1,32 @@
+{
+    "id": "1025_log_throttle",
+    "title": "Throttle high-frequency logs and deduplicate validation output",
+    "purpose": "Reduce console spam that may mask critical signals and contribute to apparent freezes while debugging.",
+    "steps": [
+        {
+            "action": "throttle_runtime",
+            "detail": "Throttle recurring logs (descriptor pushes, bounds overlay, status blocks) to every N frames with clear tags."
+        },
+        {
+            "action": "validation_filter",
+            "detail": "Add a simple in-process filter to suppress identical validation messages after K repeats per run; log once with a '(suppressed N)' note."
+        },
+        {
+            "action": "log_levels",
+            "detail": "Introduce INFO/DEBUG/WARN channels and use WARN for validation and critical runtime state; gate DEBUG by a flag."
+        }
+    ],
+    "acceptance": [
+        "Run log remains readable under validation spam",
+        "Key events (TLAS ready, descriptor push counts) still visible"
+    ],
+    "touchpoints": [
+        "src/core/Application.cpp",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/VolumeRenderer.cpp"
+    ],
+    "mcp_queries": [
+        "N/A"
+    ],
+    "notes": "Keep logs minimal in hot paths; prefer periodic summaries."
+}

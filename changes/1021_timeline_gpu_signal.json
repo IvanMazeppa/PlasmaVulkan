@@ -1,29 +1,40 @@
 {
-  "id": "1021_timeline_gpu_signal",
-  "title": "Signal shell TLAS timeline on GPU and remove host blocking waits",
-  "purpose": "Prevent UI freeze by avoiding vkWaitSemaphores on the CPU. Signal and wait timeline semaphores on the GPU using SubmitInfo2, and only check readiness non-blockingly on CPU.
-",
-  "steps": [
-    { "action": "submit2_blas", "detail": "Record BLAS builds into a command buffer; submit with VkSubmitInfo2 signaling timeline=N after completion." },
-    { "action": "submit2_tlas", "detail": "Record TLAS build into a command buffer; submit waiting on timeline=N and signaling timeline=N+1 when complete." },
-    { "action": "render_wait_gpu", "detail": "In graphics submit for the frame, add a VkSemaphoreSubmitInfo to wait on timeline=N+1. Remove vkWaitSemaphores host wait in MeshParticleRenderer." },
-    { "action": "nonblocking_check", "detail": "Keep a lightweight CPU-side check to print whether lastCompletedBuild >= N+1; do not block the render thread." }
-  ],
-  "acceptance": [
-    "No window freeze when entering mesh mode",
-    "Logs show GPU-side timeline signal/wait values",
-    "No vkWaitSemaphores on CPU code path for shell TLAS"
-  ],
-  "touchpoints": [
-    "src/systems/VolumeRenderer.cpp",
-    "src/systems/VolumeRenderer.h",
-    "src/core/Application.cpp",
-    "src/systems/MeshParticleRenderer.cpp"
-  ],
-  "mcp_queries": [
-    "get_vulkan_entity('VkSemaphoreSubmitInfo')",
-    "get_vulkan_entity('VkSubmitInfo2')",
-    "search_vulkan_spec('Timeline semaphore wait/signal with SubmitInfo2')"
-  ],
-  "notes": "Use separate queues if beneficial, but ensure proper queue ownership and barriers. Prefer one submit per stage to simplify." 
+    "id": "1021_timeline_gpu_signal",
+    "title": "Signal shell TLAS timeline on GPU and remove host blocking waits",
+    "purpose": "Prevent UI freeze by avoiding vkWaitSemaphores on the CPU. Signal and wait timeline semaphores on the GPU using SubmitInfo2, and only check readiness non-blockingly on CPU.
+","steps": [
+        {
+            "action": "submit2_blas",
+            "detail": "Record BLAS builds into a command buffer; submit with VkSubmitInfo2 signaling timeline=N after completion."
+        },
+        {
+            "action": "submit2_tlas",
+            "detail": "Record TLAS build into a command buffer; submit waiting on timeline=N and signaling timeline=N+1 when complete."
+        },
+        {
+            "action": "render_wait_gpu",
+            "detail": "In graphics submit for the frame, add a VkSemaphoreSubmitInfo to wait on timeline=N+1. Remove vkWaitSemaphores host wait in MeshParticleRenderer."
+        },
+        {
+            "action": "nonblocking_check",
+            "detail": "Keep a lightweight CPU-side check to print whether lastCompletedBuild >= N+1; do not block the render thread."
+        }
+    ],
+    "acceptance": [
+        "No window freeze when entering mesh mode",
+        "Logs show GPU-side timeline signal/wait values",
+        "No vkWaitSemaphores on CPU code path for shell TLAS"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.cpp",
+        "src/systems/VolumeRenderer.h",
+        "src/core/Application.cpp",
+        "src/systems/MeshParticleRenderer.cpp"
+    ],
+    "mcp_queries": [
+        "get_vulkan_entity('VkSemaphoreSubmitInfo')",
+        "get_vulkan_entity('VkSubmitInfo2')",
+        "search_vulkan_spec('Timeline semaphore wait/signal with SubmitInfo2')"
+    ],
+    "notes": "Use separate queues if beneficial, but ensure proper queue ownership and barriers. Prefer one submit per stage to simplify."
 }

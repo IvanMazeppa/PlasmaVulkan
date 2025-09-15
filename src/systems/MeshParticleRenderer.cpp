@@ -648,6 +648,18 @@ void MeshParticleRenderer::toggleBoundsOverlay() {
     m_showBounds = !m_showBounds;
 }
 
+// CR 1018: Ray query mask and overlay control methods
+void MeshParticleRenderer::toggleRayQueryOverlay() {
+    m_rtSelfShadowOverlay = !m_rtSelfShadowOverlay;
+    std::cout << "[CR 1018] Ray query overlay: " << (m_rtSelfShadowOverlay ? "ENABLED" : "DISABLED") << std::endl;
+}
+
+void MeshParticleRenderer::cycleCullMaskMode() {
+    m_rtCullMaskMode = (m_rtCullMaskMode + 1) % 3;
+    const char* modes[] = {"both", "external only", "shells only"};
+    std::cout << "[CR 1018] Cull mask mode: " << modes[m_rtCullMaskMode] << std::endl;
+}
+
 void MeshParticleRenderer::renderSPH(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,
                                      VkBuffer particleBuffer, uint32_t particleCount, float particleSize, float time,
                                      float smoothingRadius, float restDensity, float pressureConstant, float viscosity) {

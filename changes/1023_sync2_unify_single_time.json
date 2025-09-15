@@ -1,0 +1,35 @@
+{
+    "id": "1023_sync2_unify_single_time",
+    "title": "Unify single-time command helpers to SubmitInfo2 + Sync2 stages",
+    "purpose": "Avoid mixed legacy submits and ensure consistent barriers/stages for BLAS/TLAS builds and mip blits.",
+    "steps": [
+        {
+            "action": "context_helpers",
+            "detail": "Add helpers that record cmds and submit via VkSubmitInfo2, specifying command buffer submit info and (optional) timeline waits/signals."
+        },
+        {
+            "action": "replace_calls",
+            "detail": "Replace legacy vkQueueSubmit/vkQueueWaitIdle calls in MeshParticleRenderer and VolumeRenderer with Context's SubmitInfo2 helpers."
+        },
+        {
+            "action": "stage_masks",
+            "detail": "Use appropriate src/dst stage masks for: COMPUTE/AS_BUILD/TRANSFER/ALL_GRAPHICS when enqueuing work."
+        }
+    ],
+    "acceptance": [
+        "All single-time submits use SubmitInfo2",
+        "No barriers/copies inside dynamic rendering",
+        "Stable builds and mip generation with Synchronization2"
+    ],
+    "touchpoints": [
+        "src/renderer/VulkanContext.cpp",
+        "src/renderer/VulkanContext.h",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/VolumeRenderer.cpp"
+    ],
+    "mcp_queries": [
+        "get_vulkan_entity('VkSubmitInfo2')",
+        "search_vulkan_spec('Synchronization2 pipeline stages for AS build and blit')"
+    ],
+    "notes": "Ensure queue ownership is correct; avoid device-wide waits; prefer per-submit waits."
+}

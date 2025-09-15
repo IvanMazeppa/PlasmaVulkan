@@ -1,0 +1,31 @@
+{
+    "id": "1024_taa_layout_07988",
+    "title": "Fix TAA pipeline descriptor layout mismatch (VUID 07988)",
+    "purpose": "Resolve pipeline creation errors by aligning TAA fragment shader descriptors with pipeline layout and disabling unused bindings.",
+    "steps": [
+        {
+            "action": "audit_taa",
+            "detail": "Verify shaders/taa.frag uses only the bindings declared in m_taaDescriptorSetLayout; remove or guard any stale bindings (e.g., binding 3 COMBINED_IMAGE_SAMPLER)."
+        },
+        {
+            "action": "layout_fix",
+            "detail": "Update TAA descriptor set layout to include exactly the set of bindings used by taa.frag, or compile a variant of the shader with unused paths stripped when RT is enabled."
+        },
+        {
+            "action": "pipeline_rebuild",
+            "detail": "Rebuild TAA pipeline after layout correction. Add a log printing all bindings (set, binding, type) at pipeline creation."
+        }
+    ],
+    "acceptance": [
+        "No VUID-VkGraphicsPipelineCreateInfo-layout-07988 during TAA pipeline creation",
+        "TAA renders without validation errors"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.cpp",
+        "shaders/taa.frag"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('VUID-VkGraphicsPipelineCreateInfo-layout-07988')"
+    ],
+    "notes": "If using shader variants, ensure correct pipeline is chosen based on render target (HDR vs SDR) and feature toggles."
+}
