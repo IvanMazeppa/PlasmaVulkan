@@ -1,0 +1,123 @@
+{
+  "cr_number": "1031",
+  "title": "Mesh-Only Guard - Prevent Dual Renderer Execution",
+  "status": "COMPLETED",
+  "completion_date": "2025-09-15",
+  "description": "Successfully implemented exclusive mesh/point-sprite rendering guard to eliminate split renderer artifacts",
+
+  "technical_summary": {
+    "problem": "Both mesh shader and point-sprite renderers were executing simultaneously, causing split visual artifacts where half the particles appeared as flat plane (point sprites) and half as proper triangles (mesh shader)",
+    "root_cause": "No guard logic to prevent point-sprite rendering when mesh shader mode is active, leading to dual execution in non-volumetric rendering path",
+    "solution": "Added m_forceMeshOnly flag and conditional skip logic to enforce exclusive rendering"
+  },
+
+  "implementation": {
+    "core_changes": [
+      "Added m_forceMeshOnly boolean flag to Application.h (default: true)",
+      "Modified recordCommandBuffer to conditionally skip point-sprite rendering when mesh-only mode active",
+      "Added debug logging to confirm mesh-only mode activation",
+      "Added Z key toggle for runtime debugging of dual renderer issues",
+      "Added debug assertions to catch point-sprite execution in mesh mode"
+    ],
+
+    "key_fixes": {
+      "exclusive_rendering": {
+        "issue": "Both renderers executing in else branch of volumetric check",
+        "fix": "Added else if (!m_forceMeshOnly) guard around point-sprite rendering",
+        "result": "Point sprites only render when explicitly allowed, preventing dual execution"
+      },
+      "state_logging": {
+        "issue": "No visibility into which renderer path was active",
+        "fix": "Added static logging 'CR 1031: Mesh-only mode: enabled' on first mesh render",
+        "result": "Clear confirmation of exclusive mesh rendering activation"
+      },
+      "runtime_toggle": {
+        "issue": "No way to test different renderer combinations during debugging",
+        "fix": "Added Z key toggle to enable/disable mesh-only mode at runtime",
+        "result": "Runtime debugging capability for renderer comparison"
+      }
+    }
+  },
+
+  "validation_results": {
+    "before": {
+      "split_artifact": "PRESENT - half particles as flat plane, half as mesh shader triangles",
+      "rendering_mode": "Dual execution causing visual artifacts",
+      "app_stability": "Immediate crashes, few frames maximum"
+    },
+    "after": {
+      "split_artifact": "ELIMINATED - only mesh shader rendering active",
+      "rendering_mode": "Exclusive mesh shader execution confirmed by logs",
+      "app_stability": "Runs multiple frames, shell extraction completing successfully",
+      "mesh_only_logging": "CR 1031: Mesh-only mode: enabled - confirmed in output"
+    }
+  },
+
+  "code_changes": {
+    "Application.h": {
+      "new_flag": "bool m_forceMeshOnly = true; // CR 1031: Force mesh-only mode to prevent dual rendering artifacts"
+    },
+    "Application.cpp": {
+      "render_guard": "Added else if (!m_forceMeshOnly) condition around m_particleSystem->render()",
+      "debug_logging": "Static logging of mesh-only mode activation",
+      "assertions": "#ifdef _DEBUG assert for exclusive rendering validation",
+      "toggle_key": "Z key toggle for m_forceMeshOnly with status logging"
+    }
+  },
+
+  "debug_output_added": [
+    "CR 1031: Mesh-only mode: enabled",
+    "CR 1031: Mesh-only mode ENABLED/DISABLED (prevents point-sprite rendering when mesh shaders active)"
+  ],
+
+  "files_modified": [
+    "src/core/Application.h",
+    "src/core/Application.cpp"
+  ],
+
+  "testing": {
+    "environment": "NVIDIA GeForce RTX 4060 Ti, Windows WSL2",
+    "validation_layers": "Enabled",
+    "test_scenario": "Stellar Formation preset with mesh shader default mode",
+    "before_behavior": "Immediate crash after split artifacts visible",
+    "after_behavior": "Multiple frames executed, shell extraction successful, exclusive mesh rendering confirmed"
+  },
+
+  "performance_impact": {
+    "positive": [
+      "Eliminated dual rendering overhead",
+      "Reduced GPU command buffer complexity",
+      "Prevented rendering state conflicts"
+    ],
+    "minimal_overhead": "Single boolean check per frame"
+  },
+
+  "companion_guide_alignment": {
+    "step_1": "COMPLETED - Enforced exclusive rendering (mesh-only) to remove split plane immediately",
+    "acceptance_criteria": "✓ First mesh frames show 'Mesh-only mode: enabled' ✓ No split plane in visual output ✓ Point-sprite path not hit"
+  },
+
+  "related_issues": {
+    "resolves": [
+      "Split renderer artifact (half point sprites, half mesh shader)",
+      "Dual execution conflicts in non-volumetric rendering path",
+      "Visual inconsistency between rendering modes"
+    ],
+    "enables": [
+      "Clean mesh shader testing without point-sprite interference",
+      "Stable exclusive rendering for RT self-shadowing development",
+      "Clear debugging of remaining validation issues"
+    ],
+    "remaining": [
+      "VUID-09600 layout mismatch (expects SHADER_READ_ONLY_OPTIMAL vs GENERAL) - CR 1033",
+      "Descriptor compatibility issues (binding count 2 vs 3)",
+      "Per-frame coarse updates causing validation flood - CR 1036"
+    ]
+  },
+
+  "next_steps": [
+    "CR 1033: Fix coarse layout mismatch (prefer GENERAL layout consistently)",
+    "CR 1032: Ensure depth/blend state parity between pipelines",
+    "CR 1036: Throttle coarse updates and shell extraction cadence"
+  ]
+}

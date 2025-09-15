@@ -1,0 +1,19 @@
+{
+  "id": "1039_depth_state_fix",
+  "title": "Use explicit depth attachment or disable depth test in mesh dynamic rendering",
+  "purpose": "Avoid using depth test with VK_FORMAT_UNDEFINED depth attachment in VkPipelineRenderingCreateInfo.",
+  "steps": [
+    { "action": "option_a", "detail": "Add transient depth image (D32 or D24S8) for dynamic rendering and set renderingInfo.depthAttachmentFormat accordingly; provide image, view, layout transitions, and include VkRenderingAttachmentInfo in vkCmdBeginRendering for mesh path." },
+    { "action": "option_b", "detail": "If depth not desired, set depthTestEnable=FALSE for both mesh pipelines and point-sprite pipeline while leaving depthAttachmentFormat undefined." },
+    { "action": "default_choice", "detail": "Choose option_b initially (disable depth) to unblock crashes, then optionally implement option_a later." },
+    { "action": "log_state", "detail": "Log selected option at startup: '[CR 1039] Mesh depth mode: Disabled|Attachment(D32)'." }
+  ],
+  "acceptance": [
+    "No freeze when mesh renders with dynamic rendering",
+    "Validation shows no warnings about depth attachment format"
+  ],
+  "touchpoints": [
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/core/Application.cpp"
+  ]
+}

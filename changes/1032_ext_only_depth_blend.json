@@ -1,0 +1,26 @@
+{
+    "id": "1032_ext_only_depth_blend",
+    "title": "Align depth and blending for ext-only mesh pipeline to avoid seams",
+    "purpose": "Match additive blending and depth test/write behavior between ext-only and full mesh pipelines to prevent hard split artifacts during transitions.",
+    "steps": [
+        {
+            "action": "depth_match",
+            "detail": "Ensure ext-only pipeline uses depthTestEnable=VK_TRUE, depthWriteEnable=VK_FALSE, compare=LESS, identical to full mesh pipeline."
+        },
+        {
+            "action": "blend_match",
+            "detail": "Keep additive blend factors identical (SRC_ALPHA, ONE)."
+        },
+        {
+            "action": "consistency_log",
+            "detail": "At pipeline creation, log key states for both pipelines to confirm parity."
+        }
+    ],
+    "acceptance": [
+        "No visible plane seam between halves of the cloud",
+        "Pipeline parity logs printed once"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.cpp"
+    ]
+}

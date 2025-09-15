@@ -1,0 +1,27 @@
+{
+    "id": "1031_mesh_only_guard",
+    "title": "Ensure exclusive particle rendering: mesh OR point-sprite (never both)",
+    "purpose": "Prevent simultaneous draws that cause visible split artifacts by gating the point-sprite renderer when mesh shaders are active.",
+    "steps": [
+        {
+            "action": "app_guard",
+            "detail": "In Application::recordCommandBuffer, add an explicit guard: if useMeshShaders && meshRenderer->isSupported() then skip particleSystem->render() unconditionally. Log once per state change."
+        },
+        {
+            "action": "runtime_flag",
+            "detail": "Add a bool m_forceMeshOnly; default true. Expose a debug key to toggle for bisecting if needed."
+        },
+        {
+            "action": "asserts",
+            "detail": "When mesh path selected, assert that point-sprite render not reached (debug builds)."
+        }
+    ],
+    "acceptance": [
+        "Screenshot shows no split plane; only one renderer visible",
+        "Logs show 'Mesh-only mode: enabled' once, no point-sprite draw logs while active"
+    ],
+    "touchpoints": [
+        "src/core/Application.h",
+        "src/core/Application.cpp"
+    ]
+}

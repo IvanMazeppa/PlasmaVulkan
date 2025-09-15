@@ -1,0 +1,30 @@
+{
+    "id": "1028_coarse_layout_guard",
+    "title": "Guard coarse density image layout and visibility in mesh mode (fix 09600)",
+    "purpose": "Eliminate layout mismatch between descriptor-recorded layout and current subresource layout for coarse image mips.",
+    "steps": [
+        {
+            "action": "descriptor_layout",
+            "detail": "Ensure descriptors for coarse image are written with the same layout they will be sampled from in mesh pass (GENERAL if needed)."
+        },
+        {
+            "action": "per-mip_barriers",
+            "detail": "Add per-mip VkImageMemoryBarrier2 transitions only when their state actually changes. Keep a small state cache to avoid flipping every frame."
+        },
+        {
+            "action": "no_dynamic_flip",
+            "detail": "Do not transition coarse mips inside dynamic rendering. Move transitions to compute path and end with a stable layout before graphics."
+        }
+    ],
+    "acceptance": [
+        "No VUID-09600 spam during mesh draws",
+        "Coarse mips retain expected layout across frames"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.cpp"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('image layout must match descriptor layout 09600')",
+        "search_vulkan_spec('per-mip barriers StorageImage vs SampledImage')"
+    ]
+}

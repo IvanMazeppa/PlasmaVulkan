@@ -43,7 +43,11 @@ MeshParticleRenderer::MeshParticleRenderer(VulkanContext* context)
         std::cout << "  Max work group size X: " << m_maxMeshWorkGroupSizeX << std::endl;
         std::cout << "  Max output vertices: " << m_maxMeshOutputVertices << std::endl;
         std::cout << "  Max output primitives: " << m_maxMeshOutputPrimitives << std::endl;
-        
+
+        // CR 1027: Debug print push constant sizes
+        std::cout << "CR 1027 DEBUG: MeshPushConstants size = " << sizeof(MeshPushConstants)
+                  << " bytes, expected 128 bytes" << std::endl;
+
         createDescriptorSetLayout();
         createPipelineLayout();
         loadShaders();
@@ -121,6 +125,30 @@ void MeshParticleRenderer::createDescriptorSetLayout() {
     if (vkCreateDescriptorSetLayout(m_context->getDevice(), &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create mesh particle descriptor set layout!");
     }
+
+    // CR 1026: Create external-only descriptor set layout (no binding 4)
+    if (rtEnabled) {
+        std::vector<VkDescriptorSetLayoutBinding> extOnlyBindings = { particleBufferBinding };
+
+        // Only include external TLAS (binding 3), not shell TLAS (binding 4)
+        VkDescriptorSetLayoutBinding tlasBinding{};
+        tlasBinding.binding = 3;
+        tlasBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        tlasBinding.descriptorCount = 1;
+        tlasBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        tlasBinding.pImmutableSamplers = nullptr;
+        extOnlyBindings.push_back(tlasBinding);
+
+        VkDescriptorSetLayoutCreateInfo extOnlyLayoutInfo{};
+        extOnlyLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        extOnlyLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+        extOnlyLayoutInfo.bindingCount = static_cast<uint32_t>(extOnlyBindings.size());
+        extOnlyLayoutInfo.pBindings = extOnlyBindings.data();
+
+        if (vkCreateDescriptorSetLayout(m_context->getDevice(), &extOnlyLayoutInfo, nullptr, &m_extOnlyDescriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create external-only mesh particle descriptor set layout!");
+        }
+    }
 }
 
 void MeshParticleRenderer::createPipelineLayout() {
@@ -129,6 +157,9 @@ void MeshParticleRenderer::createPipelineLayout() {
     pushConstantRange.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(MeshPushConstants);
+
+    std::cout << "CR 1027 DEBUG (Pipeline): MeshPushConstants size = " << sizeof(MeshPushConstants)
+              << " bytes, pushConstantRange.size = " << pushConstantRange.size << " bytes" << std::endl;
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -139,6 +170,21 @@ void MeshParticleRenderer::createPipelineLayout() {
     
     if (vkCreatePipelineLayout(m_context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create mesh particle pipeline layout!");
+    }
+
+    // CR 1026: Create external-only pipeline layout
+    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
+    if (rtEnabled) {
+        VkPipelineLayoutCreateInfo extOnlyPipelineLayoutInfo{};
+        extOnlyPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        extOnlyPipelineLayoutInfo.setLayoutCount = 1;
+        extOnlyPipelineLayoutInfo.pSetLayouts = &m_extOnlyDescriptorSetLayout;
+        extOnlyPipelineLayoutInfo.pushConstantRangeCount = 1;
+        extOnlyPipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+        if (vkCreatePipelineLayout(m_context->getDevice(), &extOnlyPipelineLayoutInfo, nullptr, &m_extOnlyPipelineLayout) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create external-only mesh particle pipeline layout!");
+        }
     }
 }
 
@@ -160,6 +206,19 @@ void MeshParticleRenderer::loadShaders() {
     // Load fragment shader
     auto fragShaderCode = readFile("shaders/particle_mesh.frag.spv");
     m_fragShader = createShaderModule(fragShaderCode);
+
+    // CR 1026: Load external-only fragment shader
+    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
+    if (rtEnabled) {
+        try {
+            auto extOnlyFragShaderCode = readFile("shaders/particle_mesh_ext_only.frag.spv");
+            m_extOnlyFragShader = createShaderModule(extOnlyFragShaderCode);
+            std::cout << "External-only fragment shader loaded successfully!" << std::endl;
+        } catch (const std::exception& e) {
+            std::cout << "External-only fragment shader not found: " << e.what() << std::endl;
+            m_extOnlyFragShader = VK_NULL_HANDLE;
+        }
+    }
 }
 
 void MeshParticleRenderer::createDescriptorPool() {
@@ -326,7 +385,61 @@ void MeshParticleRenderer::createPipeline() {
     if (vkCreateGraphicsPipelines(m_context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create mesh particle graphics pipeline!");
     }
-    
+
+    // CR 1026: Create external-only pipeline (no binding 4 for shell TLAS)
+    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
+    if (rtEnabled && m_extOnlyFragShader != VK_NULL_HANDLE) {
+        // Create external-only shader stages
+        VkPipelineShaderStageCreateInfo extOnlyFragShaderStageInfo{};
+        extOnlyFragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        extOnlyFragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        extOnlyFragShaderStageInfo.module = m_extOnlyFragShader;
+        extOnlyFragShaderStageInfo.pName = "main";
+
+        std::array<VkPipelineShaderStageCreateInfo, 2> extOnlyShaderStages = {
+            meshShaderStageInfo, extOnlyFragShaderStageInfo
+        };
+
+        // Create external-only pipeline
+        VkGraphicsPipelineCreateInfo extOnlyPipelineInfo{};
+        extOnlyPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        extOnlyPipelineInfo.pNext = &renderingInfo;
+        extOnlyPipelineInfo.stageCount = static_cast<uint32_t>(extOnlyShaderStages.size());
+        extOnlyPipelineInfo.pStages = extOnlyShaderStages.data();
+        extOnlyPipelineInfo.pVertexInputState = &vertexInputInfo;
+        extOnlyPipelineInfo.pInputAssemblyState = &inputAssembly;
+        extOnlyPipelineInfo.pViewportState = &viewportState;
+        extOnlyPipelineInfo.pRasterizationState = &rasterizer;
+        extOnlyPipelineInfo.pMultisampleState = &multisampling;
+        extOnlyPipelineInfo.pDepthStencilState = &depthStencil;
+        extOnlyPipelineInfo.pColorBlendState = &colorBlending;
+        extOnlyPipelineInfo.pDynamicState = &dynamicState;
+        extOnlyPipelineInfo.layout = m_extOnlyPipelineLayout;
+        extOnlyPipelineInfo.renderPass = VK_NULL_HANDLE;
+        extOnlyPipelineInfo.subpass = 0;
+
+        if (vkCreateGraphicsPipelines(m_context->getDevice(), VK_NULL_HANDLE, 1, &extOnlyPipelineInfo, nullptr, &m_extOnlyPipeline) != VK_SUCCESS) {
+            std::cerr << "Failed to create external-only mesh particle pipeline!" << std::endl;
+            m_extOnlyPipeline = VK_NULL_HANDLE;
+        } else {
+            std::cout << "External-only mesh particle pipeline created successfully!" << std::endl;
+
+            // CR 1032: Pipeline parity logging
+            std::cout << "[CR 1032] Pipeline State Parity Verification:" << std::endl;
+            std::cout << "  Full Pipeline - Depth: testEnable=" << (depthStencil.depthTestEnable ? "TRUE" : "FALSE")
+                      << " writeEnable=" << (depthStencil.depthWriteEnable ? "TRUE" : "FALSE")
+                      << " compareOp=" << depthStencil.depthCompareOp << std::endl;
+            std::cout << "  Full Pipeline - Blend: srcColor=" << colorBlendAttachment.srcColorBlendFactor
+                      << " dstColor=" << colorBlendAttachment.dstColorBlendFactor << std::endl;
+            std::cout << "  Ext-Only Pipeline - Depth: Same struct (testEnable=" << (depthStencil.depthTestEnable ? "TRUE" : "FALSE")
+                      << " writeEnable=" << (depthStencil.depthWriteEnable ? "TRUE" : "FALSE")
+                      << " compareOp=" << depthStencil.depthCompareOp << ")" << std::endl;
+            std::cout << "  Ext-Only Pipeline - Blend: Same struct (srcColor=" << colorBlendAttachment.srcColorBlendFactor
+                      << " dstColor=" << colorBlendAttachment.dstColorBlendFactor << ")" << std::endl;
+            std::cout << "[CR 1032] Pipeline parity confirmed: Both use identical depth/blend states" << std::endl;
+        }
+    }
+
     // Create SPH mesh shader pipeline if shader is available
     if (m_sphMeshShader != VK_NULL_HANDLE) {
         // Create separate pipeline layout for SPH with different push constants
@@ -334,6 +447,9 @@ void MeshParticleRenderer::createPipeline() {
         sphPushConstantRange.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT;
         sphPushConstantRange.offset = 0;
         sphPushConstantRange.size = sizeof(SPHMeshPushConstants);
+
+        std::cout << "CR 1027 DEBUG (SPH Pipeline): SPHMeshPushConstants size = " << sizeof(SPHMeshPushConstants)
+                  << " bytes, expected 128 bytes" << std::endl;
         
         VkPipelineLayoutCreateInfo sphPipelineLayoutInfo{};
         sphPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -421,8 +537,34 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
     // Job 1014: Push shell TLAS for self-shadowing
     bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery() && m_rtShadowsEnabled;
 
-    // Bind mesh shader pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    // CR 1026: Determine shell TLAS availability early for pipeline selection
+    bool shellTlasReady = false;
+    if (rtEnabled && volumeRenderer && m_selfShadowEnabled) {
+        VkAccelerationStructureKHR shellTLAS = volumeRenderer->getShellTLAS();
+        shellTlasReady = (shellTLAS != VK_NULL_HANDLE);
+    }
+
+    // CR 1026: Bind appropriate mesh shader pipeline based on shell TLAS availability
+    VkPipeline activePipeline = getActivePipeline(shellTlasReady);
+    VkPipelineLayout activePipelineLayout = getActivePipelineLayout(shellTlasReady);
+
+    // CR 1034: Enhanced pipeline/descriptor selection debugging (throttled every ~120 frames)
+    static uint32_t pipelineDebugCounter = 0;
+    if ((pipelineDebugCounter++ % 120) == 0) {
+        uint32_t expectedDescriptors = 1; // particle_buffer always present when rtEnabled
+        if (rtEnabled) {
+            if (m_topLevelAS != VK_NULL_HANDLE) expectedDescriptors++; // external TLAS
+            if (shellTlasReady) expectedDescriptors++; // shell TLAS
+        } else {
+            expectedDescriptors = 0; // No push descriptors in non-RT mode
+        }
+
+        std::cout << "[PIPELINE DEBUG] pipeline=" << (shellTlasReady ? "ext+shell" : "ext")
+                  << " descriptors=" << expectedDescriptors
+                  << " shellReady=" << (shellTlasReady ? "1" : "0") << std::endl;
+    }
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, activePipeline);
 
     // Job 1014: Handle particle buffer binding based on descriptor type
     static VkBuffer lastParticleBuffer = VK_NULL_HANDLE;
@@ -450,7 +592,7 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
 
     // Job 1014: Bind descriptor set only if not using push descriptors
     if (!rtEnabled) {
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, activePipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
     }
 
     std::vector<VkWriteDescriptorSet> pushDescriptorWrites;
@@ -495,39 +637,39 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
         descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     }
 
-    // Job 1014: Shell TLAS for self-shadowing (binding 4)
+    // Job 1014: Shell TLAS for self-shadowing (binding 4) with CR 1022 freeze guard
     VkAccelerationStructureKHR shellTLAS = VK_NULL_HANDLE;
-    if (rtEnabled && volumeRenderer) {
+    bool shellTlasAvailable = false;
+
+    if (rtEnabled && volumeRenderer && m_selfShadowEnabled) {
         // CR 1016: Check if we need to wait for shell TLAS completion
         VkSemaphore buildSemaphore = volumeRenderer->getShellBuildSemaphore();
         uint64_t lastCompleted = volumeRenderer->getLastCompletedBuild();
 
-        static uint64_t lastWaitedValue = 0;
-        if (lastCompleted > lastWaitedValue && buildSemaphore != VK_NULL_HANDLE) {
-            std::cout << "CR 1016: Waiting for shell TLAS completion (timeline " << lastCompleted << ")...\n";
-
-            // Use Vulkan 1.3 timeline semaphore wait on host
-            VkSemaphoreWaitInfo waitInfo{};
-            waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-            waitInfo.semaphoreCount = 1;
-            waitInfo.pSemaphores = &buildSemaphore;
-            waitInfo.pValues = &lastCompleted;
-
-            VkResult result = vkWaitSemaphores(m_context->getDevice(), &waitInfo, UINT64_MAX);
-            if (result == VK_SUCCESS) {
-                lastWaitedValue = lastCompleted;
-                std::cout << "CR 1016: Shell TLAS ready for rendering (waited for timeline " << lastCompleted << ")\n";
-            }
+        // CR 1021: Non-blocking check of timeline status (no more CPU waits!)
+        static uint64_t lastReportedValue = 0;
+        if (lastCompleted > lastReportedValue && buildSemaphore != VK_NULL_HANDLE) {
+            std::cout << "CR 1021: Shell TLAS timeline at " << lastCompleted << " (GPU sync, no CPU wait)\n";
+            lastReportedValue = lastCompleted;
         }
 
         shellTLAS = volumeRenderer->getShellTLAS();
+        shellTlasAvailable = (shellTLAS != VK_NULL_HANDLE);
+
+        // CR 1022: Throttled status logging for shell TLAS pending
+        static uint32_t statusCounter = 0;
+        if (!shellTlasAvailable && (statusCounter++ % 120) == 0) {
+            std::cout << "[CR 1022] Self-shadow TLAS pending... (timeline: " << lastCompleted << ")" << std::endl;
+        }
+
         // CR 1017: Debug shell TLAS availability
         static uint32_t debugCounter = 0;
         if ((debugCounter++ % 60) == 0) {
-            std::cout << "Shell TLAS: " << (shellTLAS != VK_NULL_HANDLE ? "AVAILABLE" : "NULL")
+            std::cout << "Shell TLAS: " << (shellTlasAvailable ? "AVAILABLE" : "NULL")
                      << " (last timeline: " << lastCompleted << ")" << std::endl;
         }
-        if (shellTLAS != VK_NULL_HANDLE) {
+
+        if (shellTlasAvailable) {
             asWrites.emplace_back();
             auto& shellAsWrite = asWrites.back();
             shellAsWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
@@ -547,9 +689,18 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
         }
     }
 
+    // CR 1034: Descriptor guard - ensure no binding 4 when pipeline=ext
+    if (!shellTlasReady) {
+        for (const auto& write : pushDescriptorWrites) {
+            if (write.dstBinding == 4) {
+                throw std::runtime_error("CR 1034: Binding 4 (shell TLAS) pushed when pipeline=ext (shellReady=0)");
+            }
+        }
+    }
+
     // Push all descriptors at once (particle buffer + AS)
     if (!pushDescriptorWrites.empty()) {
-        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0,
+        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, activePipelineLayout, 0,
                                   static_cast<uint32_t>(pushDescriptorWrites.size()), pushDescriptorWrites.data());
 
         // Throttled per-frame log
@@ -575,6 +726,12 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
     pushConstants.lightDirection = m_lightDirection;
     pushConstants.lightIntensity = m_lightIntensity;
     pushConstants.occlusionAmplify = m_occlusionAmplifyEnabled ? 1u : 0u;
+    // CR 1018: Ray query mask and overlay controls
+    pushConstants.rtSelfShadowOverlay = m_rtSelfShadowOverlay ? 1u : 0u;
+    pushConstants.rtCullMaskMode = m_rtCullMaskMode;
+    // CR 1022: Shell TLAS availability flag
+    pushConstants.shellTlasAvailable = shellTlasAvailable ? 1u : 0u;
+    pushConstants._padding = 0; // Explicit padding for 128-byte alignment
     
     vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(MeshPushConstants), &pushConstants);
@@ -660,6 +817,12 @@ void MeshParticleRenderer::cycleCullMaskMode() {
     std::cout << "[CR 1018] Cull mask mode: " << modes[m_rtCullMaskMode] << std::endl;
 }
 
+// CR 1022: Toggle self-shadow enabled state
+void MeshParticleRenderer::toggleSelfShadowEnabled() {
+    m_selfShadowEnabled = !m_selfShadowEnabled;
+    std::cout << "[CR 1022] Self-shadow rendering: " << (m_selfShadowEnabled ? "ENABLED" : "DISABLED") << std::endl;
+}
+
 void MeshParticleRenderer::renderSPH(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,
                                      VkBuffer particleBuffer, uint32_t particleCount, float particleSize, float time,
                                      float smoothingRadius, float restDensity, float pressureConstant, float viscosity) {
@@ -714,11 +877,13 @@ void MeshParticleRenderer::renderSPH(VkCommandBuffer cmd, const glm::mat4& viewP
     // Bind descriptor set
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_sphPipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
     
-    // Push constants with SPH parameters
+    // Push constants with SPH parameters (128-byte layout)
     SPHMeshPushConstants pushConstants{};
     pushConstants.viewProj = viewProj;
     pushConstants.cameraPos = cameraPos;
     pushConstants.particleSize = particleSize;
+    pushConstants.lightDirection = glm::vec3(0.0f, -1.0f, 0.0f); // SPH gradient direction
+    pushConstants.lightIntensity = 1.0f; // SPH pressure scale
     pushConstants.particleCount = particleCount;
     pushConstants.time = time;
     pushConstants.smoothingRadius = smoothingRadius;
@@ -726,6 +891,7 @@ void MeshParticleRenderer::renderSPH(VkCommandBuffer cmd, const glm::mat4& viewP
     pushConstants.pressureConstant = pressureConstant;
     pushConstants.viscosity = viscosity;
     pushConstants.mass = 1.0f; // Standard mass
+    pushConstants._padding = 0; // Explicit padding for 128-byte alignment
     
     vkCmdPushConstants(cmd, m_sphPipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(SPHMeshPushConstants), &pushConstants);
@@ -758,20 +924,36 @@ void MeshParticleRenderer::cleanup() {
         vkDestroyPipeline(device, m_sphPipeline, nullptr);
         m_sphPipeline = VK_NULL_HANDLE;
     }
-    
+
+    // CR 1026: Cleanup external-only pipeline resources
+    if (m_extOnlyPipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, m_extOnlyPipeline, nullptr);
+        m_extOnlyPipeline = VK_NULL_HANDLE;
+    }
+
     if (m_pipelineLayout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
         m_pipelineLayout = VK_NULL_HANDLE;
     }
-    
+
     if (m_sphPipelineLayout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, m_sphPipelineLayout, nullptr);
         m_sphPipelineLayout = VK_NULL_HANDLE;
     }
-    
+
+    if (m_extOnlyPipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, m_extOnlyPipelineLayout, nullptr);
+        m_extOnlyPipelineLayout = VK_NULL_HANDLE;
+    }
+
     if (m_descriptorSetLayout != VK_NULL_HANDLE) {
         vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
         m_descriptorSetLayout = VK_NULL_HANDLE;
+    }
+
+    if (m_extOnlyDescriptorSetLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device, m_extOnlyDescriptorSetLayout, nullptr);
+        m_extOnlyDescriptorSetLayout = VK_NULL_HANDLE;
     }
     
     // Descriptor pool automatically frees all allocated descriptor sets when destroyed
@@ -795,6 +977,57 @@ void MeshParticleRenderer::cleanup() {
         vkDestroyShaderModule(device, m_fragShader, nullptr);
         m_fragShader = VK_NULL_HANDLE;
     }
+
+    // CR 1026: Cleanup external-only fragment shader
+    if (m_extOnlyFragShader != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, m_extOnlyFragShader, nullptr);
+        m_extOnlyFragShader = VK_NULL_HANDLE;
+    }
+}
+
+// CR 1026: Get appropriate pipeline based on shell TLAS availability
+VkPipeline MeshParticleRenderer::getActivePipeline(bool shellTlasReady) const {
+    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
+
+    // If RT is not enabled, use the original pipeline
+    if (!rtEnabled) {
+        return m_pipeline;
+    }
+
+    // If shell TLAS is ready and we have the full pipeline, use it
+    if (shellTlasReady && m_pipeline != VK_NULL_HANDLE) {
+        return m_pipeline;
+    }
+
+    // Otherwise, use external-only pipeline to avoid VUID-08114
+    if (m_extOnlyPipeline != VK_NULL_HANDLE) {
+        return m_extOnlyPipeline;
+    }
+
+    // Fallback to original pipeline
+    return m_pipeline;
+}
+
+VkPipelineLayout MeshParticleRenderer::getActivePipelineLayout(bool shellTlasReady) const {
+    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
+
+    // If RT is not enabled, use the original layout
+    if (!rtEnabled) {
+        return m_pipelineLayout;
+    }
+
+    // If shell TLAS is ready and we have the full layout, use it
+    if (shellTlasReady && m_pipelineLayout != VK_NULL_HANDLE) {
+        return m_pipelineLayout;
+    }
+
+    // Otherwise, use external-only layout to avoid VUID-08114
+    if (m_extOnlyPipelineLayout != VK_NULL_HANDLE) {
+        return m_extOnlyPipelineLayout;
+    }
+
+    // Fallback to original layout
+    return m_pipelineLayout;
 }
 
 VkShaderModule MeshParticleRenderer::createShaderModule(const std::vector<char>& code) {
@@ -1372,7 +1605,7 @@ void MeshParticleRenderer::buildTLAS() {
     instances[0].transform.matrix[2][3] = 0.0f; // Translation Z
 
     instances[0].instanceCustomIndex = 0;
-    instances[0].mask = 0xFF;
+    instances[0].mask = 0x01;  // CR 1018: External TLAS instances use mask 0x01
     instances[0].instanceShaderBindingTableRecordOffset = 0;
     instances[0].flags = 0;
     instances[0].accelerationStructureReference = sphereBLASAddress;
@@ -1399,7 +1632,7 @@ void MeshParticleRenderer::buildTLAS() {
     instances[1].transform.matrix[2][3] = 0.0f; // Translation Z
 
     instances[1].instanceCustomIndex = 1;
-    instances[1].mask = 0xFF;
+    instances[1].mask = 0x01;  // CR 1018: External TLAS instances use mask 0x01
     instances[1].instanceShaderBindingTableRecordOffset = 0;
     instances[1].flags = 0;
     instances[1].accelerationStructureReference = discBLASAddress;

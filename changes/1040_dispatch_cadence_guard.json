@@ -1,0 +1,18 @@
+{
+  "id": "1040_dispatch_cadence_guard",
+  "title": "Gate shell extraction and TLAS rebuilds on timeline progress + timeout",
+  "purpose": "Prevent heavy extraction/build loops when timeline hasn’t advanced or shells unchanged, which can lead to stalls and silent exits.",
+  "steps": [
+    { "action": "timeline_gate", "detail": "Track last signaled and last observed timeline values in VolumeRenderer. Only call updateShellTLASWithSync if (lastObserved < lastSignaled)." },
+    { "action": "content_hash", "detail": "Hash a small sample of coarse density mip0 to detect meaningful change; skip extraction if unchanged for K frames." },
+    { "action": "timeout_fallback", "detail": "If timeline hasn’t progressed for T ms, log a warning once and stop further extraction attempts until user toggles or density changes." }
+  ],
+  "acceptance": [
+    "No rapid extraction loops in logs",
+    "Stable runtime without silent exits"
+  ],
+  "touchpoints": [
+    "src/systems/VolumeRenderer.cpp",
+    "src/core/Application.cpp"
+  ]
+}

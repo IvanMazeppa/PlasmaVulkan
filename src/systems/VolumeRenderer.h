@@ -150,6 +150,7 @@ public:
     // First-frame crash prevention
     bool needsInitialUpdate() const { return !m_densityInitialized; }
     bool needsCoarseInitialUpdate() const { return !m_coarseDensityInitialized; }
+    bool needsCoarseMipGeneration() const { return !m_coarseMipsGenerated; }
 
     // Ray tracing support
     bool supportsRayTracing() const;
@@ -194,6 +195,9 @@ public:
     // CR 1016: Synchronized versions using timeline semaphores
     void buildShellBLASWithSync();
     void updateShellTLASWithSync();
+
+    // CR 1021: Timeline-aware TLAS update that waits on BLAS completion
+    void updateShellTLASWithTimeline(uint64_t waitValue, uint64_t signalValue);
     VkAccelerationStructureKHR getShellTLAS() const { return m_shellTopLevelAS; }
     VkDeviceAddress getShellTLASAddress() const { return m_shellTLASAddress; }
 
@@ -233,6 +237,10 @@ private:
     uint32_t m_coarseDensityMipLevels = 1;
     bool m_coarseDensityInitialized = false;
     bool m_coarseMipsGenerated = false;  // CR 1019: Track if mips have been generated
+
+    // CR 1028: Track per-mip layout state to avoid flipping layouts
+    std::vector<VkImageLayout> m_coarseMipLayouts;
+    VkImageLayout m_coarseDescriptorLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     // Density splatting compute pipeline
     VkPipeline m_densitySplatPipeline = VK_NULL_HANDLE;
@@ -342,6 +350,10 @@ private:
     void createBufferForShell(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& memory);
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    // CR 1021: Timeline-aware command submission helpers
+    VkCommandBuffer beginTimelineCommands();
+    void endTimelineCommands(VkCommandBuffer commandBuffer, uint64_t signalValue, uint64_t waitValue = 0, VkSemaphore waitSemaphore = VK_NULL_HANDLE);
 
     // CR 1016: Timeline semaphore management
     void createShellBuildSemaphore();

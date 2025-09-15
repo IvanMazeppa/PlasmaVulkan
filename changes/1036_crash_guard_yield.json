@@ -1,0 +1,27 @@
+{
+    "id": "1036_crash_guard_yield",
+    "title": "Reduce per-frame coarse updates and throttle extraction to prevent stalls/freezes",
+    "purpose": "Mesh mode shows repeat transitions and extractions that flood the GPU/validation; throttle to stable cadence.",
+    "steps": [
+        {
+            "action": "update_cadence",
+            "detail": "Run updateCoarseDensityGrid + generateCoarseMipChain every N frames (e.g., N=4) when camera/light not significantly changed; otherwise run immediately."
+        },
+        {
+            "action": "extraction_cadence",
+            "detail": "Run extractIsoSurfaceShells every M frames (e.g., M=60) or on significant density change; skip if previous TLAS is still building."
+        },
+        {
+            "action": "log_throttle",
+            "detail": "Aggregate 'Starting coarse density update' logs into a single line per burst."
+        }
+    ],
+    "acceptance": [
+        "No freeze/exits after a few frames",
+        "Reduced repeated CR 1019/1028 messages"
+    ],
+    "touchpoints": [
+        "src/core/Application.cpp",
+        "src/systems/VolumeRenderer.cpp"
+    ]
+}

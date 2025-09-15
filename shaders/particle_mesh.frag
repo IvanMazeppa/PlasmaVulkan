@@ -13,24 +13,26 @@ layout(location = 0) out vec4 outColor;
 // Job 1003: RT acceleration structure binding for external occluders
 layout(binding = 3) uniform accelerationStructureEXT topLevelAS;
 
-// Job 1014: Shell TLAS for self-shadowing
+// Job 1014: Shell TLAS for self-shadowing (conditional)
+#ifdef USE_SHELL_TLAS
 layout(binding = 4) uniform accelerationStructureEXT shellTLAS;
+#endif
 
 // Push constants (same as mesh shader)
 layout(push_constant) uniform PushConstants {
-    mat4 viewProj;
-    vec3 cameraPos;
-    float particleSize;
-    uint particleCount;
-    float time;
-    uint rtEnabled;  // RT toggle
-    // Job 1005: Directional light state
-    vec3 lightDirection;
-    float lightIntensity;
-    uint occlusionAmplify;  // Debug toggle for occlusion amplification
-    // CR 1018: Ray query mask and overlay controls
-    uint rtSelfShadowOverlay; // Debug overlay mode
-    uint rtCullMaskMode;      // 0=both, 1=external only, 2=shells only
+    mat4 viewProj;              // 64 bytes
+    vec3 cameraPos;             // 12 bytes
+    float particleSize;         // 4 bytes (total 80 bytes)
+    vec3 lightDirection;        // 12 bytes
+    float lightIntensity;       // 4 bytes (total 96 bytes)
+    uint particleCount;         // 4 bytes
+    float time;                 // 4 bytes
+    uint rtEnabled;             // 4 bytes
+    uint occlusionAmplify;      // 4 bytes (total 112 bytes)
+    uint rtSelfShadowOverlay;   // 4 bytes
+    uint rtCullMaskMode;        // 4 bytes
+    uint shellTlasAvailable;    // 4 bytes
+    uint _padding;              // 4 bytes (total 128 bytes exactly)
 } pc;
 
 // Job 1003: Ray query occlusion function for external occluders
@@ -50,7 +52,15 @@ float hasOccluderRT(vec3 originWS, vec3 dirWS, float tMax) {
 
 // Job 1014: Ray query self-shadowing function using shell TLAS
 // CR 1018: Updated with instance mask support (shell TLAS = 0x02)
+// CR 1022: Added guard for shell TLAS availability
+// CR 1026: Conditional compilation for dual pipeline support
 float hasSelfShadowRT(vec3 originWS, vec3 dirWS, float tMax) {
+#ifdef USE_SHELL_TLAS
+    // CR 1022: Guard against unavailable shell TLAS
+    if (pc.shellTlasAvailable == 0u) {
+        return -1.0; // No hit when shell TLAS not available
+    }
+
     rayQueryEXT rq;
     const uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT;
     const uint cullMask = 0x02; // Only hit shell TLAS instances
@@ -61,6 +71,10 @@ float hasSelfShadowRT(vec3 originWS, vec3 dirWS, float tMax) {
         return rayQueryGetIntersectionTEXT(rq, true); // Return hit distance for overlay
     }
     return -1.0; // No hit
+#else
+    // CR 1026: No shell TLAS available in external-only pipeline
+    return -1.0; // No self-shadowing when shell TLAS not supported
+#endif
 }
 
 // CR 1018: Debug overlay function - colors fragments by hit distance

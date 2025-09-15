@@ -1,0 +1,17 @@
+{
+  "id": "1038_mesh_safety_guards",
+  "title": "Add safety clamps for mesh indices and GPU error checks after draw",
+  "purpose": "Catch and prevent silent GPU failures by clamping indices and checking for device loss after submissions in debug builds.",
+  "steps": [
+    { "action": "shader_clamps", "detail": "In particle_mesh.mesh, clamp vertexIndex and primitive indices to allocated ranges using particlesInWorkgroup. Avoid writing indices when particleIndex >= pc.particleCount." },
+    { "action": "post_submit_checks", "detail": "In Application::drawFrame (or submission site), in debug builds call vkGetDeviceProcAddr for vkDeviceWaitIdle on fatal error paths and log VK_ERROR_DEVICE_LOST if submit/present fails. Add asserts that command buffer is inside rendering scope when calling vkCmdDrawMeshTasksEXT." }
+  ],
+  "acceptance": [
+    "No silent exits; any device loss is logged with explicit error code",
+    "Indices never exceed SetMeshOutputsEXT allocations"
+  ],
+  "touchpoints": [
+    "shaders/particle_mesh.mesh",
+    "src/core/Application.cpp"
+  ]
+}

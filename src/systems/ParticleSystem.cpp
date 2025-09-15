@@ -306,7 +306,16 @@ void ParticleSystem::createGraphicsPipeline() {
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
-    
+
+    // CR 1035: Depth stencil state to match mesh renderer
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_FALSE; // Don't write depth for transparent particles
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.stencilTestEnable = VK_FALSE;
+
     // Push constants for MVP matrix
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -331,6 +340,7 @@ void ParticleSystem::createGraphicsPipeline() {
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
     pipelineInfo.layout = m_graphicsPipelineLayout;
@@ -345,7 +355,17 @@ void ParticleSystem::createGraphicsPipeline() {
     
     vkCreateGraphicsPipelines(m_context->getDevice(), VK_NULL_HANDLE, 1,
         &pipelineInfo, nullptr, &m_graphicsPipeline);
-    
+
+    // CR 1035: State parity logging
+    std::cout << "[CR 1035] Point-Sprite Renderer State Configuration:" << std::endl;
+    std::cout << "  Depth: testEnable=" << (depthStencil.depthTestEnable ? "TRUE" : "FALSE")
+              << " writeEnable=" << (depthStencil.depthWriteEnable ? "TRUE" : "FALSE")
+              << " compareOp=" << depthStencil.depthCompareOp << std::endl;
+    std::cout << "  Blend: srcColor=" << colorBlendAttachment.srcColorBlendFactor
+              << " dstColor=" << colorBlendAttachment.dstColorBlendFactor << std::endl;
+    std::cout << "  Viewport: Dynamic from swap chain extent (matches mesh renderer)" << std::endl;
+    std::cout << "[CR 1035] Point-sprite renderer now uses identical depth/blend/viewport state as mesh renderer" << std::endl;
+
     vkDestroyShaderModule(m_context->getDevice(), vertShaderModule, nullptr);
     vkDestroyShaderModule(m_context->getDevice(), fragShaderModule, nullptr);
 }

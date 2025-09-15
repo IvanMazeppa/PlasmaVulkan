@@ -62,9 +62,33 @@
       "Bash(VK_INSTANCE_LAYERS= timeout 8s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
       "Bash(env VK_INSTANCE_LAYERS= timeout 8s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
       "Bash(env VK_INSTANCE_LAYERS= timeout 15s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
-      "Bash(env VK_INSTANCE_LAYERS= timeout 10s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)"
+      "Bash(env VK_INSTANCE_LAYERS= timeout 10s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(killall:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(pkg-config:*)",
+      "Bash(pkill:*)",
+      "Read(//usr/bin/**)",
+      "Bash(dpkg:*)",
+      "Read(//usr/lib/**)",
+      "Read(//usr/**)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 5s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 10s ./PlasmaVulkan.exe)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 8s ./PlasmaVulkan.exe)",
+      "Bash(printf \"1\\ny\\n\")",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 15s ./PlasmaVulkan.exe)",
+      "Bash(printf \"1\\n\")",
+      "Bash(\"/mnt/e/Program Files/CLion 2025.2/bin/cmake/win/x64/bin/cmake.exe\" --build cmake-build-debug-visual-studio --target MeshParticleRenderer --config Debug)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 3s ./cmake-build-debug-visual-studio/Debug/PlasmaVulkan.exe)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 3s ./PlasmaVulkan.exe)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 5s ./PlasmaVulkan.exe)",
+      "Bash(env VK_INSTANCE_LAYERS= timeout 2s ./PlasmaVulkan.exe)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/mnt/e/vcpkg",
+      "/mnt/d/Users/dilli/AndroidStudioProjects/plasma_vk/"
+    ]
   }
 }

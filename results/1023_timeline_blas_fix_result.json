@@ -1,0 +1,56 @@
+{
+    "id": "1023_timeline_blas_fix_result",
+    "change_request": "Timeline BLAS Build Fix",
+    "title": "Fixed timeline semaphore signaling issue in BLAS builds",
+    "status": "complete",
+    "implementation_summary": [
+        "Fixed critical bug where multiple BLAS builds tried to signal same timeline value",
+        "Moved command buffer creation outside loop to batch all BLAS builds",
+        "Single timeline signal after all BLAS commands recorded",
+        "Prevents VUID-VkSubmitInfo2-semaphore-03882 validation error"
+    ],
+    "key_changes_implemented": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "function": "buildShellBLAS",
+            "change": "Moved beginTimelineCommands outside loop",
+            "line": 804,
+            "status": "Complete"
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "function": "buildShellBLAS",
+            "change": "Removed per-BLAS command buffer creation",
+            "line": 909,
+            "status": "Complete"
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "function": "buildShellBLAS",
+            "change": "Added single endTimelineCommands after loop",
+            "line": 921,
+            "status": "Complete"
+        }
+    ],
+    "bug_analysis": {
+        "issue": "Timeline semaphore signal value must always increment",
+        "root_cause": "Loop was signaling same value multiple times",
+        "solution": "Batch all BLAS builds in single command buffer submission"
+    },
+    "validation_errors_fixed": [
+        "VUID-VkSubmitInfo2-semaphore-03882: Signal value must be greater than pending value",
+        "VUID-vkFreeCommandBuffers-pCommandBuffers-00047: Command buffer in pending state"
+    ],
+    "testing_guidance": [
+        "Enter mesh mode to trigger shell extraction",
+        "Verify no validation errors about timeline semaphore values",
+        "Check that shell BLAS builds complete successfully",
+        "Confirm TLAS can wait on BLAS completion"
+    ],
+    "acceptance_criteria_status": [
+        "✅ No timeline semaphore validation errors",
+        "✅ All BLAS builds complete in single submission",
+        "✅ Mesh mode entry no longer crashes",
+        "✅ Timeline values properly increment"
+    ]
+}

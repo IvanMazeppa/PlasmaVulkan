@@ -1,0 +1,29 @@
+{
+    "id": "1029_rt_ready_state",
+    "title": "RT readiness state machine + per-frame pipeline/descriptor selection",
+    "purpose": "Pick the correct pipeline (with/without shell) and push only valid descriptors, based on TLAS readiness signaled on GPU timelines.",
+    "steps": [
+        {
+            "action": "state_struct",
+            "detail": "Add a small struct in VolumeRenderer to track shellBuildSubmitted, shellBLASReady, shellTLASReady (timeline values)."
+        },
+        {
+            "action": "mesh_query",
+            "detail": "MeshParticleRenderer queries this state each frame; if shellTLASReady < expected, it selects pipeline_ext and omits binding 4."
+        },
+        {
+            "action": "logs",
+            "detail": "Throttled logs print selected pipeline and descriptors pushed: 'pipeline=ext|ext+shell, descriptors=2|3'."
+        }
+    ],
+    "acceptance": [
+        "No draws use statically referenced but unbound binding 4",
+        "Descriptor push count matches selected pipeline",
+        "Overlay shows when shells become active"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.h",
+        "src/systems/VolumeRenderer.cpp",
+        "src/systems/MeshParticleRenderer.cpp"
+    ]
+}

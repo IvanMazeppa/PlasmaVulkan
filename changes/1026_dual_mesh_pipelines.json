@@ -1,0 +1,33 @@
+{
+    "id": "1026_dual_mesh_pipelines",
+    "title": "Split mesh pipelines: external-only vs external+shell to eliminate VUID 08114",
+    "purpose": "Avoid static use of binding 4 when shell TLAS is not ready by compiling two fragment shader variants and two pipelines.",
+    "steps": [
+        {
+            "action": "shader_define",
+            "detail": "Add a compile-time define (e.g., USE_SHELL_TLAS) in shaders/particle_mesh.frag to guard binding 4 and hasSelfShadowRT."
+        },
+        {
+            "action": "pipeline_create",
+            "detail": "Create two pipelines: pipeline_ext (no binding 4; USE_SHELL_TLAS=0) and pipeline_ext_shell (binding 4 present; USE_SHELL_TLAS=1)."
+        },
+        {
+            "action": "runtime_select",
+            "detail": "At render time, pick pipeline_ext when shell TLAS is NULL or not ready; pick pipeline_ext_shell when ready. Ensure descriptor pushes match the selected pipeline's layout (no write to binding 4 for pipeline_ext)."
+        }
+    ],
+    "acceptance": [
+        "No VUID-08114 when shell TLAS is NULL",
+        "Descriptor push sizes match selected pipeline layout",
+        "Visible rendering continues in mesh mode before shells are ready"
+    ],
+    "touchpoints": [
+        "shaders/particle_mesh.frag",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/MeshParticleRenderer.h"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('statically used descriptors and pipeline layouts')",
+        "search_vulkan_spec('pipeline layout compatibility across pipelines')"
+    ]
+}

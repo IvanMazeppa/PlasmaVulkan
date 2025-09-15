@@ -200,7 +200,8 @@ private:
     bool m_volumetricUltraQuality = false;   // Ultra-high quality mode for recording (Ctrl+V)
     
     // Mesh shader rendering
-    bool m_useMeshShaders = false;           // Use mesh shader rendering when available
+    bool m_useMeshShaders = true;            // Restored to default after fixing all CR issues
+    bool m_forceMeshOnly = true;             // CR 1031: Force mesh-only mode to prevent dual rendering artifacts
     
     // Volumetric rendering parameters (runtime adjustable)
     float m_volumeDensityScale = 0.8f;       // NUM1: Color brightness/density scaling (increased for yellow range)

@@ -1,0 +1,26 @@
+{
+    "id": "1033_coarse_layout_fixup",
+    "title": "Finalize coarse mip0 layout to match descriptor for mesh draws (fix residual 09600)",
+    "purpose": "Stop the persistent VUID-09600 on mip 0 by ensuring the descriptor-written layout equals the actual layout at mesh draw time.",
+    "steps": [
+        {
+            "action": "single_layout_choice",
+            "detail": "Choose one layout for sampling in mesh (GENERAL or SHADER_READ_ONLY_OPTIMAL). Prefer GENERAL for storage+sampling; write descriptors with that layout."
+        },
+        {
+            "action": "transition_end_of_compute",
+            "detail": "At end of coarse update/mip gen, transition mip0 to the chosen layout and set m_coarseMipLayouts[0] and m_coarseDescriptorLayout accordingly. Do not log contradictory 'Starting ... transitioning from SHADER_READ_ONLY_OPTIMAL' lines afterwards."
+        },
+        {
+            "action": "no_reclear",
+            "detail": "Avoid clearing and switching layouts every frame; only clear when necessary (e.g., on extract ticks)."
+        }
+    ],
+    "acceptance": [
+        "No VUID-09600 during mesh draws for mip 0",
+        "Logs no longer show alternating 'expects SROO, current GENERAL'"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.cpp"
+    ]
+}

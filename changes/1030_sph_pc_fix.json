@@ -1,0 +1,28 @@
+{
+    "id": "1030_sph_pc_fix",
+    "title": "Fix SPH mesh pipeline push-constant range (VUID 10069)",
+    "purpose": "Resolve SPH pipeline creation warning/error by matching push-constant block size to shader usage.",
+    "steps": [
+        {
+            "action": "range_set",
+            "detail": "Set SPH pipeline push constant range to sizeof(SPHMeshPushConstants) for both mesh and fragment stages."
+        },
+        {
+            "action": "shader_audit",
+            "detail": "Ensure SPH shaders do not include extra fields beyond the struct; or increase range accordingly."
+        },
+        {
+            "action": "gate_off",
+            "detail": "Alternatively, gate SPH pipeline creation with a flag until mesh path is stable."
+        }
+    ],
+    "acceptance": [
+        "No VUID-10069 during SPH pipeline creation",
+        "SPH pipeline either disabled or created cleanly"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/MeshParticleRenderer.h",
+        "shaders/sph_mesh_experimental.mesh"
+    ]
+}

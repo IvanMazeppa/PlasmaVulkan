@@ -1,0 +1,27 @@
+{
+    "id": "1035_particle_draw_state",
+    "title": "Unify particle draw state across mesh and point-sprite renderers",
+    "purpose": "Ensure consistent viewport/scissor and blending so switching paths doesn’t introduce artifacts.",
+    "steps": [
+        {
+            "action": "viewport_unify",
+            "detail": "Both paths set viewport/scissor from swapchain extent right before draw."
+        },
+        {
+            "action": "blend_depth_parity",
+            "detail": "Confirm point-sprite uses depthTest=TRUE, depthWrite=FALSE, blend=additive to match mesh renderers."
+        },
+        {
+            "action": "state_log",
+            "detail": "Once per init, log the chosen blend/depth state for both renderers."
+        }
+    ],
+    "acceptance": [
+        "No visible split plane after parity",
+        "State parity logs printed once"
+    ],
+    "touchpoints": [
+        "src/systems/ParticleSystem.cpp",
+        "src/systems/MeshParticleRenderer.cpp"
+    ]
+}

@@ -1,0 +1,117 @@
+{
+  "cr_number": "1027",
+  "title": "Push Constants Unify to 128 bytes",
+  "status": "COMPLETED",
+  "completion_date": "2025-09-15",
+  "description": "Successfully unified push constant structures to exactly 128 bytes to eliminate VUID-10069 validation errors",
+
+  "technical_summary": {
+    "problem": "Multiple push constant structures had different sizes (108, 132, 156 bytes) causing VUID-10069 validation errors when shaders expected 128 bytes",
+    "solution": "Reorganized MeshPushConstants and SPHMeshPushConstants to exactly 128 bytes with proper alignment and padding",
+    "approach": "Struct layout optimization and explicit padding fields to achieve consistent 128-byte size"
+  },
+
+  "implementation": {
+    "struct_changes": {
+      "MeshPushConstants": {
+        "before": "132 bytes (poor alignment causing padding)",
+        "after": "128 bytes (optimized layout with explicit padding)",
+        "key_changes": [
+          "Moved lightDirection after cameraPos+particleSize for better alignment",
+          "Added explicit _padding field for exact 128-byte size",
+          "Reorganized fields to minimize compiler-inserted padding"
+        ]
+      },
+      "SPHMeshPushConstants": {
+        "before": "108 bytes (causing VUID-10069 errors)",
+        "after": "128 bytes (matches shader expectations)",
+        "key_changes": [
+          "Reused lightDirection/lightIntensity fields for SPH gradient/pressure",
+          "Reorganized field order to match 128-byte layout",
+          "Added explicit _padding field"
+        ]
+      }
+    },
+
+    "code_changes": {
+      "MeshParticleRenderer.h": {
+        "MeshPushConstants": "Reorganized to 64+16+16+32 byte structure",
+        "SPHMeshPushConstants": "Expanded from 108 to 128 bytes with field reuse"
+      },
+      "MeshParticleRenderer.cpp": {
+        "pipeline_creation": "Added debug output for both pipeline push constant sizes",
+        "push_constant_population": "Updated SPH constants to use new 128-byte layout",
+        "padding_initialization": "Added explicit padding field initialization"
+      },
+      "shaders": {
+        "particle_mesh.frag": "Updated push constant layout to match C++ struct",
+        "particle_mesh.mesh": "Updated push constant layout to match fragment shader"
+      }
+    }
+  },
+
+  "validation_results": {
+    "before": {
+      "vuid_10069": "PRESENT - Push constant range mismatches (108 vs 128, 132 vs 128)",
+      "pipeline_status": "External-only pipeline creation failing due to size mismatch"
+    },
+    "after": {
+      "vuid_10069": "ELIMINATED - All pipelines now use consistent 128-byte ranges",
+      "pipeline_status": "Both main and SPH pipelines create successfully",
+      "debug_output": [
+        "CR 1027 DEBUG: MeshPushConstants size = 128 bytes, expected 128 bytes",
+        "CR 1027 DEBUG (Pipeline): MeshPushConstants size = 128 bytes, pushConstantRange.size = 128 bytes",
+        "CR 1027 DEBUG (SPH Pipeline): SPHMeshPushConstants size = 128 bytes, expected 128 bytes"
+      ]
+    }
+  },
+
+  "struct_layout_details": {
+    "MeshPushConstants_128_bytes": {
+      "viewProj": "mat4 - 64 bytes",
+      "cameraPos": "vec3 - 12 bytes",
+      "particleSize": "float - 4 bytes (total 80, aligned to 16)",
+      "lightDirection": "vec3 - 12 bytes",
+      "lightIntensity": "float - 4 bytes (total 96, aligned to 16)",
+      "remaining_fields": "8x uint32_t - 32 bytes (total 128)"
+    },
+    "SPHMeshPushConstants_128_bytes": {
+      "layout": "Same 128-byte structure as MeshPushConstants",
+      "field_reuse": "lightDirection = SPH gradient, lightIntensity = pressure scale",
+      "compatibility": "Maintains same pipeline layout as main mesh pipeline"
+    }
+  },
+
+  "files_modified": [
+    "src/systems/MeshParticleRenderer.h",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/core/Application.h",
+    "shaders/particle_mesh.frag",
+    "shaders/particle_mesh.mesh"
+  ],
+
+  "testing": {
+    "environment": "NVIDIA GeForce RTX 4060 Ti, Windows WSL2",
+    "validation_layers": "Enabled",
+    "test_scenario": "Stellar Formation preset with mesh shader default mode",
+    "results": "Clean push constant validation, no VUID-10069 errors"
+  },
+
+  "additional_improvements": {
+    "default_mode": "Changed m_useMeshShaders default from false to true",
+    "debug_output": "Added comprehensive push constant size tracking",
+    "pipeline_selection": "External-only pipeline now works correctly with 128-byte constants"
+  },
+
+  "next_steps": [
+    "CR 1028: Fix coarse image layout issues causing split rendering artifact",
+    "Remove debug output once layout issues are resolved",
+    "Performance testing with unified push constant sizes"
+  ],
+
+  "related_issues": {
+    "resolves": ["VUID-VkGraphicsPipelineCreateInfo-layout-10069 validation errors"],
+    "enables": ["Dual pipeline system functioning correctly", "Mesh shader default mode working"],
+    "leads_to": ["CR 1028: Coarse layout issues are now the remaining rendering artifact cause"]
+  }
+}

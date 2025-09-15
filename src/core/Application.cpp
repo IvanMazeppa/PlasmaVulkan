@@ -429,6 +429,27 @@ void Application::render() {
     waitSemaphoreInfo.semaphore = m_vulkanContext->getImageAvailableSemaphore(m_currentFrame);
     waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
+    // CR 1021: Add timeline semaphore wait for shell TLAS completion
+    VkSemaphoreSubmitInfo shellWaitSemaphoreInfo{};
+    std::vector<VkSemaphoreSubmitInfo> waitSemaphores = {waitSemaphoreInfo};
+
+    if (m_volumeRenderer && m_volumeRenderer->getShellBuildSemaphore() != VK_NULL_HANDLE) {
+        uint64_t waitValue = m_volumeRenderer->getLastCompletedBuild();
+        if (waitValue > 0) {
+            shellWaitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+            shellWaitSemaphoreInfo.semaphore = m_volumeRenderer->getShellBuildSemaphore();
+            shellWaitSemaphoreInfo.value = waitValue;
+            shellWaitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT; // Wait before fragment shader (RT queries)
+            waitSemaphores.push_back(shellWaitSemaphoreInfo);
+
+            static uint64_t lastLoggedWait = 0;
+            if (waitValue != lastLoggedWait) {
+                std::cout << "CR 1021: Graphics submit waits on shell TLAS timeline=" << waitValue << "\n";
+                lastLoggedWait = waitValue;
+            }
+        }
+    }
+
     VkCommandBufferSubmitInfo commandBufferInfo{};
     commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
     commandBufferInfo.commandBuffer = m_commandBuffers[m_currentFrame];
@@ -440,8 +461,8 @@ void Application::render() {
 
     VkSubmitInfo2 submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-    submitInfo.waitSemaphoreInfoCount = 1;
-    submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+    submitInfo.waitSemaphoreInfoCount = static_cast<uint32_t>(waitSemaphores.size());
+    submitInfo.pWaitSemaphoreInfos = waitSemaphores.data();
     submitInfo.commandBufferInfoCount = 1;
     submitInfo.pCommandBufferInfos = &commandBufferInfo;
     submitInfo.signalSemaphoreInfoCount = 1;
@@ -566,15 +587,31 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
             uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
 
-            // Update coarse density grid for RT self-shadowing
-            m_volumeRenderer->updateCoarseDensityGrid(commandBuffer, particleBuffer, activeParticles);
-            m_volumeRenderer->generateCoarseMipChain(commandBuffer);
+            // CR 1036: Throttle coarse density updates to prevent per-frame flooding
+            static uint32_t coarseUpdateCounter = 0;
+            static uint32_t coarseUpdatesCounted = 0;
+            if (++coarseUpdateCounter >= 4) { // Update every 4 frames instead of every frame
+                coarseUpdateCounter = 0;
+                coarseUpdatesCounted++;
+
+                // CR 1036: Aggregate logging to reduce spam
+                if ((coarseUpdatesCounted % 5) == 1) {
+                    std::cout << "CR 1036: Coarse density update burst (every 4 frames, batch " << coarseUpdatesCounted << ")" << std::endl;
+                }
+
+                // Update coarse density grid for RT self-shadowing
+                m_volumeRenderer->updateCoarseDensityGrid(commandBuffer, particleBuffer, activeParticles);
+                // CR 1028: Only generate mips once to avoid layout issues
+                if (m_volumeRenderer->needsCoarseMipGeneration()) {
+                    m_volumeRenderer->generateCoarseMipChain(commandBuffer);
+                }
+            }
 
             // Job 1013: Extract iso-surface shells periodically (not every frame for performance)
             static uint32_t shellUpdateCounter = 0;
-            if (++shellUpdateCounter >= 30) { // CR 1017: Temporary faster shell updates for debugging
+            if (++shellUpdateCounter >= 60) { // CR 1036: Increased to 60 frames for stability
                 shellUpdateCounter = 0;
-                std::cout << "CR 1017: Attempting shell extraction..." << std::endl;
+                std::cout << "CR 1036: Attempting shell extraction (every 60 frames)..." << std::endl;
                 try {
                     m_volumeRenderer->extractIsoSurfaceShells();
                     std::cout << "CR 1017: Shell extraction call completed successfully\n";
@@ -726,6 +763,13 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         } else {
             // Render particles (drawing only, physics already updated)
             if (m_useMeshShaders && m_meshRenderer && m_meshRenderer->isSupported()) {
+                // CR 1031: Mesh-only mode guard - log state transition
+                static bool meshModeLogged = false;
+                if (!meshModeLogged) {
+                    std::cout << "CR 1031: Mesh-only mode: enabled" << std::endl;
+                    meshModeLogged = true;
+                }
+
                 // Use mesh shader rendering - GPU-driven particle generation
                 // Job 1014: Pass VolumeRenderer for shell TLAS access
                 m_meshRenderer->render(commandBuffer, viewProj, cameraPos,
@@ -734,10 +778,17 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                                       1.0f, // particle size
                                       m_totalTime,
                                       m_volumeRenderer.get());
-            } else {
+
+#ifdef _DEBUG
+                // CR 1031: Assert that point-sprite path is not reached in mesh mode
+                assert(m_forceMeshOnly && "Point-sprite rendering attempted while mesh-only mode is active");
+#endif
+            } else if (!m_forceMeshOnly) {
+                // CR 1031: Only allow point-sprite rendering when mesh-only mode is disabled
                 // Use traditional vertex buffer rendering
                 m_particleSystem->render(commandBuffer, viewProj);
             }
+            // CR 1031: If m_forceMeshOnly is true and mesh shaders not supported, skip point sprites
         }
     }
 
@@ -2236,6 +2287,12 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         } else {
             std::cout << "[BOUNDS] Bounds overlay requires mesh shader mode (press Y)" << std::endl;
         }
+    }
+    // CR 1031: Toggle mesh-only mode for debugging dual renderer issues
+    else if (key == GLFW_KEY_Z && action == GLFW_PRESS) {
+        app->m_forceMeshOnly = !app->m_forceMeshOnly;
+        std::cout << "CR 1031: Mesh-only mode " << (app->m_forceMeshOnly ? "ENABLED" : "DISABLED")
+                  << " (prevents point-sprite rendering when mesh shaders active)" << std::endl;
     }
 }
 

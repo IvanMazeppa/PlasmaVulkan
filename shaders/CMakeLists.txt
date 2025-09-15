@@ -51,7 +51,7 @@ foreach(SHADER ${SHADER_SOURCES})
             set(EXTRA_ARGS "--target-spv=spv1.3" "--target-env=vulkan1.1")
         # Use SPIR-V 1.4 and Vulkan 1.2 for particle_mesh.frag which uses ray query
         elseif(${SHADER_NAME} STREQUAL "particle_mesh")
-            set(EXTRA_ARGS "--target-spv=spv1.4" "--target-env=vulkan1.2")
+            set(EXTRA_ARGS "--target-spv=spv1.4" "--target-env=vulkan1.2" "-DUSE_SHELL_TLAS=1")
         else()
             set(EXTRA_ARGS "")
         endif()
@@ -85,6 +85,22 @@ foreach(SHADER ${SHADER_SOURCES})
     
     list(APPEND SHADER_OUTPUTS ${SHADER_OUTPUT})
 endforeach()
+
+# CR 1026: Compile external-only variant of particle_mesh.frag (without USE_SHELL_TLAS)
+set(EXT_ONLY_FRAG_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/particle_mesh_ext_only.frag.spv)
+set(EXT_ONLY_FRAG_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/particle_mesh.frag)
+add_custom_command(
+    OUTPUT ${EXT_ONLY_FRAG_OUTPUT}
+    COMMAND ${GLSLC}
+        --target-spv=spv1.4
+        --target-env=vulkan1.2
+        -O
+        ${EXT_ONLY_FRAG_SOURCE}
+        -o ${EXT_ONLY_FRAG_OUTPUT}
+    DEPENDS ${EXT_ONLY_FRAG_SOURCE}
+    COMMENT "Compiling particle_mesh.frag (external-only variant)"
+)
+list(APPEND SHADER_OUTPUTS ${EXT_ONLY_FRAG_OUTPUT})
 
 # Create target for all shaders (do not force into ALL; let the app depend on it)
 add_custom_target(shaders DEPENDS ${SHADER_OUTPUTS})

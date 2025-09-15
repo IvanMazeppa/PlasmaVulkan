@@ -1,0 +1,17 @@
+{
+  "id": "1037_mesh_empty_group_fix",
+  "title": "Guard mesh shader against empty/partial workgroups and out-of-range outputs",
+  "purpose": "Prevent undefined behavior when the last workgroup has fewer than local_size_x particles, which can lead to silent failures.",
+  "steps": [
+    { "action": "guard_outputs", "detail": "In shaders/particle_mesh.mesh, compute particlesInWorkgroup = min(local_size_x, max(0, pc.particleCount - gl_WorkGroupID.x * gl_WorkGroupSize.x)). If particlesInWorkgroup==0, SetMeshOutputsEXT(0,0) and return." },
+    { "action": "thread_bail", "detail": "For threads with particleIndex >= pc.particleCount, return before writing to gl_MeshVerticesEXT or gl_PrimitiveTriangleIndicesEXT." },
+    { "action": "index_bounds", "detail": "When writing vertices/indices, wrap in if(particleIndex < pc.particleCount) to avoid out-of-range writes in the last partial group." }
+  ],
+  "acceptance": [
+    "App no longer freezes within ~1s; stable for 30+ seconds",
+    "No GPU hangs; no validation complaints about out-of-bounds mesh output"
+  ],
+  "touchpoints": [
+    "shaders/particle_mesh.mesh"
+  ]
+}

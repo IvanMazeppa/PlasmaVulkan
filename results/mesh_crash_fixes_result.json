@@ -1,0 +1,49 @@
+{
+    "id": "mesh_crash_fixes_result",
+    "title": "Fixed multiple crash issues in mesh shader mode",
+    "status": "complete",
+    "fixes_implemented": [
+        {
+            "issue": "Timeline semaphore signal value conflict",
+            "fix": "Batched all BLAS builds in single command buffer submission",
+            "file": "src/systems/VolumeRenderer.cpp",
+            "function": "buildShellBLAS"
+        },
+        {
+            "issue": "Command buffer freed while still executing",
+            "fix": "Commented out premature vkFreeCommandBuffers call",
+            "file": "src/systems/VolumeRenderer.cpp",
+            "function": "endTimelineCommands",
+            "line": 3714
+        }
+    ],
+    "remaining_issues": [
+        {
+            "issue": "TAA pipeline layout mismatch",
+            "vuid": "VUID-VkGraphicsPipelineCreateInfo-layout-07988",
+            "description": "TAA shader uses binding 3 not declared in pipeline layout",
+            "cr": "CR 1024"
+        },
+        {
+            "issue": "Coarse density image layout mismatch",
+            "vuid": "VUID-vkCmdDraw-None-09600",
+            "description": "Image expected in different layouts between passes",
+            "cr": "CR 1019 refinement needed"
+        },
+        {
+            "issue": "Command buffer leak",
+            "description": "Command buffers not being freed after GPU completion",
+            "solution": "Need to track and free command buffers after timeline signals"
+        }
+    ],
+    "validation_errors_fixed": [
+        "VUID-VkSubmitInfo2-semaphore-03882: Timeline signal value must increment",
+        "VUID-vkFreeCommandBuffers-pCommandBuffers-00047: Command buffer in pending state"
+    ],
+    "testing_results": [
+        "Shell extraction now succeeds (3 shells with 50004 triangles each)",
+        "BLAS builds complete successfully with timeline value 1",
+        "No immediate crash on mesh mode entry",
+        "Timeline semaphore properly signals completion"
+    ]
+}

@@ -298,23 +298,31 @@ void VolumeRenderer::createCoarseDensityGrid() {
 
     vkCmdClearColorImage(cmd, m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &clearRange);
 
-    // Transition to SHADER_READ_ONLY_OPTIMAL
+    // CR 1028: Transition to GENERAL to match descriptor layout expectations
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     m_context->endSingleTimeCommands(cmd);
+
+    // CR 1028: Initialize layout tracking for all mips
+    m_coarseMipLayouts.assign(m_coarseDensityMipLevels, VK_IMAGE_LAYOUT_GENERAL);
+    m_coarseDescriptorLayout = VK_IMAGE_LAYOUT_GENERAL;
+    std::cout << "CR 1028: Initialized " << m_coarseDensityMipLevels << " mips to GENERAL layout\n";
 
     std::cout << "Coarse density grid initialized: " << m_coarseDensityMipLevels << " mip levels cleared and ready" << std::endl;
 }
 
 // Job 1012: Update coarse density grid from particles (for RT self-shadowing)
 void VolumeRenderer::updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount) {
-    std::cout << "CR 1019: Starting coarse density update - transitioning from SHADER_READ_ONLY_OPTIMAL\n";
+    // CR 1033: Use tracked layout state instead of assuming SHADER_READ_ONLY_OPTIMAL
+    VkImageLayout currentLayout = m_coarseMipLayouts.empty() ? VK_IMAGE_LAYOUT_GENERAL : m_coarseMipLayouts[0];
+    std::cout << "CR 1033: Starting coarse density update - transitioning from " << currentLayout << " layout\n";
+
     // Clear coarse density image to zero each frame
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -327,10 +335,11 @@ void VolumeRenderer::updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer parti
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    // Transition from SHADER_READ_ONLY_OPTIMAL to TRANSFER_DST_OPTIMAL for clearing
-    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // CR 1033: Use tracked layout state instead of hardcoded SHADER_READ_ONLY_OPTIMAL
+    barrier.oldLayout = currentLayout;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcAccessMask = (currentLayout == VK_IMAGE_LAYOUT_GENERAL) ?
+        (VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT) : VK_ACCESS_SHADER_READ_BIT;
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
@@ -361,9 +370,12 @@ void VolumeRenderer::updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer parti
     bufferInfo.offset = 0;
     bufferInfo.range = VK_WHOLE_SIZE;
 
+    // CR 1028: Use tracked descriptor layout instead of hardcoded GENERAL
     VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageLayout = m_coarseDescriptorLayout;
     imageInfo.imageView = m_coarseDensityImageView;
+
+    std::cout << "CR 1028: Using descriptor layout " << m_coarseDescriptorLayout << " for coarse density grid\n";
 
     std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -408,14 +420,32 @@ void VolumeRenderer::updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer parti
         vkCmdDispatch(cmd, groupsX, groupsY, groupsZ);
     }
 
+    // CR 1028: Initialize layout tracking on first update
+    if (m_coarseMipLayouts.empty()) {
+        m_coarseMipLayouts.resize(m_coarseDensityMipLevels, VK_IMAGE_LAYOUT_GENERAL);
+        std::cout << "CR 1028: Initialized " << m_coarseDensityMipLevels << " mip layouts to GENERAL\n";
+    }
+
+    // CR 1033: Update layout tracking - mip 0 is now in GENERAL after compute write
+    m_coarseMipLayouts[0] = VK_IMAGE_LAYOUT_GENERAL;
+    m_coarseDescriptorLayout = VK_IMAGE_LAYOUT_GENERAL;
+    std::cout << "CR 1033: Updated mip 0 layout tracking to GENERAL after compute update\n";
+
     // Mark coarse density as initialized
     m_coarseDensityInitialized = true;
 }
 
 // Job 1012: Generate mip chain for coarse density grid using Synchronization2
+// CR 1028: Per-mip layout tracking to prevent VUID-09600 errors
 void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
     if (m_coarseDensityMipLevels <= 1) {
         return; // No mips to generate
+    }
+
+    // CR 1028: Skip if we've already generated mips and layouts are stable
+    if (m_coarseMipsGenerated) {
+        std::cout << "CR 1028: Skipping mip generation - already completed with stable layouts\n";
+        return;
     }
 
     // Transition base mip from GENERAL to TRANSFER_SRC_OPTIMAL
@@ -508,7 +538,7 @@ void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
         vkCmdPipelineBarrier2(cmd, &depInfo);
     }
 
-    // CR 1019: Final transition: All mip levels to SHADER_READ_ONLY_OPTIMAL for optimal sampler access
+    // CR 1028: Final transition: Keep all mip levels in GENERAL layout to match descriptor writes
     VkImageMemoryBarrier2 finalBarrier{};
     finalBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
     finalBarrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
@@ -516,7 +546,7 @@ void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
     finalBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     finalBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     finalBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    finalBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    finalBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;  // CR 1028: Keep GENERAL to match descriptors
     finalBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     finalBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     finalBarrier.image = m_coarseDensityImage;
@@ -529,11 +559,17 @@ void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
     depInfo.pImageMemoryBarriers = &finalBarrier;
     vkCmdPipelineBarrier2(cmd, &depInfo);
 
+    // CR 1028: Update our layout tracking - all mips now in GENERAL
+    for (uint32_t i = 0; i < m_coarseDensityMipLevels; i++) {
+        m_coarseMipLayouts[i] = VK_IMAGE_LAYOUT_GENERAL;
+    }
+    m_coarseDescriptorLayout = VK_IMAGE_LAYOUT_GENERAL;
+
     // CR 1019: Mark that mips have been generated at least once
     m_coarseMipsGenerated = true;
 
-    std::cout << "CR 1019: Coarse mip generation completed - all " << m_coarseDensityMipLevels
-              << " mip levels now in GENERAL layout\n";
+    std::cout << "CR 1028: Coarse mip generation completed - all " << m_coarseDensityMipLevels
+              << " mip levels now in GENERAL layout (matches descriptor writes)\n";
 }
 
 // Job 1013: Extract iso-surface shells using marching cubes
@@ -567,8 +603,11 @@ void VolumeRenderer::extractIsoSurfaceShells() {
     barrier.srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // CR 1028: Use tracked layout state instead of assuming SHADER_READ_ONLY_OPTIMAL
+    barrier.oldLayout = m_coarseMipLayouts.empty() ? VK_IMAGE_LAYOUT_GENERAL : m_coarseMipLayouts[0];
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
+    std::cout << "CR 1028: Shell extraction - transitioning mip 0 from layout " << barrier.oldLayout << " to TRANSFER_SRC_OPTIMAL\n";
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = m_coarseDensityImage;
@@ -598,14 +637,20 @@ void VolumeRenderer::extractIsoSurfaceShells() {
 
     vkCmdCopyImageToBuffer(commandBuffer, m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer, 1, &region);
 
-    // Transition back to shader read only
+    // CR 1028: Transition back to GENERAL to match descriptor layout
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;  // CR 1028: Match descriptor layout
     vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+    // CR 1028: Update layout tracking
+    if (!m_coarseMipLayouts.empty()) {
+        m_coarseMipLayouts[0] = VK_IMAGE_LAYOUT_GENERAL;
+        std::cout << "CR 1028: Updated mip 0 layout tracking to GENERAL after shell extraction\n";
+    }
 
     endSingleTimeCommands(commandBuffer);
 
@@ -800,6 +845,9 @@ void VolumeRenderer::buildShellBLASWithSync() {
     ++m_shellBuildCounter;
     uint64_t currentStage = m_shellBuildCounter;
 
+    // CR 1021: Build all BLAS in a single command buffer to avoid multiple timeline signals
+    VkCommandBuffer commandBuffer = beginTimelineCommands();
+
     // Build each BLAS (same geometry setup as original function)
     for (auto& shell : m_isoSurfaceShells) {
         if (shell.vertices.empty() || shell.indices.empty()) continue;
@@ -903,10 +951,8 @@ void VolumeRenderer::buildShellBLASWithSync() {
 
         const VkAccelerationStructureBuildRangeInfoKHR* pBuildRange = &buildRange;
 
-        // TODO: Use timeline semaphore submission
-        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        // CR 1021: Record BLAS build command (command buffer created outside loop)
         vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, &pBuildRange);
-        endSingleTimeCommands(commandBuffer);
 
         // Clean up scratch buffer
         vkDestroyBuffer(device, scratchBuffer, nullptr);
@@ -915,6 +961,9 @@ void VolumeRenderer::buildShellBLASWithSync() {
         std::cout << "CR 1016: Built BLAS for shell with " << shell.triangleCount << " triangles, handle: "
                   << (shell.blas != VK_NULL_HANDLE ? "VALID" : "NULL") << "\n";
     }
+
+    // CR 1021: Submit all BLAS builds with a single timeline signal
+    endTimelineCommands(commandBuffer, currentStage); // Signal BLAS completion
 
     std::cout << "CR 1016: BLAS builds completed with timeline value " << currentStage << "\n";
 }
@@ -964,7 +1013,7 @@ void VolumeRenderer::updateShellTLAS() {
         instance.transform.matrix[1][1] = 1.0f;
         instance.transform.matrix[2][2] = 1.0f;
         instance.instanceCustomIndex = static_cast<uint32_t>(i);
-        instance.mask = 0xFF;
+        instance.mask = 0x02;  // CR 1018: Shell TLAS instances use mask 0x02
         instance.instanceShaderBindingTableRecordOffset = 0;
         instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
         instance.accelerationStructureReference = blasAddress;
@@ -1071,8 +1120,127 @@ void VolumeRenderer::updateShellTLAS() {
     std::cout << "CR 1017 DEBUG: Shell TLAS handle: " << (m_shellTopLevelAS != VK_NULL_HANDLE ? "VALID" : "NULL") << "\n";
 }
 
+// CR 1021: Update TLAS with timeline submission waiting on BLAS completion
+void VolumeRenderer::updateShellTLASWithTimeline(uint64_t waitValue, uint64_t signalValue) {
+    if (m_isoSurfaceShells.empty()) {
+        std::cout << "CR 1021: updateShellTLASWithTimeline called but no shells available\n";
+        return;
+    }
+
+    VkDevice device = m_context->getDevice();
+    std::cout << "CR 1021: Updating TLAS with timeline wait=" << waitValue << " signal=" << signalValue << "\n";
+
+    // Create instances (same as original updateShellTLAS)
+    std::vector<VkAccelerationStructureInstanceKHR> instances;
+    for (size_t i = 0; i < m_isoSurfaceShells.size(); ++i) {
+        const auto& shell = m_isoSurfaceShells[i];
+        if (shell.blas == VK_NULL_HANDLE) continue;
+
+        VkAccelerationStructureDeviceAddressInfoKHR blasAddressInfo{};
+        blasAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+        blasAddressInfo.accelerationStructure = shell.blas;
+        VkDeviceAddress blasAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &blasAddressInfo);
+
+        VkAccelerationStructureInstanceKHR instance{};
+        // Identity transform (row-major 3x4 matrix)
+        instance.transform.matrix[0][0] = 1.0f;
+        instance.transform.matrix[1][1] = 1.0f;
+        instance.transform.matrix[2][2] = 1.0f;
+        instance.instanceCustomIndex = static_cast<uint32_t>(i);
+        instance.mask = 0x02;  // CR 1018: Shell TLAS instances use mask 0x02
+        instance.instanceShaderBindingTableRecordOffset = 0;
+        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        instance.accelerationStructureReference = blasAddress;
+
+        instances.push_back(instance);
+    }
+
+    uint32_t instanceCount = static_cast<uint32_t>(instances.size());
+    if (instanceCount == 0) {
+        std::cout << "CR 1021: No valid shell instances for TLAS\n";
+        return;
+    }
+
+    // Create instances buffer (same buffer management)
+    VkDeviceSize instancesSize = instances.size() * sizeof(VkAccelerationStructureInstanceKHR);
+    createBufferForShell(device, instancesSize,
+                        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                        m_shellInstancesBuffer, m_shellInstancesMemory);
+
+    // Copy instance data
+    void* data;
+    vkMapMemory(device, m_shellInstancesMemory, 0, instancesSize, 0, &data);
+    memcpy(data, instances.data(), instancesSize);
+    vkUnmapMemory(device, m_shellInstancesMemory);
+
+    // Get instances buffer device address
+    VkBufferDeviceAddressInfo instancesAddressInfo{};
+    instancesAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    instancesAddressInfo.buffer = m_shellInstancesBuffer;
+    VkDeviceAddress instancesAddress = vkGetBufferDeviceAddressKHR(device, &instancesAddressInfo);
+
+    // Setup TLAS build geometry and info (same as original)
+    VkAccelerationStructureGeometryKHR tlasGeometry{};
+    tlasGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    tlasGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlasGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    tlasGeometry.geometry.instances.data.deviceAddress = instancesAddress;
+
+    VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+    buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    buildInfo.dstAccelerationStructure = m_shellTopLevelAS;
+    buildInfo.geometryCount = 1;
+    buildInfo.pGeometries = &tlasGeometry;
+
+    // Get build sizes and create scratch buffer
+    VkAccelerationStructureBuildSizesInfoKHR buildSizes{};
+    buildSizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instanceCount, &buildSizes);
+
+    VkBuffer scratchBuffer;
+    VkDeviceMemory scratchMemory;
+    createBufferForShell(device, buildSizes.buildScratchSize,
+                        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                        scratchBuffer, scratchMemory);
+
+    VkBufferDeviceAddressInfo scratchAddressInfo{};
+    scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    scratchAddressInfo.buffer = scratchBuffer;
+    VkDeviceAddress scratchAddress = vkGetBufferDeviceAddressKHR(device, &scratchAddressInfo);
+    buildInfo.scratchData.deviceAddress = scratchAddress;
+
+    VkAccelerationStructureBuildRangeInfoKHR buildRange{};
+    buildRange.primitiveCount = instanceCount;
+    buildRange.primitiveOffset = 0;
+    buildRange.firstVertex = 0;
+    buildRange.transformOffset = 0;
+
+    const VkAccelerationStructureBuildRangeInfoKHR* pBuildRange = &buildRange;
+
+    // CR 1021: Use timeline submission that waits on BLAS and signals TLAS completion
+    VkCommandBuffer commandBuffer = beginTimelineCommands();
+    vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, &pBuildRange);
+    endTimelineCommands(commandBuffer, signalValue, waitValue, m_shellBuildSemaphore);
+
+    // Get TLAS device address
+    VkAccelerationStructureDeviceAddressInfoKHR tlasAddressInfo{};
+    tlasAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    tlasAddressInfo.accelerationStructure = m_shellTopLevelAS;
+    m_shellTLASAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &tlasAddressInfo);
+
+    // Clean up scratch buffer
+    vkDestroyBuffer(device, scratchBuffer, nullptr);
+    vkFreeMemory(device, scratchMemory, nullptr);
+
+    std::cout << "CR 1021: Shell TLAS timeline submission completed - wait=" << waitValue << " signal=" << signalValue << "\n";
+}
+
 // CR 1016: Update TLAS with timeline semaphore synchronization
 void VolumeRenderer::updateShellTLASWithSync() {
+    std::cout << "CR 1016 DEBUG: updateShellTLASWithSync() called, shells count: " << m_isoSurfaceShells.size() << std::endl;
     if (m_isoSurfaceShells.empty()) {
         std::cout << "CR 1016: updateShellTLASWithSync called but no shells available\n";
         return;
@@ -1086,10 +1254,11 @@ void VolumeRenderer::updateShellTLASWithSync() {
     ++m_shellBuildCounter;
     uint64_t tlasStage = m_shellBuildCounter;
 
-    // For now, call the original implementation
-    // TODO: Implement proper VkSubmitInfo2 with timeline semaphore wait/signal
-    // This should wait on BLAS completion and signal when TLAS is ready
-    updateShellTLAS();
+    // CR 1021: Use timeline submission for TLAS that waits on BLAS completion
+    uint64_t blasStage = tlasStage - 1; // BLAS was built with previous stage
+
+    // Call modified updateShellTLAS that uses timeline submission
+    updateShellTLASWithTimeline(blasStage, tlasStage);
 
     // Update the last completed build counter
     m_lastCompletedBuild = tlasStage;
@@ -3530,6 +3699,67 @@ void VolumeRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkQueueWaitIdle(m_context->getGraphicsQueue());
 
     vkFreeCommandBuffers(m_context->getDevice(), m_context->getCommandPool(), 1, &commandBuffer);
+}
+
+// CR 1021: Timeline-aware command submission helpers
+VkCommandBuffer VolumeRenderer::beginTimelineCommands() {
+    return beginSingleTimeCommands(); // Same command buffer allocation
+}
+
+void VolumeRenderer::endTimelineCommands(VkCommandBuffer commandBuffer, uint64_t signalValue, uint64_t waitValue, VkSemaphore waitSemaphore) {
+    vkEndCommandBuffer(commandBuffer);
+
+    // Setup command buffer submit info
+    VkCommandBufferSubmitInfo commandBufferInfo{};
+    commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    commandBufferInfo.commandBuffer = commandBuffer;
+
+    // Setup wait semaphore if provided
+    VkSemaphoreSubmitInfo waitSemaphoreInfo{};
+    if (waitSemaphore != VK_NULL_HANDLE && waitValue > 0) {
+        waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        waitSemaphoreInfo.semaphore = waitSemaphore;
+        waitSemaphoreInfo.value = waitValue;
+        waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+    }
+
+    // Setup signal semaphore
+    VkSemaphoreSubmitInfo signalSemaphoreInfo{};
+    signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    signalSemaphoreInfo.semaphore = m_shellBuildSemaphore;
+    signalSemaphoreInfo.value = signalValue;
+    signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+
+    // Setup submit info
+    VkSubmitInfo2 submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &commandBufferInfo;
+    submitInfo.signalSemaphoreInfoCount = 1;
+    submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+    if (waitSemaphore != VK_NULL_HANDLE && waitValue > 0) {
+        submitInfo.waitSemaphoreInfoCount = 1;
+        submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+    }
+
+    // Submit with timeline semaphore signaling
+    VkResult result = vkQueueSubmit2(m_context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("CR 1021: Failed to submit timeline command buffer");
+    }
+
+    std::cout << "CR 1021: Submitted commands with timeline signal " << signalValue;
+    if (waitSemaphore != VK_NULL_HANDLE && waitValue > 0) {
+        std::cout << " (waited for " << waitValue << ")";
+    }
+    std::cout << std::endl;
+
+    // Note: We don't wait here or free the command buffer immediately
+    // The command buffer will be freed when we know the GPU is done
+    // CR 1023 FIX: Command buffer must NOT be freed while still executing on GPU
+    // TODO: Store command buffer and free it after timeline semaphore signals completion
+    // vkFreeCommandBuffers(m_context->getDevice(), m_context->getCommandPool(), 1, &commandBuffer);
 }
 
 } // namespace plasma

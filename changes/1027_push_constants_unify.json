@@ -1,0 +1,32 @@
+{
+    "id": "1027_push_constants_unify",
+    "title": "Unify push-constant block sizes across mesh and SPH pipelines (fix VUID 10069)",
+    "purpose": "Resolve push-constant range mismatch by ensuring pipeline layouts cover the full struct size used by the fragment shader and mesh shader.",
+    "steps": [
+        {
+            "action": "struct_audit",
+            "detail": "Confirm MeshPushConstants size in C++ matches GLSL block when USE_SHELL_TLAS toggles are applied. Include new debug fields from CR 1018 only when needed."
+        },
+        {
+            "action": "range_expand",
+            "detail": "Increase VkPushConstantRange.size in MeshParticleRenderer::createPipelineLayout to cover maximum struct used by both mesh and fragment stages (e.g., 128 bytes or exact sizeof)."
+        },
+        {
+            "action": "sph_match",
+            "detail": "For SPH pipeline, set push constant range to sizeof(SPHMeshPushConstants). If SPH frag shares a block, adjust accordingly or gate features."
+        }
+    ],
+    "acceptance": [
+        "No VUID-VkGraphicsPipelineCreateInfo-layout-10069 during pipeline creation",
+        "Both mesh and SPH pipelines start without push-constant validation errors"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.h",
+        "src/systems/MeshParticleRenderer.cpp",
+        "shaders/particle_mesh.frag",
+        "shaders/sph_mesh_experimental.mesh"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('push constant range must cover shader block 10069')"
+    ]
+}

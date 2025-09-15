@@ -20,13 +20,21 @@ layout(set = 0, binding = 0) restrict readonly buffer ParticleBuffer {
     Particle particles[];
 };
 
-// Push constants for rendering parameters
+// Push constants for rendering parameters (matches fragment shader)
 layout(push_constant) uniform PushConstants {
-    mat4 viewProj;
-    vec3 cameraPos;
-    float particleSize;
-    uint particleCount;
-    float time;
+    mat4 viewProj;              // 64 bytes
+    vec3 cameraPos;             // 12 bytes
+    float particleSize;         // 4 bytes (total 80 bytes)
+    vec3 lightDirection;        // 12 bytes
+    float lightIntensity;       // 4 bytes (total 96 bytes)
+    uint particleCount;         // 4 bytes
+    float time;                 // 4 bytes
+    uint rtEnabled;             // 4 bytes
+    uint occlusionAmplify;      // 4 bytes (total 112 bytes)
+    uint rtSelfShadowOverlay;   // 4 bytes
+    uint rtCullMaskMode;        // 4 bytes
+    uint shellTlasAvailable;    // 4 bytes
+    uint _padding;              // 4 bytes (total 128 bytes exactly)
 } pc;
 
 // Per-vertex outputs to fragment shader

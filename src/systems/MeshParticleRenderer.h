@@ -22,34 +22,35 @@ class MeshParticleRenderer {
 public:
     // Push constants for mesh shader
     struct MeshPushConstants {
-        glm::mat4 viewProj;
-        glm::vec3 cameraPos;
-        float particleSize;
-        uint32_t particleCount;
-        float time;
-        uint32_t rtEnabled;  // Job 1003: RT toggle
-        // Job 1005: Directional light state
-        glm::vec3 lightDirection;
-        float lightIntensity;
-        uint32_t occlusionAmplify;  // Debug toggle for occlusion amplification
-        // CR 1018: Ray query mask and overlay controls
-        uint32_t rtSelfShadowOverlay; // Debug overlay mode
-        uint32_t rtCullMaskMode;      // 0=both, 1=external only, 2=shells only
-        float _padding[1];  // Align to 16-byte boundary
+        glm::mat4 viewProj;              // 64 bytes
+        glm::vec3 cameraPos;             // 12 bytes
+        float particleSize;              // 4 bytes (total 80 bytes, aligned to 16)
+        glm::vec3 lightDirection;        // 12 bytes
+        float lightIntensity;            // 4 bytes (total 96 bytes, aligned to 16)
+        uint32_t particleCount;          // 4 bytes
+        float time;                      // 4 bytes
+        uint32_t rtEnabled;              // 4 bytes
+        uint32_t occlusionAmplify;       // 4 bytes (total 112 bytes)
+        uint32_t rtSelfShadowOverlay;    // 4 bytes
+        uint32_t rtCullMaskMode;         // 4 bytes
+        uint32_t shellTlasAvailable;     // 4 bytes
+        uint32_t _padding;               // 4 bytes (total 128 bytes exactly)
     };
     
     struct SPHMeshPushConstants {
-        glm::mat4 viewProj;
-        glm::vec3 cameraPos;
-        float particleSize;
-        uint32_t particleCount;
-        float time;
-        // SPH parameters
-        float smoothingRadius;
-        float restDensity;
-        float pressureConstant;
-        float viscosity;
-        float mass;
+        glm::mat4 viewProj;              // 64 bytes
+        glm::vec3 cameraPos;             // 12 bytes
+        float particleSize;              // 4 bytes (total 80 bytes, aligned to 16)
+        glm::vec3 lightDirection;        // 12 bytes (reused for SPH gradient direction)
+        float lightIntensity;            // 4 bytes (reused for SPH pressure scale) (total 96 bytes, aligned to 16)
+        uint32_t particleCount;          // 4 bytes
+        float time;                      // 4 bytes
+        float smoothingRadius;           // 4 bytes
+        float restDensity;               // 4 bytes (total 112 bytes)
+        float pressureConstant;          // 4 bytes
+        float viscosity;                 // 4 bytes
+        float mass;                      // 4 bytes
+        uint32_t _padding;               // 4 bytes (total 128 bytes exactly)
     };
 
     MeshParticleRenderer(VulkanContext* context);
@@ -74,6 +75,10 @@ public:
     VkPipelineLayout getPipelineLayout() const { return m_pipelineLayout; }
     VkPipeline getSPHPipeline() const { return m_sphPipeline; }
 
+    // CR 1026: Get appropriate pipeline based on shell TLAS availability
+    VkPipeline getActivePipeline(bool shellTlasReady) const;
+    VkPipelineLayout getActivePipelineLayout(bool shellTlasReady) const;
+
     // Job 1005: Light control methods
     void adjustLightDirection(float deltaTheta, float deltaPhi);
     void adjustLightIntensity(float delta);
@@ -89,6 +94,9 @@ public:
     // CR 1018: Ray query mask and overlay control methods
     void toggleRayQueryOverlay();
     void cycleCullMaskMode();
+
+    // CR 1022: Mesh freeze guard control methods
+    void toggleSelfShadowEnabled();
     bool getRayQueryOverlayEnabled() const { return m_rtSelfShadowOverlay; }
     uint32_t getCullMaskMode() const { return m_rtCullMaskMode; }
 
@@ -114,6 +122,11 @@ private:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     VkPipeline m_sphPipeline = VK_NULL_HANDLE;  // SPH mesh shader pipeline
     VkPipelineLayout m_sphPipelineLayout = VK_NULL_HANDLE;  // SPH pipeline layout
+
+    // CR 1026: Dual mesh pipelines to fix VUID-08114
+    VkDescriptorSetLayout m_extOnlyDescriptorSetLayout = VK_NULL_HANDLE;  // External-only layout (no binding 4)
+    VkPipelineLayout m_extOnlyPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline m_extOnlyPipeline = VK_NULL_HANDLE;  // External-only pipeline (no shell TLAS)
     
     // Descriptor management
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
@@ -123,6 +136,9 @@ private:
     VkShaderModule m_meshShader = VK_NULL_HANDLE;
     VkShaderModule m_sphMeshShader = VK_NULL_HANDLE;  // SPH mesh shader
     VkShaderModule m_fragShader = VK_NULL_HANDLE;
+
+    // CR 1026: External-only fragment shader (compiled without USE_SHELL_TLAS)
+    VkShaderModule m_extOnlyFragShader = VK_NULL_HANDLE;
     
     // Mesh shader properties
     uint32_t m_maxMeshWorkGroupInvocations = 0;
@@ -205,6 +221,9 @@ private:
     // CR 1018: Ray query mask and overlay control state
     bool m_rtSelfShadowOverlay = false;
     uint32_t m_rtCullMaskMode = 0;  // 0=both, 1=external only, 2=shells only
+
+    // CR 1022: Mesh freeze guard controls
+    bool m_selfShadowEnabled = true;  // Runtime toggle to force-disable self-shadowing
 };
 
 } // namespace plasma

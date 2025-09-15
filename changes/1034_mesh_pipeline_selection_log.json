@@ -1,0 +1,22 @@
+{
+    "id": "1034_mesh_pipeline_selection_log",
+    "title": "Instrument mesh pipeline/descriptor selection per-frame (throttled)",
+    "purpose": "Verify that ext-only is used before shell readiness and that descriptor pushes match selected pipeline.",
+    "steps": [
+        {
+            "action": "log_select",
+            "detail": "In MeshParticleRenderer::render, print '[PIPELINE DEBUG] pipeline=ext|ext+shell descriptors=2|3 shellReady=0|1' every ~120 frames."
+        },
+        {
+            "action": "descriptor_guard",
+            "detail": "Assert that when pipeline=ext, no binding 4 write is pushed."
+        }
+    ],
+    "acceptance": [
+        "Logs show correct pipeline selection and descriptor count",
+        "No 08114 after switch"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.cpp"
+    ]
+}
