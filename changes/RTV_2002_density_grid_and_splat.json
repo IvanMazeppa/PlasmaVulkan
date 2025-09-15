@@ -1,0 +1,33 @@
+{
+    "id": "RTV_2002_density_grid_and_splat",
+    "title": "Implement 3D density grid, compute splat, and mip chain",
+    "purpose": "Generate volumetric density from particles efficiently for the RT volume marcher.",
+    "steps": [
+        {
+            "action": "image_create",
+            "detail": "In RTVolumeRenderer, create 3D density image (VK_FORMAT_R16_SFLOAT), dims 192–256³ configurable, usage: STORAGE|SAMPLED|TRANSFER_SRC|TRANSFER_DST, mips=log2(maxDim)+1."
+        },
+        {
+            "action": "compute_splat",
+            "detail": "Add shaders/density_splat_rt.comp to splat particles into the 3D grid. Start with atomic adds; add guard for empty workgroups and bounds."
+        },
+        {
+            "action": "mip_chain",
+            "detail": "Add compute or blit-based mip generation for the 3D density image. Transition layouts with Sync2; validate with logging."
+        },
+        {
+            "action": "debug_views",
+            "detail": "Add slice debug view and histogram logging to verify density ranges."
+        }
+    ],
+    "acceptance": [
+        "Visible volume slices; density within expected range",
+        "No layout VUIDs; splat stable with 1M particles",
+        "Mip chain builds once per frame or on-demand"
+    ],
+    "touchpoints": [
+        "src/systems/RTVolumeRenderer.cpp",
+        "src/systems/RTVolumeRenderer.h",
+        "shaders/density_splat_rt.comp"
+    ]
+}

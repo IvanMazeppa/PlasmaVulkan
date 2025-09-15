@@ -1,0 +1,34 @@
+{
+    "id": "RTV_2001_rt_volume_renderer_skeleton",
+    "title": "Add RTVolumeRenderer skeleton and integrate RT Volume mode",
+    "purpose": "Introduce a clean, RT-centric volumetric rendering path decoupled from legacy renderers.",
+    "steps": [
+        {
+            "action": "add_files",
+            "detail": "Create src/systems/RTVolumeRenderer.h/.cpp with class skeleton: init, createHDRTarget, renderToHDR, composite, onSwapchainResized, cleanup. Provide RAII and Sync2 usage."
+        },
+        {
+            "action": "app_integration",
+            "detail": "Add a new mode flag in Application (m_rtVolumeMode). Instantiate RTVolumeRenderer, wire into recordCommandBuffer: when enabled, skip mesh/point render and call RTV renderToHDR + composite."
+        },
+        {
+            "action": "hdr_target",
+            "detail": "Create an HDR color image R16G16B16A16_SFLOAT for RT volume output; composite to swapchain color with a simple fullscreen pass."
+        },
+        {
+            "action": "logging",
+            "detail": "Log mode toggles and resource lifecycle; add throttled '[RTV] ...' messages."
+        }
+    ],
+    "acceptance": [
+        "Mode toggles on/off cleanly; mesh/point paths unaffected when off",
+        "HDR target created and composited; black image initially (no marcher yet)",
+        "No validation errors; resize-safe"
+    ],
+    "touchpoints": [
+        "src/core/Application.h",
+        "src/core/Application.cpp",
+        "src/systems/RTVolumeRenderer.h",
+        "src/systems/RTVolumeRenderer.cpp"
+    ]
+}

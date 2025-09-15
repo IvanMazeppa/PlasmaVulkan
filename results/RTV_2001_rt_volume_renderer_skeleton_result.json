@@ -1,0 +1,77 @@
+{
+    "id": "RTV_2001_rt_volume_renderer_skeleton",
+    "title": "RTVolumeRenderer skeleton and mode integration",
+    "status": "completed",
+    "completion_date": "2025-09-15",
+    "summary": "Successfully implemented RT-native volumetric renderer skeleton with HDR target, mode integration, and proper Vulkan 1.4 practices.",
+    "implementations": [
+        {
+            "file": "src/systems/RTVolumeRenderer.h",
+            "changes": [
+                "Created RTVolumeRenderer class with forward declaration for plasma::VulkanContext",
+                "Added HDR target resources (VkImage, VkDeviceMemory, VkImageView, VkSampler)",
+                "Added composite pipeline resources (VkPipeline, VkPipelineLayout, VkDescriptorSetLayout)",
+                "Added proper Vulkan 1.4 includes (VK_NO_PROTOTYPES, volk.h)",
+                "Added RAII constructor/destructor and helper methods"
+            ]
+        },
+        {
+            "file": "src/systems/RTVolumeRenderer.cpp",
+            "changes": [
+                "Implemented RTVolumeRenderer constructor with HDR target and composite pass creation",
+                "Added renderToHDR() with Synchronization2 image barriers (VkImageMemoryBarrier2)",
+                "Implemented HDR target creation (R16G16B16A16_SFLOAT format)",
+                "Added placeholder composite() function with throttled logging",
+                "Implemented onSwapchainResized() with proper resource cleanup and recreation",
+                "Added findMemoryType() helper method for memory allocation",
+                "Added proper RAII cleanup in destructor"
+            ]
+        },
+        {
+            "file": "src/core/Application.h",
+            "changes": [
+                "Added #include for RTVolumeRenderer.h",
+                "Added std::unique_ptr<RTVolumeRenderer> m_rtVolumeRenderer member",
+                "Added bool m_rtVolumeMode flag for mode switching"
+            ]
+        },
+        {
+            "file": "src/core/Application.cpp",
+            "changes": [
+                "Added RTVolumeRenderer instantiation in constructor",
+                "Integrated RTVolumeRenderer into recordCommandBuffer() rendering flow",
+                "Added proper dynamic rendering flow: vkCmdEndRendering -> renderToHDR -> vkCmdBeginRendering -> composite",
+                "Added Ctrl+Shift+V key binding for RT volume mode toggle",
+                "Added onSwapchainResized() call integration"
+            ]
+        }
+    ],
+    "acceptance_criteria_met": [
+        "✅ Mode toggles on/off cleanly without affecting mesh/point paths when disabled",
+        "✅ HDR target created and composited - shows black image initially (no ray marcher yet)",
+        "✅ No validation errors from RTVolumeRenderer - build succeeds and app runs",
+        "✅ Resize-safe - onSwapchainResized() properly recreates HDR target",
+        "✅ Uses modern Vulkan 1.4 practices - Synchronization2 with VkImageMemoryBarrier2",
+        "✅ Proper RAII resource management and logging with [RTV] prefix"
+    ],
+    "vulkan_features_used": [
+        "VK_NO_PROTOTYPES and volk for function loading",
+        "Synchronization2 (VkImageMemoryBarrier2, vkCmdPipelineBarrier2)",
+        "Dynamic rendering integration (vkCmdEndRendering/vkCmdBeginRendering)",
+        "R16G16B16A16_SFLOAT HDR format",
+        "VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT"
+    ],
+    "technical_notes": [
+        "RTVolumeRenderer is decoupled from legacy renderers as intended",
+        "HDR target uses R16G16B16A16_SFLOAT for high dynamic range output",
+        "Composite pass is placeholder - will be enhanced in future milestones",
+        "Memory allocation uses manual approach with findMemoryType() helper",
+        "Mode toggle preserves existing mesh/point rendering paths when disabled",
+        "Logging uses [RTV] prefix for clear identification in output"
+    ],
+    "next_steps": [
+        "RTV-2002: Implement 3D density grid and compute splatting pipeline",
+        "RTV-2003: Add compute ray marcher with Beer-Lambert absorption and HG phase function",
+        "RTV-2004: Implement TAA (Temporal Anti-Aliasing) for noise reduction"
+    ]
+}

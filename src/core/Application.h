@@ -14,6 +14,7 @@
 #include "systems/ParticleSystem.h"
 #include "systems/VolumeRenderer.h"
 #include "systems/MeshParticleRenderer.h"
+#include "systems/RTVolumeRenderer.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -110,6 +111,7 @@ private:
     std::unique_ptr<ParticleSystem> m_particleSystem;
     std::unique_ptr<VolumeRenderer> m_volumeRenderer;
     std::unique_ptr<MeshParticleRenderer> m_meshRenderer;
+    std::unique_ptr<RTVolumeRenderer> m_rtVolumeRenderer;
     
     // Bloom post-processing pipeline
     VkRenderPass m_bloomRenderPass = VK_NULL_HANDLE;
@@ -196,6 +198,7 @@ private:
     
     // Volumetric rendering
     bool m_volumetricMode = false;
+    bool m_rtVolumeMode = false;            // Use new RT-centric volumetric renderer
     bool m_volumetricHighQuality = false;    // High quality mode for realtime use (Shift+V)
     bool m_volumetricUltraQuality = false;   // Ultra-high quality mode for recording (Ctrl+V)
     

@@ -285,6 +285,15 @@ void Application::initVulkan() {
         std::cerr << "Warning: Failed to create volume renderer: " << e.what() << std::endl;
         // Continue without volumetric rendering for now
     }
+
+    // Create RT volume renderer
+    try {
+        m_rtVolumeRenderer = std::make_unique<RTVolumeRenderer>(m_vulkanContext.get());
+        std::cout << "RT volume renderer created successfully!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: Failed to create RT volume renderer: " << e.what() << std::endl;
+        // Continue without RT volumetric rendering for now
+    }
     
     // Create mesh particle renderer if supported
     try {
@@ -608,8 +617,26 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         
         glm::mat4 viewProj = proj * view;
         
-        if (m_volumetricMode && m_volumeRenderer) {
-            // Render volumetric effect
+        if (m_rtVolumeMode && m_rtVolumeRenderer) {
+            // RTV-2001: RT-centric volumetric rendering path
+            static uint32_t rtvFrameCount = 0;
+            if (rtvFrameCount % 120 == 0) { // Throttled logging
+                std::cout << "[RTV] RT Volume rendering active - frame " << rtvFrameCount << std::endl;
+            }
+            rtvFrameCount++;
+
+            // End dynamic rendering for HDR target rendering
+            vkCmdEndRendering(commandBuffer);
+
+            // Render to HDR target (currently just clears to black)
+            m_rtVolumeRenderer->renderToHDR(commandBuffer, viewProj, cameraPos);
+
+            // Restart dynamic rendering and composite HDR to swapchain
+            vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            m_rtVolumeRenderer->composite(commandBuffer);
+
+        } else if (m_volumetricMode && m_volumeRenderer) {
+            // Legacy volumetric effect
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, m_timestampQueryPool, base + 2);
@@ -728,6 +755,9 @@ void Application::recreateSwapChain() {
     if (m_volumeRenderer) {
         m_volumeRenderer->onSwapchainResized(m_vulkanContext->getSwapChainExtent());
     }
+    if (m_rtVolumeRenderer) {
+        m_rtVolumeRenderer->onSwapchainResized(m_vulkanContext->getSwapChainExtent());
+    }
 }
 
 
@@ -747,7 +777,9 @@ void Application::updateWindowTitle() {
         if (m_particleSystem->isSPHMode()) {
             title += " [SPH]";
         }
-        if (m_volumetricMode) {
+        if (m_rtVolumeMode) {
+            title += " [RTV]";
+        } else if (m_volumetricMode) {
             title += " [VOL]";
         }
         if (m_repulsiveGravity) {
@@ -1711,6 +1743,7 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
         std::cout << "Mode Controls:" << std::endl;
         std::cout << "  Space: Toggle SPH fluid mode" << std::endl;
         std::cout << "  V: Toggle volumetric rendering" << std::endl;
+        std::cout << "  Z: Toggle RT volumetric rendering" << std::endl;
         std::cout << "Display Controls:" << std::endl;
         std::cout << "  H: Show this help" << std::endl;
         std::cout << "  F1: Toggle periodic status updates (OSD)" << std::endl;
@@ -1781,6 +1814,20 @@ void Application::keyCallback(GLFWwindow* window, int key, int scancode, int act
             
             std::cout << "[RECORDING] ULTRA-HIGH QUALITY Volumetric Recording COMPLETED!" << std::endl;
             std::cout << "            Video saved with maximum cinematic quality!" << std::endl;
+        }
+        app->updateWindowTitle();
+    }
+    // RT Volume rendering toggle (Z)
+    else if (key == GLFW_KEY_Z && action == GLFW_PRESS && !(mods & (GLFW_MOD_CONTROL | GLFW_MOD_SHIFT | GLFW_MOD_ALT))) {
+        app->m_rtVolumeMode = !app->m_rtVolumeMode;
+        // Disable other modes when RT volume is enabled
+        if (app->m_rtVolumeMode) {
+            app->m_volumetricMode = false;
+            app->m_volumetricHighQuality = false;
+            app->m_volumetricUltraQuality = false;
+            std::cout << "[RTV] RT Volume rendering ENABLED - Next-gen volumetric pipeline!" << std::endl;
+        } else {
+            std::cout << "[RTV] RT Volume rendering DISABLED" << std::endl;
         }
         app->updateWindowTitle();
     }

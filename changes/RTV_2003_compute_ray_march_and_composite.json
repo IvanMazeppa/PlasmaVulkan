@@ -1,0 +1,33 @@
+{
+    "id": "RTV_2003_compute_ray_march_and_composite",
+    "title": "Add compute ray marcher (HG + Beer-Lambert) and composite to swapchain",
+    "purpose": "Render the volumetric plasma with physically-based single scattering and STBN jitter, output to HDR target.",
+    "steps": [
+        {
+            "action": "shader_add",
+            "detail": "Add shaders/rt_volume_raymarch.comp implementing: STBN jitter, cone/adaptive stepping, early-out on transmittance, Beer–Lambert with preintegrated LUT, HG phase, directional light params."
+        },
+        {
+            "action": "pipeline_create",
+            "detail": "Create compute pipeline and descriptors for density 3D image (sampled), LUT (sampled), STBN (sampled), HDR target (storage)."
+        },
+        {
+            "action": "composite_pass",
+            "detail": "Add fullscreen composite (existing or new) to copy/tone-map HDR to swapchain; additive with bloom if enabled."
+        },
+        {
+            "action": "taa_hook",
+            "detail": "Wire optional TAA pass after raymarch and before composite; update prev matrix after TAA."
+        }
+    ],
+    "acceptance": [
+        "HDR image shows volumetric glow with controllable noise and step count",
+        "No validation errors during dispatch; stable at real-time preview settings",
+        "TAA can be toggled; reprojection stable (no purple/green)"
+    ],
+    "touchpoints": [
+        "src/systems/RTVolumeRenderer.cpp",
+        "src/systems/RTVolumeRenderer.h",
+        "shaders/rt_volume_raymarch.comp"
+    ]
+}
