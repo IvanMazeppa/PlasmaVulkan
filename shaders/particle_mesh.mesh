@@ -20,21 +20,13 @@ layout(set = 0, binding = 0) restrict readonly buffer ParticleBuffer {
     Particle particles[];
 };
 
-// Push constants for rendering parameters (matches fragment shader)
+// Push constants for rendering parameters
 layout(push_constant) uniform PushConstants {
-    mat4 viewProj;              // 64 bytes
-    vec3 cameraPos;             // 12 bytes
-    float particleSize;         // 4 bytes (total 80 bytes)
-    vec3 lightDirection;        // 12 bytes
-    float lightIntensity;       // 4 bytes (total 96 bytes)
-    uint particleCount;         // 4 bytes
-    float time;                 // 4 bytes
-    uint rtEnabled;             // 4 bytes
-    uint occlusionAmplify;      // 4 bytes (total 112 bytes)
-    uint rtSelfShadowOverlay;   // 4 bytes
-    uint rtCullMaskMode;        // 4 bytes
-    uint shellTlasAvailable;    // 4 bytes
-    uint _padding;              // 4 bytes (total 128 bytes exactly)
+    mat4 viewProj;
+    vec3 cameraPos;
+    float particleSize;
+    uint particleCount;
+    float time;
 } pc;
 
 // Per-vertex outputs to fragment shader
@@ -45,25 +37,15 @@ layout(location = 2) out vec3 fragWorldPos[];
 void main() {
     uint particleIndex = gl_WorkGroupID.x * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
     uint localThreadIndex = gl_LocalInvocationID.x;
-
+    
     // Count how many particles this workgroup will process
-    // CR 1037: Guard against underflow when workgroup starts beyond particle count
-    uint workgroupStart = gl_WorkGroupID.x * gl_WorkGroupSize.x;
-    uint particlesInWorkgroup = (workgroupStart < pc.particleCount)
-        ? min(gl_WorkGroupSize.x, pc.particleCount - workgroupStart)
-        : 0;
-
-    // CR 1037: Handle empty workgroups
-    if (particlesInWorkgroup == 0) {
-        SetMeshOutputsEXT(0, 0);
-        return;
-    }
-
+    uint particlesInWorkgroup = min(gl_WorkGroupSize.x, pc.particleCount - gl_WorkGroupID.x * gl_WorkGroupSize.x);
+    
     // Each workgroup outputs geometry for ALL its particles at once
-    // Total vertices = 4 per particle, Total primitives = 2 per particle
+    // Total vertices = 4 per particle, Total primitives = 2 per particle  
     SetMeshOutputsEXT(particlesInWorkgroup * 4, particlesInWorkgroup * 2);
-
-    // CR 1037: Early exit if this thread has no particle to process
+    
+    // Early exit if this thread has no particle to process
     if (particleIndex >= pc.particleCount) {
         return;
     }
@@ -128,29 +110,18 @@ void main() {
         vec2(1.0, 1.0)   // Top-right
     };
     
-    // CR 1037: Guard vertex and primitive writes to stay within bounds
-    if (particleIndex < pc.particleCount) {
-        // Each thread outputs its 4 vertices at the correct offset
-        uint vertexOffset = localThreadIndex * 4;
-        uint maxVertexIndex = particlesInWorkgroup * 4;
-
-        for (uint i = 0; i < 4; i++) {
-            uint vertexIndex = vertexOffset + i;
-            if (vertexIndex < maxVertexIndex) {
-                gl_MeshVerticesEXT[vertexIndex].gl_Position = pc.viewProj * vec4(positions[i], 1.0);
-                fragColor[vertexIndex] = vec4(color, 1.0);
-                fragUV[vertexIndex] = uvs[i];
-                fragWorldPos[vertexIndex] = positions[i];
-            }
-        }
-
-        // Each thread outputs its 2 triangles at the correct offset
-        uint primitiveOffset = localThreadIndex * 2;
-        uint maxPrimitiveIndex = particlesInWorkgroup * 2;
-
-        if (primitiveOffset + 1 < maxPrimitiveIndex) {
-            gl_PrimitiveTriangleIndicesEXT[primitiveOffset + 0] = uvec3(vertexOffset + 0, vertexOffset + 1, vertexOffset + 2);
-            gl_PrimitiveTriangleIndicesEXT[primitiveOffset + 1] = uvec3(vertexOffset + 1, vertexOffset + 3, vertexOffset + 2);
-        }
+    // Each thread outputs its 4 vertices at the correct offset
+    uint vertexOffset = localThreadIndex * 4;
+    for (uint i = 0; i < 4; i++) {
+        uint vertexIndex = vertexOffset + i;
+        gl_MeshVerticesEXT[vertexIndex].gl_Position = pc.viewProj * vec4(positions[i], 1.0);
+        fragColor[vertexIndex] = vec4(color, 1.0);
+        fragUV[vertexIndex] = uvs[i];
+        fragWorldPos[vertexIndex] = positions[i];
     }
+    
+    // Each thread outputs its 2 triangles at the correct offset
+    uint primitiveOffset = localThreadIndex * 2;
+    gl_PrimitiveTriangleIndicesEXT[primitiveOffset + 0] = uvec3(vertexOffset + 0, vertexOffset + 1, vertexOffset + 2);
+    gl_PrimitiveTriangleIndicesEXT[primitiveOffset + 1] = uvec3(vertexOffset + 1, vertexOffset + 3, vertexOffset + 2);
 }
