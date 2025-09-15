@@ -545,24 +545,55 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                 vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 0);
             }
             m_volumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
-            
+
             // Generate mip chain for cone-stepped raymarch (performance upgrade #1)
             m_volumeRenderer->generateMipChain(commandBuffer);
-            
+
             if (m_gpuProfilingEnabled && m_timestampQueryPool != VK_NULL_HANDLE) {
                 uint32_t base = m_currentFrame * 4;
                 vkCmdWriteTimestamp2(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, m_timestampQueryPool, base + 1);
+            }
+        }
+
+        // Job 1012-1013: Update coarse density grid for RT self-shadowing (mesh shader mode)
+        if (m_useMeshShaders && m_meshRenderer && m_meshRenderer->isSupported() && m_volumeRenderer) {
+            // CR 1017: Debug mesh shader mode entry
+            static uint32_t meshDebugCounter = 0;
+            if ((meshDebugCounter++ % 60) == 0) {
+                std::cout << "Mesh shader mode: Active (RT self-shadow path)" << std::endl;
+            }
+
+            VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
+            uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
+
+            // Update coarse density grid for RT self-shadowing
+            m_volumeRenderer->updateCoarseDensityGrid(commandBuffer, particleBuffer, activeParticles);
+            m_volumeRenderer->generateCoarseMipChain(commandBuffer);
+
+            // Job 1013: Extract iso-surface shells periodically (not every frame for performance)
+            static uint32_t shellUpdateCounter = 0;
+            if (++shellUpdateCounter >= 30) { // CR 1017: Temporary faster shell updates for debugging
+                shellUpdateCounter = 0;
+                std::cout << "CR 1017: Attempting shell extraction..." << std::endl;
+                try {
+                    m_volumeRenderer->extractIsoSurfaceShells();
+                    std::cout << "CR 1017: Shell extraction call completed successfully\n";
+                } catch (const std::exception& e) {
+                    std::cout << "CR 1017: Shell extraction failed with exception: " << e.what() << "\n";
+                } catch (...) {
+                    std::cout << "CR 1017: Shell extraction failed with unknown exception\n";
+                }
             }
         }
     }
     
     // First-frame crash prevention: ensure volume renderer is initialized before first render
     // This handles the case where volumetric mode is enabled but physics hasn't updated yet
-    if (m_volumetricMode && m_volumeRenderer && m_particleSystem && 
+    if (m_volumetricMode && m_volumeRenderer && m_particleSystem &&
         m_volumeRenderer->needsInitialUpdate() && !m_shouldUpdatePhysics) {
-        
+
         std::cout << "Performing first-frame volume initialization (physics accumulator not ready)" << std::endl;
-        
+
         // Safety check: ensure particle buffer is valid before attempting update
         VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
         if (particleBuffer == VK_NULL_HANDLE) {
@@ -571,14 +602,37 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         } else {
             uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
             std::cout << "Initializing volume with " << activeParticles << " particles" << std::endl;
-            
+
             try {
                 m_volumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
                 m_volumeRenderer->generateMipChain(commandBuffer);
+
                 std::cout << "First-frame volume initialization completed successfully" << std::endl;
             } catch (const std::exception& e) {
                 std::cerr << "ERROR during first-frame volume initialization: " << e.what() << std::endl;
                 // Continue anyway - volume will be initialized on next physics update
+            }
+        }
+    }
+
+    // First-frame initialization for coarse density grid (mesh shader RT self-shadowing)
+    if (m_useMeshShaders && m_meshRenderer && m_meshRenderer->isSupported() && m_volumeRenderer && m_particleSystem &&
+        m_volumeRenderer->needsCoarseInitialUpdate() && !m_shouldUpdatePhysics) {
+
+        std::cout << "Performing first-frame coarse density initialization for RT self-shadowing" << std::endl;
+
+        VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
+        if (particleBuffer != VK_NULL_HANDLE) {
+            uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
+
+            try {
+                // Initialize coarse density grid for RT self-shadowing
+                m_volumeRenderer->updateCoarseDensityGrid(commandBuffer, particleBuffer, activeParticles);
+                m_volumeRenderer->generateCoarseMipChain(commandBuffer);
+
+                std::cout << "First-frame coarse density initialization completed successfully" << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "ERROR during first-frame coarse density initialization: " << e.what() << std::endl;
             }
         }
     }
@@ -673,11 +727,13 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             // Render particles (drawing only, physics already updated)
             if (m_useMeshShaders && m_meshRenderer && m_meshRenderer->isSupported()) {
                 // Use mesh shader rendering - GPU-driven particle generation
+                // Job 1014: Pass VolumeRenderer for shell TLAS access
                 m_meshRenderer->render(commandBuffer, viewProj, cameraPos,
                                       m_particleSystem->getParticleBuffer(),
                                       m_particleSystem->getActiveParticleCount(),
                                       1.0f, // particle size
-                                      m_totalTime);
+                                      m_totalTime,
+                                      m_volumeRenderer.get());
             } else {
                 // Use traditional vertex buffer rendering
                 m_particleSystem->render(commandBuffer, viewProj);

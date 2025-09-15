@@ -1,5 +1,5 @@
 {
-    "id": "1006_shadow_quality_softening_and_temporal",
+    "id": "1008_shadow_quality_softening_and_temporal",
     "title": "Soft RT shadows: blue-noise jitter + temporal accumulation (baseline)",
     "purpose": "Introduce softening and stability for mesh RT shadows with minimal cost.",
     "steps": [

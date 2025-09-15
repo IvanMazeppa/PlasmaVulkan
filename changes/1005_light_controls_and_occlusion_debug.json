@@ -1,5 +1,5 @@
 {
-    "id": "1007_light_controls_and_occlusion_debug",
+    "id": "1005_light_controls_and_occlusion_debug",
     "title": "Directional light + runtime controls + occlusion amplification (debug)",
     "purpose": "Introduce an explicit directional light for the mesh path and tools to verify that ray-query occlusion is wired by making the effect highly visible.",
     "steps": [

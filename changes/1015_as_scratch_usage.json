@@ -1,0 +1,30 @@
+{
+  "id": "1015_as_scratch_usage",
+  "title": "Fix AS scratch buffer usage flags, alignment, and sizing",
+  "purpose": "Eliminate VUID 03674 and stabilize BLAS/TLAS builds by creating properly flagged and sized scratch buffers and querying required sizes per build.",
+  "steps": [
+    { "action": "query_props", "detail": "Query VkPhysicalDeviceAccelerationStructurePropertiesKHR (minAccelerationStructureScratchOffsetAlignment)." },
+    { "action": "size_calc", "detail": "Use vkGetAccelerationStructureBuildSizesKHR for each BLAS/TLAS build to compute buildScratchSize and updateScratchSize. Round up to required alignment." },
+    { "action": "scratch_buffer", "detail": "Create scratch buffers with VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT. Allocate with device-local memory and fetch device address." },
+    { "action": "bind_build", "detail": "Set pInfos[i].scratchData.deviceAddress to the aligned scratch buffer address. Reuse a persistent, max-sized scratch buffer when possible, or suballocate with aligned offsets." },
+    { "action": "logging", "detail": "Log scratch sizes (build/update), alignment used, and buffer address per build (BLAS/TLAS)." }
+  ],
+  "acceptance": [
+    "No Validation: VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03674",
+    "AS builds succeed under stress (5+ rebuilds) without crash",
+    "Scratch buffer address and sizes logged"
+  ],
+  "touchpoints": [
+    "src/systems/VolumeRenderer.cpp",
+    "src/systems/VolumeRenderer.h",
+    "src/systems/MeshParticleRenderer.cpp",
+    "src/renderer/VulkanContext.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03674')",
+    "get_vulkan_entity('vkGetAccelerationStructureBuildSizesKHR')",
+    "get_vulkan_entity('VkAccelerationStructureBuildSizesInfoKHR')",
+    "get_vulkan_entity('VkPhysicalDeviceAccelerationStructurePropertiesKHR')"
+  ],
+  "notes": "Prefer a single persistent scratch buffer sized for the worst-case build to reduce fragmentation. Ensure alignment via minAccelerationStructureScratchOffsetAlignment."
+}

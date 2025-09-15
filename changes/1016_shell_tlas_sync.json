@@ -1,0 +1,45 @@
+{
+    "id": "1016_shell_tlas_sync",
+    "title": "Synchronize shell TLAS rebuilds with timeline semaphores and barriers",
+    "purpose": "Prevent races between shell extraction, BLAS builds, TLAS updates and mesh rendering that can cause crashes or stale bindings.",
+    "steps": [
+        {
+            "action": "timeline_setup",
+            "detail": "Create a VkSemaphore (timeline) dedicated to RT builds; track a monotonically increasing counter (buildCounter)."
+        },
+        {
+            "action": "extract_stage",
+            "detail": "After marching cubes completes and vertex/index uploads finish (transfer→device), signal buildCounter=N."
+        },
+        {
+            "action": "blas_stage",
+            "detail": "Submit BLAS builds waiting on timeline value N; upon completion signal N+1. Use vkCmdPipelineBarrier2 for buffer availability (HOST/TRANSFER→AS_BUILD_READ)."
+        },
+        {
+            "action": "tlas_stage",
+            "detail": "Submit TLAS build waiting on N+1; signal N+2 when done."
+        },
+        {
+            "action": "render_wait",
+            "detail": "In mesh render pass, wait on timeline value N+2 before binding shell TLAS. Guard with a frame-local cached value to avoid stalls when no rebuild occurred."
+        }
+    ],
+    "acceptance": [
+        "No crashes during periodic shell rebuilds",
+        "Shell TLAS device address logged each rebuild; render pass prints the timeline value it waited for",
+        "No validation errors related to hazards"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.cpp",
+        "src/systems/VolumeRenderer.h",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/core/Application.cpp"
+    ],
+    "mcp_queries": [
+        "get_vulkan_entity('VkSemaphoreTypeCreateInfo')",
+        "get_vulkan_entity('VkSemaphoreSubmitInfo')",
+        "get_vulkan_entity('VkSubmitInfo2')",
+        "search_vulkan_spec('Synchronization2 pipeline barriers for AS build inputs')"
+    ],
+    "notes": "Signal only when GPU-side operations finish (queue submission), not on CPU finish. Consider batching BLAS builds for multiple shells into one submit."
+}

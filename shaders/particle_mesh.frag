@@ -10,8 +10,11 @@ layout(location = 2) in vec3 fragWorldPos;
 
 layout(location = 0) out vec4 outColor;
 
-// Job 1003: RT acceleration structure binding
+// Job 1003: RT acceleration structure binding for external occluders
 layout(binding = 3) uniform accelerationStructureEXT topLevelAS;
+
+// Job 1014: Shell TLAS for self-shadowing
+layout(binding = 4) uniform accelerationStructureEXT shellTLAS;
 
 // Push constants (same as mesh shader)
 layout(push_constant) uniform PushConstants {
@@ -25,15 +28,55 @@ layout(push_constant) uniform PushConstants {
     vec3 lightDirection;
     float lightIntensity;
     uint occlusionAmplify;  // Debug toggle for occlusion amplification
+    // CR 1018: Ray query mask and overlay controls
+    uint rtSelfShadowOverlay; // Debug overlay mode
+    uint rtCullMaskMode;      // 0=both, 1=external only, 2=shells only
 } pc;
 
-// Job 1003: Ray query occlusion function
-bool hasOccluderRT(vec3 originWS, vec3 dirWS, float tMax) {
+// Job 1003: Ray query occlusion function for external occluders
+// CR 1018: Updated with instance mask support (external TLAS = 0x01)
+float hasOccluderRT(vec3 originWS, vec3 dirWS, float tMax) {
     rayQueryEXT rq;
     const uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT;
-    rayQueryInitializeEXT(rq, topLevelAS, flags, 0xFF, originWS, 0.001, normalize(dirWS), tMax);
+    const uint cullMask = 0x01; // Only hit external TLAS instances
+    rayQueryInitializeEXT(rq, topLevelAS, flags, cullMask, originWS, 0.001, normalize(dirWS), tMax);
     while (rayQueryProceedEXT(rq)) {}
-    return rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+    bool hit = rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+    if (hit) {
+        return rayQueryGetIntersectionTEXT(rq, true); // Return hit distance for overlay
+    }
+    return -1.0; // No hit
+}
+
+// Job 1014: Ray query self-shadowing function using shell TLAS
+// CR 1018: Updated with instance mask support (shell TLAS = 0x02)
+float hasSelfShadowRT(vec3 originWS, vec3 dirWS, float tMax) {
+    rayQueryEXT rq;
+    const uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT;
+    const uint cullMask = 0x02; // Only hit shell TLAS instances
+    rayQueryInitializeEXT(rq, shellTLAS, flags, cullMask, originWS, 0.001, normalize(dirWS), tMax);
+    while (rayQueryProceedEXT(rq)) {}
+    bool hit = rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+    if (hit) {
+        return rayQueryGetIntersectionTEXT(rq, true); // Return hit distance for overlay
+    }
+    return -1.0; // No hit
+}
+
+// CR 1018: Debug overlay function - colors fragments by hit distance
+vec3 rayHitOverlay(float hitDistance) {
+    if (hitDistance < 0.0) {
+        return vec3(0.5, 0.0, 0.5); // Purple = no hit
+    }
+
+    // Color by distance buckets: green (close), yellow (mid), red (far)
+    if (hitDistance < 5.0) {
+        return vec3(0.0, 1.0, 0.0); // Green = close hit
+    } else if (hitDistance < 20.0) {
+        return vec3(1.0, 1.0, 0.0); // Yellow = medium hit
+    } else {
+        return vec3(1.0, 0.0, 0.0); // Red = far hit
+    }
 }
 
 void main() {
@@ -77,15 +120,44 @@ void main() {
     litColor += litColor * centerGlow * 0.5; // Bright center
 
     // Job 1005: RT shadow computation with amplification
+    // Job 1014: Combined external occlusion and self-shadowing
+    // CR 1018: Enhanced with instance masks and debug overlay
     float shadowVis = 1.0;
+    vec3 overlayColor = vec3(0.0);
+    bool useOverlay = false;
+
     if (pc.rtEnabled != 0u) {
-        if (hasOccluderRT(fragWorldPos, lightDir, 1000.0)) {
-            shadowVis = 0.0; // Fully shadowed
+        float externalHitDist = -1.0;
+        float selfShadowHitDist = -1.0;
+
+        // Query based on mask mode
+        if (pc.rtCullMaskMode == 0u || pc.rtCullMaskMode == 1u) { // Both or external only
+            externalHitDist = hasOccluderRT(fragWorldPos, lightDir, 1000.0);
+        }
+        if (pc.rtCullMaskMode == 0u || pc.rtCullMaskMode == 2u) { // Both or shells only
+            selfShadowHitDist = hasSelfShadowRT(fragWorldPos, lightDir, 1000.0);
+        }
+
+        // Apply shadows based on hits
+        bool externalOcclusion = externalHitDist >= 0.0;
+        bool selfShadowing = selfShadowHitDist >= 0.0;
+
+        if (externalOcclusion || selfShadowing) {
+            float externalShadow = externalOcclusion ? 0.1 : 1.0;  // Strong external shadows
+            float selfShadow = selfShadowing ? 0.3 : 1.0;          // Softer self-shadows
+            shadowVis = externalShadow * selfShadow;
+        }
+
+        // CR 1018: Debug overlay mode
+        if (pc.rtSelfShadowOverlay != 0u) {
+            useOverlay = true;
+            // Prioritize self-shadow hits for overlay, fall back to external
+            float displayHitDist = (selfShadowHitDist >= 0.0) ? selfShadowHitDist : externalHitDist;
+            overlayColor = rayHitOverlay(displayHitDist);
         }
 
         // Job 1005: Debug occlusion amplification
         if (pc.occlusionAmplify != 0u) {
-            // Amplify shadows by squaring the visibility (more aggressive darkening)
             shadowVis = shadowVis * shadowVis;
         }
     }
@@ -94,8 +166,13 @@ void main() {
     float shadowWeight = (pc.occlusionAmplify != 0u) ? 2.0 : 1.0;
     vec3 finalColor = litColor * mix(1.0, shadowVis, clamp(shadowWeight, 0.0, 1.0));
 
-    // Velocity-based saturation boost
-    finalColor = mix(finalColor, finalColor * 1.3, velocityIntensity * 0.3);
+    // CR 1018: Apply debug overlay if enabled
+    if (useOverlay) {
+        finalColor = mix(finalColor, overlayColor, 0.7); // Blend overlay with particle color
+    } else {
+        // Velocity-based saturation boost (only when not in overlay mode)
+        finalColor = mix(finalColor, finalColor * 1.3, velocityIntensity * 0.3);
+    }
 
     outColor = vec4(finalColor, alpha * fragColor.a);
 }

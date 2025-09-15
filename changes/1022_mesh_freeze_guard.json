@@ -1,0 +1,24 @@
+{
+  "id": "1022_mesh_freeze_guard",
+  "title": "Non-blocking render guard and fallback when shell TLAS not ready",
+  "purpose": "Ensure mesh pass never blocks the frame; skip or degrade gracefully until shell TLAS is ready.",
+  "steps": [
+    { "action": "guard_bind", "detail": "In MeshParticleRenderer::render(), if shell TLAS not ready by the time of descriptor push, omit binding 4 and set a push-constant flag to disable self-shadow path." },
+    { "action": "hud_state", "detail": "Print a throttled status: 'Self-shadow TLAS pending...' every ~2s while waiting." },
+    { "action": "toggle_rt", "detail": "If external TLAS exists, keep external occlusion active. Add a runtime toggle to force-disable self-shadowing for bisecting crashes." }
+  ],
+  "acceptance": [
+    "No hang when TLAS pending",
+    "Descriptor push succeeds with 2 or 3 descriptors depending on availability",
+    "Visible rendering continues in mesh mode"
+  ],
+  "touchpoints": [
+    "src/systems/MeshParticleRenderer.cpp",
+    "shaders/particle_mesh.frag",
+    "src/core/Application.cpp"
+  ],
+  "mcp_queries": [
+    "search_vulkan_spec('Push descriptors optional bindings and missing writes')"
+  ],
+  "notes": "Avoid any host waits on render thread. Use logging only for visibility; throttle logs." 
+}

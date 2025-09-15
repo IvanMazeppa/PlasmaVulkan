@@ -1,0 +1,33 @@
+{
+    "id": "1020_raii_cleanup",
+    "title": "RAII cleanup for shell meshes and acceleration structures",
+    "purpose": "Eliminate exit-time VUIDs and ensure deterministic teardown of shell-related resources.",
+    "steps": [
+        {
+            "action": "wrappers",
+            "detail": "Introduce RAII wrappers for: vertex/index buffers (device address), BLAS buffers, TLAS buffer, instance buffer. Ensure move-only semantics and deterministic destruction order (TLAS → BLAS → buffers)."
+        },
+        {
+            "action": "lifecycle",
+            "detail": "On shell threshold change or shutdown: vkDeviceWaitIdle() → destroy TLAS → destroy BLAS → free buffers. Null handles after destroy."
+        },
+        {
+            "action": "leak_check",
+            "detail": "Add debug asserts/logs enumerating live shell buffers/images/AS at destroy time; count must be zero."
+        }
+    ],
+    "acceptance": [
+        "No exit-time VUID 05137 for shell resources",
+        "No live buffers/images reported at device destroy",
+        "Teardown order logged"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.h",
+        "src/systems/VolumeRenderer.cpp",
+        "src/systems/MeshParticleRenderer.cpp"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('Object lifetime and destruction order requirements')"
+    ],
+    "notes": "Consider integrating VMA for allocation tracking; until then, manual bookkeeping with clear ownership is required."
+}

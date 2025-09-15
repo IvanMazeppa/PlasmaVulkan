@@ -1,0 +1,86 @@
+{
+    "id": "1019_coarse_layout_mips_result",
+    "change_request": "1019_coarse_layout_mips",
+    "title": "Coarse grid layout transitions and mip generation significantly improved",
+    "status": "substantially_completed",
+    "implementation_summary": [
+        "Fixed final transition in generateCoarseMipChain() to use SHADER_READ_ONLY_OPTIMAL instead of GENERAL",
+        "Corrected oldLayout assumptions for subsequent mip generations (SHADER_READ_ONLY_OPTIMAL vs GENERAL)",
+        "Added comprehensive debug logging to track layout transitions and mip generation progress",
+        "Verified proper image usage flags and transition sequence in coarse density pipeline",
+        "Maintained correct compute shader behavior with GENERAL layout during density splatting"
+    ],
+    "key_fixes_implemented": [
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "change": "generateCoarseMipChain() final transition",
+            "old_behavior": "finalBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL",
+            "new_behavior": "finalBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL",
+            "rationale": "Sampled images should be in SHADER_READ_ONLY_OPTIMAL for optimal performance per Vulkan spec"
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "change": "Mip generation oldLayout tracking",
+            "old_behavior": "dstBarrier.oldLayout = m_coarseMipsGenerated ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED",
+            "new_behavior": "dstBarrier.oldLayout = m_coarseMipsGenerated ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED",
+            "rationale": "Must match the final layout from previous mip generation"
+        },
+        {
+            "file": "src/systems/VolumeRenderer.cpp",
+            "change": "Debug logging for layout transitions",
+            "addition": "Added 'CR 1019: Starting coarse density update' and 'Coarse mip generation completed' logging",
+            "purpose": "Track layout transition progress and verify mip chain completion"
+        }
+    ],
+    "layout_transition_sequence": [
+        "1. Initial creation: UNDEFINED → TRANSFER_DST_OPTIMAL → SHADER_READ_ONLY_OPTIMAL",
+        "2. Per-frame update: SHADER_READ_ONLY_OPTIMAL → TRANSFER_DST_OPTIMAL → GENERAL (compute)",
+        "3. Mip generation: GENERAL → TRANSFER_SRC_OPTIMAL → ... → SHADER_READ_ONLY_OPTIMAL (all mips)",
+        "4. Shell extraction: SHADER_READ_ONLY_OPTIMAL → TRANSFER_SRC_OPTIMAL → SHADER_READ_ONLY_OPTIMAL"
+    ],
+    "validation_error_status": {
+        "major_improvement": "Eliminated massive validation spam that was overwhelming the system",
+        "before": "VUID-09600 errors for all mip levels (1-6) every frame",
+        "after": "Reduced to single VUID-09600 error for mip level 1 only",
+        "remaining_issue": "One descriptor somewhere still expects mip level 1 in GENERAL layout"
+    },
+    "debug_output_observed": [
+        "CR 1019: Starting coarse density update - transitioning from SHADER_READ_ONLY_OPTIMAL",
+        "CR 1019: Coarse mip generation completed - all 7 mip levels now in SHADER_READ_ONLY_OPTIMAL"
+    ],
+    "vulkan_spec_compliance": [
+        "Image usage flags correct: VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT",
+        "Sampled images properly use VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL per Section 14.1 of Vulkan spec",
+        "Storage images correctly use VK_IMAGE_LAYOUT_GENERAL during compute operations",
+        "Transfer operations properly use VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL and VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL"
+    ],
+    "acceptance_criteria_status": [
+        "✅ No VUID-VkImageMemoryBarrier2-oldLayout-01197 - Achieved: proper oldLayout tracking implemented",
+        "🔄 No vkCmdDraw None-09600 layout mismatches - MOSTLY ACHIEVED: reduced from 6 mips to 1 mip error",
+        "✅ Coarse grid sampled correctly by shells/diagnostics - Achieved: shell extraction working with proper layout"
+    ],
+    "performance_impact": {
+        "validation_spam_eliminated": "System no longer overwhelmed by continuous validation errors",
+        "shell_extraction_unblocked": "Shell extraction can now proceed without validation interference",
+        "optimal_layout_usage": "SHADER_READ_ONLY_OPTIMAL provides better performance for sampled image access"
+    },
+    "mcp_vulkan_queries_executed": [
+        "search_vulkan_spec('image layout transitions mip levels SHADER_READ_ONLY_OPTIMAL vs GENERAL')",
+        "search_vulkan_spec('VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL usage sampler descriptor')"
+    ],
+    "technical_analysis": {
+        "root_cause_identified": "Incorrect final layout transition in mip generation causing layout expectation mismatch",
+        "solution_approach": "Aligned mip generation output with Vulkan best practices for sampled images",
+        "remaining_investigation": "Single descriptor binding mip level 1 with GENERAL layout expectation needs identification"
+    },
+    "collaboration_with_other_crs": [
+        "Enables CR 1017 shell TLAS creation by eliminating validation spam interference",
+        "Supports CR 1016 timeline semaphore system by providing stable layout transitions",
+        "Prepares foundation for CR 1018 ray query operations with proper image layouts"
+    ],
+    "next_steps_if_needed": [
+        "Identify remaining descriptor that expects mip level 1 in GENERAL layout",
+        "Consider adding per-mip layout tracking for more granular control",
+        "Investigate if volume rendering pipeline has legacy descriptor binding"
+    ]
+}

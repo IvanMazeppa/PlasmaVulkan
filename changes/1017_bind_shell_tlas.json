@@ -1,0 +1,39 @@
+{
+    "id": "1017_bind_shell_tlas",
+    "title": "Bind shell TLAS in mesh pass and add instrumentation",
+    "purpose": "Ensure the shell TLAS is actually bound to the mesh shader path and verify at runtime.",
+    "steps": [
+        {
+            "action": "descriptor_layout",
+            "detail": "Add binding_4 (VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) to mesh descriptor set layout with PUSH_DESCRIPTOR_BIT_KHR enabled."
+        },
+        {
+            "action": "bind_path",
+            "detail": "In MeshParticleRenderer::render(), push both binding_3 (external TLAS) and binding_4 (shell TLAS) when available. Log both AS device addresses per frame for the first 3 frames and every 120 frames thereafter."
+        },
+        {
+            "action": "shader_verify",
+            "detail": "In shaders/particle_mesh.frag, assert via debug printf-style integer encoding (e.g., color bands) when binding_4 device address equals zero or when ray query returns 'no instance' frequently."
+        },
+        {
+            "action": "toggle",
+            "detail": "Add runtime toggle 'rtSelfShadow' and per-pass print that shows the toggle state and whether AS=0 or non-zero was bound."
+        }
+    ],
+    "acceptance": [
+        "Logs show: 'Pushed 3 descriptors: particle_buffer external_TLAS shell_TLAS'",
+        "Non-zero device address printed for shell TLAS at render-time",
+        "No shader path trying to use binding_4 when rtSelfShadow=false"
+    ],
+    "touchpoints": [
+        "src/systems/MeshParticleRenderer.h",
+        "src/systems/MeshParticleRenderer.cpp",
+        "shaders/particle_mesh.frag",
+        "src/core/Application.cpp"
+    ],
+    "mcp_queries": [
+        "get_vulkan_entity('VkWriteDescriptorSetAccelerationStructureKHR')",
+        "search_vulkan_spec('Push descriptors acceleration structure KHR')"
+    ],
+    "notes": "Push descriptors are ephemeral; ensure push order matches layout bindings. Include robust logs to avoid silent non-binding."
+}

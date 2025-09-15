@@ -149,6 +149,7 @@ public:
     
     // First-frame crash prevention
     bool needsInitialUpdate() const { return !m_densityInitialized; }
+    bool needsCoarseInitialUpdate() const { return !m_coarseDensityInitialized; }
 
     // Ray tracing support
     bool supportsRayTracing() const;
@@ -168,6 +169,37 @@ public:
     void generateCoarseMipChain(VkCommandBuffer cmd);
     VkImageView getCoarseDensityImageView() const { return m_coarseDensityImageView; }
     VkImage getCoarseDensityImage() const { return m_coarseDensityImage; }
+
+    // Job 1013: Iso-surface shell extraction and RT acceleration structures
+    struct IsoSurfaceShell {
+        std::vector<glm::vec3> vertices;
+        std::vector<uint32_t> indices;
+        VkBuffer vertexBuffer = VK_NULL_HANDLE;
+        VkBuffer indexBuffer = VK_NULL_HANDLE;
+        VkDeviceMemory vertexMemory = VK_NULL_HANDLE;
+        VkDeviceMemory indexMemory = VK_NULL_HANDLE;
+        VkAccelerationStructureKHR blas = VK_NULL_HANDLE;
+        VkBuffer blasBuffer = VK_NULL_HANDLE;
+        VkDeviceMemory blasMemory = VK_NULL_HANDLE;
+        VkDeviceAddress vertexBufferAddress = 0;
+        VkDeviceAddress indexBufferAddress = 0;
+        float densityThreshold = 0.0f;
+        uint32_t triangleCount = 0;
+    };
+
+    void extractIsoSurfaceShells();
+    void buildShellBLAS();
+    void updateShellTLAS();
+
+    // CR 1016: Synchronized versions using timeline semaphores
+    void buildShellBLASWithSync();
+    void updateShellTLASWithSync();
+    VkAccelerationStructureKHR getShellTLAS() const { return m_shellTopLevelAS; }
+    VkDeviceAddress getShellTLASAddress() const { return m_shellTLASAddress; }
+
+    // CR 1016: Timeline semaphore access for synchronization
+    VkSemaphore getShellBuildSemaphore() const { return m_shellBuildSemaphore; }
+    uint64_t getLastCompletedBuild() const { return m_lastCompletedBuild; }
 
 private:
     void createDensityGrid();
@@ -200,6 +232,7 @@ private:
     VkSampler m_coarseDensitySampler = VK_NULL_HANDLE;
     uint32_t m_coarseDensityMipLevels = 1;
     bool m_coarseDensityInitialized = false;
+    bool m_coarseMipsGenerated = false;  // CR 1019: Track if mips have been generated
 
     // Density splatting compute pipeline
     VkPipeline m_densitySplatPipeline = VK_NULL_HANDLE;
@@ -286,6 +319,32 @@ private:
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
     bool m_rayTracingInitialized = false;
+
+    // Job 1013: Iso-surface shell acceleration structures
+    std::vector<IsoSurfaceShell> m_isoSurfaceShells;
+    VkAccelerationStructureKHR m_shellTopLevelAS = VK_NULL_HANDLE;
+    VkBuffer m_shellTLASBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_shellTLASMemory = VK_NULL_HANDLE;
+    VkBuffer m_shellInstancesBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_shellInstancesMemory = VK_NULL_HANDLE;
+    VkDeviceAddress m_shellTLASAddress = 0;
+    static constexpr uint32_t MAX_SHELL_COUNT = 3;  // Support 1-3 shells as per Job 1013 spec
+    static constexpr float SHELL_DENSITY_THRESHOLDS[3] = {0.1f, 0.3f, 0.6f};  // Low, medium, high
+
+    // CR 1016: Timeline semaphore for TLAS rebuild synchronization
+    VkSemaphore m_shellBuildSemaphore = VK_NULL_HANDLE;  // Timeline semaphore
+    uint64_t m_shellBuildCounter = 0;  // Monotonically increasing counter
+    uint64_t m_lastCompletedBuild = 0;  // Last build counter that render can use
+
+    // Helper functions for marching cubes and RT structures
+    void marchingCubes(float threshold, IsoSurfaceShell& shell, const float* densityData);
+    float sampleDensityAt(int x, int y, int z, const float* densityData);
+    void createBufferForShell(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& memory);
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    // CR 1016: Timeline semaphore management
+    void createShellBuildSemaphore();
 
     // Helper functions
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);

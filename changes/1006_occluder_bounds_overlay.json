@@ -1,5 +1,5 @@
 {
-  "id": "1008_occluder_bounds_overlay",
+  "id": "1006_occluder_bounds_overlay",
   "title": "Occluder bounds overlay and transform verification",
   "purpose": "Provide fast visual confirmation that occluders are where we expect relative to particles and light.",
   "steps": [

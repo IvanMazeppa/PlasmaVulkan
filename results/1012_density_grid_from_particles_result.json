@@ -1,0 +1,38 @@
+{
+  "id": "1012_density_grid_from_particles",
+  "title": "Low-res density grid from particles (reuse VolumeRenderer path)",
+  "purpose": "Generate a coarse 3D density grid (e.g., 96^3–128^3) from particle positions to support iso-surface shell extraction for RT self-shadowing.",
+  "steps": [
+    { "action": "grid_create", "detail": "Created 96³ R16_SFLOAT coarse density image with mip chain and views (GENERAL for compute, SAMPLED for reads). Added CoarseDensityParams struct with configurable parameters." },
+    { "action": "splat_compute", "detail": "Implemented updateCoarseDensityGrid() method reusing existing density splat pipeline with atomic adds. Grid cleared at frame start before particle splatting." },
+    { "action": "mips", "detail": "Implemented generateCoarseMipChain() using vkCmdBlitImage with Vulkan 1.4 Synchronization2 barriers (VkImageMemoryBarrier2, vkCmdPipelineBarrier2). No transitions inside dynamic rendering." },
+    { "action": "extents", "detail": "Grid bounds configured to fit particle simulation space (-30 to +30 units). Origin, voxel size (0.625), and splat radius (1.5) logged during initialization." }
+  ],
+  "acceptance": [
+    "✅ Density grid updated per frame via updateCoarseDensityGrid() call in MeshParticleRenderer::render()",
+    "✅ Grid properly initialized with non-zero density when particles present",
+    "✅ No validation errors; proper Synchronization2 barriers between compute and blit operations",
+    "✅ Correct layout transitions: GENERAL for compute writes ↔ TRANSFER_SRC_OPTIMAL for blit ↔ SHADER_READ_ONLY_OPTIMAL for reads"
+  ],
+  "touchpoints": [
+    "src/systems/VolumeRenderer.cpp: Added createCoarseDensityGrid(), updateCoarseDensityGrid(), generateCoarseMipChain() methods",
+    "src/systems/VolumeRenderer.h: Added CoarseDensityParams struct and coarse density resources",
+    "src/systems/MeshParticleRenderer.cpp: Added updateCoarseDensityGrid() call in render() method",
+    "Reused existing shaders/density_splat.comp pipeline"
+  ],
+  "mcp_queries": [
+    "Used mcp__vulkan_db__search_vulkan_api for VkImageMemoryBarrier2 structure details",
+    "Used mcp__vulkan_db__get_vulkan_entity for vkCmdPipelineBarrier2 synchronization requirements"
+  ],
+  "implementation_details": {
+    "grid_resolution": "96x96x96 voxels",
+    "image_format": "VK_FORMAT_R16_SFLOAT",
+    "mip_levels": "log2(96) + 1 = 7 levels",
+    "grid_bounds": "60x60x60 units (-30 to +30 in each axis)",
+    "voxel_size": "0.625 units per voxel",
+    "splat_radius": "1.5 units for coarse grid coverage",
+    "synchronization": "Vulkan 1.4 Synchronization2 with proper stage/access masks"
+  },
+  "completion_status": "COMPLETED - Foundation ready for Job 1013 (iso-surface shell extraction)",
+  "notes": "Coarse resolution optimized for RT shell extraction performance. Grid provides foundation for marching cubes algorithm in Job 1013. All validation requirements met with zero errors."
+}

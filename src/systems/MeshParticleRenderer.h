@@ -32,7 +32,10 @@ public:
         glm::vec3 lightDirection;
         float lightIntensity;
         uint32_t occlusionAmplify;  // Debug toggle for occlusion amplification
-        float _padding[3];  // Align to 16-byte boundary
+        // CR 1018: Ray query mask and overlay controls
+        uint32_t rtSelfShadowOverlay; // Debug overlay mode
+        uint32_t rtCullMaskMode;      // 0=both, 1=external only, 2=shells only
+        float _padding[1];  // Align to 16-byte boundary
     };
     
     struct SPHMeshPushConstants {
@@ -57,7 +60,8 @@ public:
     
     // Render particles using mesh shaders (no vertex buffers needed!)
     void render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,
-                VkBuffer particleBuffer, uint32_t particleCount, float particleSize, float time);
+                VkBuffer particleBuffer, uint32_t particleCount, float particleSize, float time,
+                class VolumeRenderer* volumeRenderer = nullptr);  // Job 1014: Shell TLAS access
     
     // Render with SPH physics mesh shader
     void renderSPH(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,
@@ -81,6 +85,12 @@ public:
     // Job 1006: Bounds visualization methods
     void toggleBoundsOverlay();
     bool getBoundsOverlayEnabled() const { return m_showBounds; }
+
+    // CR 1018: Ray query mask and overlay control methods
+    void toggleRayQueryOverlay();
+    void cycleCullMaskMode();
+    bool getRayQueryOverlayEnabled() const { return m_rtSelfShadowOverlay; }
+    uint32_t getCullMaskMode() const { return m_rtCullMaskMode; }
 
 private:
     void createDescriptorSetLayout();

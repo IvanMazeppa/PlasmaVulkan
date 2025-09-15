@@ -1,5 +1,5 @@
 {
-    "id": "1005_exit_time_vuid_cleanup",
+    "id": "1007_exit_time_vuid_cleanup",
     "title": "Exit-time VUID cleanup: destroy all VkBuffer/VkImage/VkDeviceMemory in correct order",
     "purpose": "Eliminate shutdown validation errors (VUID-vkDestroyDevice-device-05137) by ensuring all child objects are destroyed/free before vkDestroyDevice.",
     "steps": [

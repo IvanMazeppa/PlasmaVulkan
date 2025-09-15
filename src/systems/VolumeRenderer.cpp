@@ -34,6 +34,9 @@ VolumeRenderer::VolumeRenderer(VulkanContext* context, const VolumeParams& param
     // Initialize ray tracing for hardware RT shadows
     createAccelerationStructures();
 
+    // CR 1016: Create timeline semaphore for shell TLAS synchronization
+    createShellBuildSemaphore();
+
     std::cout << "Volume renderer created successfully!" << std::endl;
 }
 
@@ -198,7 +201,7 @@ void VolumeRenderer::createCoarseDensityGrid() {
     imageInfo.extent.depth = depth;
     imageInfo.mipLevels = m_coarseDensityMipLevels;
     imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R16_SFLOAT;  // R16 sufficient for coarse density as per job spec
+    imageInfo.format = VK_FORMAT_R32_SFLOAT;  // R32 required for atomic operations in shader
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -230,7 +233,7 @@ void VolumeRenderer::createCoarseDensityGrid() {
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_coarseDensityImage;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
-    viewInfo.format = VK_FORMAT_R16_SFLOAT;
+    viewInfo.format = VK_FORMAT_R32_SFLOAT;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = m_coarseDensityMipLevels;
@@ -311,6 +314,7 @@ void VolumeRenderer::createCoarseDensityGrid() {
 
 // Job 1012: Update coarse density grid from particles (for RT self-shadowing)
 void VolumeRenderer::updateCoarseDensityGrid(VkCommandBuffer cmd, VkBuffer particleBuffer, uint32_t particleCount) {
+    std::cout << "CR 1019: Starting coarse density update - transitioning from SHADER_READ_ONLY_OPTIMAL\n";
     // Clear coarse density image to zero each frame
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -450,14 +454,16 @@ void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
         uint32_t dstHeight = std::max(1u, m_coarseParams.gridDimensions.y >> mipLevel);
         uint32_t dstDepth = std::max(1u, m_coarseParams.gridDimensions.z >> mipLevel);
 
-        // Transition destination mip level to TRANSFER_DST_OPTIMAL
+        // CR 1019: Transition destination mip level to TRANSFER_DST_OPTIMAL
+        // Higher mip levels start in UNDEFINED layout on first use
         VkImageMemoryBarrier2 dstBarrier{};
         dstBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
         dstBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
         dstBarrier.srcAccessMask = 0;
         dstBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
         dstBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-        dstBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        // CR 1019: First time mips are undefined, subsequent times they're in GENERAL
+        dstBarrier.oldLayout = m_coarseMipsGenerated ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED;
         dstBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         dstBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         dstBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -502,15 +508,15 @@ void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
         vkCmdPipelineBarrier2(cmd, &depInfo);
     }
 
-    // Final transition: All mip levels to SHADER_READ_ONLY_OPTIMAL
+    // CR 1019: Final transition: All mip levels to SHADER_READ_ONLY_OPTIMAL for optimal sampler access
     VkImageMemoryBarrier2 finalBarrier{};
     finalBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
     finalBarrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
     finalBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    finalBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    finalBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     finalBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     finalBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    finalBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    finalBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     finalBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     finalBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     finalBarrier.image = m_coarseDensityImage;
@@ -522,6 +528,574 @@ void VolumeRenderer::generateCoarseMipChain(VkCommandBuffer cmd) {
 
     depInfo.pImageMemoryBarriers = &finalBarrier;
     vkCmdPipelineBarrier2(cmd, &depInfo);
+
+    // CR 1019: Mark that mips have been generated at least once
+    m_coarseMipsGenerated = true;
+
+    std::cout << "CR 1019: Coarse mip generation completed - all " << m_coarseDensityMipLevels
+              << " mip levels now in GENERAL layout\n";
+}
+
+// Job 1013: Extract iso-surface shells using marching cubes
+void VolumeRenderer::extractIsoSurfaceShells() {
+    std::cout << "CR 1017 DEBUG: extractIsoSurfaceShells() ENTRY POINT\n" << std::flush;
+    std::cout << "CR 1017 DEBUG: extractIsoSurfaceShells() called, m_coarseDensityInitialized=" << m_coarseDensityInitialized << "\n" << std::flush;
+    if (!m_coarseDensityInitialized) {
+        std::cout << "CR 1017 DEBUG: Coarse density grid not initialized, skipping shell extraction\n";
+        return;
+    }
+
+    std::cout << "CR 1017 DEBUG: Starting iso-surface shell extraction from coarse density grid...\n";
+
+    // First, we need to read the density data from the GPU
+    // Map the coarse density image to CPU memory for marching cubes processing
+    VkDevice device = m_context->getDevice();
+
+    // Create staging buffer to transfer density data to CPU
+    VkDeviceSize imageSize = m_coarseParams.gridDimensions.x * m_coarseParams.gridDimensions.y * m_coarseParams.gridDimensions.z * sizeof(float);
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    createBufferForShell(device, imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, stagingBuffer, stagingMemory);
+
+    // Begin single-time command buffer for transfer
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+    // Transition coarse density image to TRANSFER_SRC_OPTIMAL
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_coarseDensityImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &barrier;
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+    // Copy image to buffer
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {m_coarseParams.gridDimensions.x, m_coarseParams.gridDimensions.y, m_coarseParams.gridDimensions.z};
+
+    vkCmdCopyImageToBuffer(commandBuffer, m_coarseDensityImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer, 1, &region);
+
+    // Transition back to shader read only
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+    endSingleTimeCommands(commandBuffer);
+
+    // Map staging buffer and read density data
+    void* data;
+    vkMapMemory(device, stagingMemory, 0, imageSize, 0, &data);
+    float* densityData = static_cast<float*>(data);
+
+    // Clear previous shells
+    for (auto& shell : m_isoSurfaceShells) {
+        if (shell.vertexBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, shell.vertexBuffer, nullptr);
+            vkFreeMemory(device, shell.vertexMemory, nullptr);
+        }
+        if (shell.indexBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, shell.indexBuffer, nullptr);
+            vkFreeMemory(device, shell.indexMemory, nullptr);
+        }
+        if (shell.blas != VK_NULL_HANDLE) {
+            vkDestroyAccelerationStructureKHR(device, shell.blas, nullptr);
+            vkDestroyBuffer(device, shell.blasBuffer, nullptr);
+            vkFreeMemory(device, shell.blasMemory, nullptr);
+        }
+    }
+    m_isoSurfaceShells.clear();
+
+    // Extract shells at different density thresholds
+    for (uint32_t i = 0; i < MAX_SHELL_COUNT; i++) {
+        float threshold = SHELL_DENSITY_THRESHOLDS[i];
+
+        IsoSurfaceShell shell;
+        shell.densityThreshold = threshold;
+
+        // Run marching cubes algorithm
+        std::cout << "CR 1017 DEBUG: Running marching cubes for threshold " << threshold << "...\n";
+        marchingCubes(threshold, shell, densityData);
+
+        if (!shell.vertices.empty() && !shell.indices.empty()) {
+            shell.triangleCount = shell.indices.size() / 3;
+            m_isoSurfaceShells.push_back(std::move(shell));
+            std::cout << "Extracted shell " << i << " at threshold " << threshold
+                     << " with " << shell.triangleCount << " triangles\n";
+        } else {
+            std::cout << "No geometry generated for shell " << i << " at threshold " << threshold << "\n";
+        }
+    }
+
+    vkUnmapMemory(device, stagingMemory);
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingMemory, nullptr);
+
+    if (!m_isoSurfaceShells.empty()) {
+        std::cout << "CR 1017 DEBUG: " << m_isoSurfaceShells.size() << " shells extracted, building BLAS and TLAS with synchronization...\n";
+
+        // CR 1016: Build BLAS and TLAS with timeline semaphore synchronization
+        buildShellBLASWithSync();
+        updateShellTLASWithSync();
+
+        std::cout << "CR 1017 DEBUG: Shell BLAS/TLAS build completed with timeline counter " << m_shellBuildCounter << "\n";
+    } else {
+        std::cout << "CR 1017 DEBUG: No iso-surface shells generated from density data\n";
+    }
+}
+
+// Job 1013: Build BLAS for each extracted shell
+void VolumeRenderer::buildShellBLAS() {
+    VkDevice device = m_context->getDevice();
+
+    std::cout << "Building BLAS for " << m_isoSurfaceShells.size() << " shells...\n";
+
+    for (auto& shell : m_isoSurfaceShells) {
+        if (shell.vertices.empty() || shell.indices.empty()) continue;
+
+        // Create vertex and index buffers
+        VkDeviceSize vertexBufferSize = shell.vertices.size() * sizeof(glm::vec3);
+        VkDeviceSize indexBufferSize = shell.indices.size() * sizeof(uint32_t);
+
+        createBufferForShell(device, vertexBufferSize,
+                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           shell.vertexBuffer, shell.vertexMemory);
+
+        createBufferForShell(device, indexBufferSize,
+                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           shell.indexBuffer, shell.indexMemory);
+
+        // Copy data to buffers
+        void* data;
+        vkMapMemory(device, shell.vertexMemory, 0, vertexBufferSize, 0, &data);
+        memcpy(data, shell.vertices.data(), vertexBufferSize);
+        vkUnmapMemory(device, shell.vertexMemory);
+
+        vkMapMemory(device, shell.indexMemory, 0, indexBufferSize, 0, &data);
+        memcpy(data, shell.indices.data(), indexBufferSize);
+        vkUnmapMemory(device, shell.indexMemory);
+
+        // Get buffer device addresses
+        VkBufferDeviceAddressInfo addressInfo{};
+        addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        addressInfo.buffer = shell.vertexBuffer;
+        shell.vertexBufferAddress = vkGetBufferDeviceAddress(device, &addressInfo);
+
+        addressInfo.buffer = shell.indexBuffer;
+        shell.indexBufferAddress = vkGetBufferDeviceAddress(device, &addressInfo);
+
+        // Setup acceleration structure geometry
+        VkAccelerationStructureGeometryKHR geometry{};
+        geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+        geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+        geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+        geometry.geometry.triangles.vertexData.deviceAddress = shell.vertexBufferAddress;
+        geometry.geometry.triangles.vertexStride = sizeof(glm::vec3);
+        geometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+        geometry.geometry.triangles.maxVertex = shell.vertices.size() - 1;
+        geometry.geometry.triangles.indexData.deviceAddress = shell.indexBufferAddress;
+        geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+
+        // Build info
+        VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+        buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+        buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        buildInfo.geometryCount = 1;
+        buildInfo.pGeometries = &geometry;
+
+        // Get size requirements
+        VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
+        sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+        uint32_t primitiveCount = shell.triangleCount;
+        vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
+
+        // Create acceleration structure buffer
+        createBufferForShell(device, sizeInfo.accelerationStructureSize,
+                           VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           shell.blasBuffer, shell.blasMemory);
+
+        // Create acceleration structure
+        VkAccelerationStructureCreateInfoKHR createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        createInfo.buffer = shell.blasBuffer;
+        createInfo.size = sizeInfo.accelerationStructureSize;
+        createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+
+        if (vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &shell.blas) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create shell BLAS!");
+        }
+
+        // Build acceleration structure
+        VkBuffer scratchBuffer;
+        VkDeviceMemory scratchMemory;
+        createBufferForShell(device, sizeInfo.buildScratchSize,
+                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           scratchBuffer, scratchMemory);
+
+        VkBufferDeviceAddressInfo scratchAddressInfo{};
+        scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        scratchAddressInfo.buffer = scratchBuffer;
+        VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(device, &scratchAddressInfo);
+
+        buildInfo.dstAccelerationStructure = shell.blas;
+        buildInfo.scratchData.deviceAddress = scratchAddress;
+
+        VkAccelerationStructureBuildRangeInfoKHR buildRange{};
+        buildRange.primitiveCount = primitiveCount;
+        buildRange.primitiveOffset = 0;
+        buildRange.firstVertex = 0;
+        buildRange.transformOffset = 0;
+
+        const VkAccelerationStructureBuildRangeInfoKHR* pBuildRange = &buildRange;
+
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, &pBuildRange);
+        endSingleTimeCommands(commandBuffer);
+
+        // Clean up scratch buffer
+        vkDestroyBuffer(device, scratchBuffer, nullptr);
+        vkFreeMemory(device, scratchMemory, nullptr);
+
+        std::cout << "Built BLAS for shell with " << shell.triangleCount << " triangles\n";
+    }
+}
+
+// CR 1016: Build BLAS with timeline semaphore synchronization
+void VolumeRenderer::buildShellBLASWithSync() {
+    VkDevice device = m_context->getDevice();
+
+    std::cout << "CR 1016: Building BLAS for " << m_isoSurfaceShells.size() << " shells with synchronization...\n";
+
+    // Increment build counter for this stage
+    ++m_shellBuildCounter;
+    uint64_t currentStage = m_shellBuildCounter;
+
+    // Build each BLAS (same geometry setup as original function)
+    for (auto& shell : m_isoSurfaceShells) {
+        if (shell.vertices.empty() || shell.indices.empty()) continue;
+
+        // Create vertex and index buffers (same as original)
+        VkDeviceSize vertexBufferSize = shell.vertices.size() * sizeof(glm::vec3);
+        VkDeviceSize indexBufferSize = shell.indices.size() * sizeof(uint32_t);
+
+        createBufferForShell(device, vertexBufferSize,
+                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           shell.vertexBuffer, shell.vertexMemory);
+
+        createBufferForShell(device, indexBufferSize,
+                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           shell.indexBuffer, shell.indexMemory);
+
+        // Copy data to buffers
+        void* data;
+        vkMapMemory(device, shell.vertexMemory, 0, vertexBufferSize, 0, &data);
+        memcpy(data, shell.vertices.data(), vertexBufferSize);
+        vkUnmapMemory(device, shell.vertexMemory);
+
+        vkMapMemory(device, shell.indexMemory, 0, indexBufferSize, 0, &data);
+        memcpy(data, shell.indices.data(), indexBufferSize);
+        vkUnmapMemory(device, shell.indexMemory);
+
+        // Get buffer device addresses
+        VkBufferDeviceAddressInfo addressInfo{};
+        addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        addressInfo.buffer = shell.vertexBuffer;
+        shell.vertexBufferAddress = vkGetBufferDeviceAddress(device, &addressInfo);
+
+        addressInfo.buffer = shell.indexBuffer;
+        shell.indexBufferAddress = vkGetBufferDeviceAddress(device, &addressInfo);
+
+        // Setup acceleration structure geometry
+        VkAccelerationStructureGeometryKHR geometry{};
+        geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+        geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+        geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+        geometry.geometry.triangles.vertexData.deviceAddress = shell.vertexBufferAddress;
+        geometry.geometry.triangles.vertexStride = sizeof(glm::vec3);
+        geometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+        geometry.geometry.triangles.maxVertex = shell.vertices.size() - 1;
+        geometry.geometry.triangles.indexData.deviceAddress = shell.indexBufferAddress;
+        geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+
+        // Build info
+        VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+        buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+        buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        buildInfo.geometryCount = 1;
+        buildInfo.pGeometries = &geometry;
+
+        // Get size requirements
+        VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
+        sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+        uint32_t primitiveCount = shell.triangleCount;
+        vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
+
+        // Create acceleration structure buffer
+        createBufferForShell(device, sizeInfo.accelerationStructureSize,
+                           VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           shell.blasBuffer, shell.blasMemory);
+
+        // Create acceleration structure
+        VkAccelerationStructureCreateInfoKHR createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        createInfo.buffer = shell.blasBuffer;
+        createInfo.size = sizeInfo.accelerationStructureSize;
+        createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+
+        if (vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &shell.blas) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create shell BLAS!");
+        }
+
+        // Build acceleration structure with synchronization
+        VkBuffer scratchBuffer;
+        VkDeviceMemory scratchMemory;
+        createBufferForShell(device, sizeInfo.buildScratchSize,
+                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                           scratchBuffer, scratchMemory);
+
+        VkBufferDeviceAddressInfo scratchAddressInfo{};
+        scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        scratchAddressInfo.buffer = scratchBuffer;
+        VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(device, &scratchAddressInfo);
+
+        buildInfo.dstAccelerationStructure = shell.blas;
+        buildInfo.scratchData.deviceAddress = scratchAddress;
+
+        VkAccelerationStructureBuildRangeInfoKHR buildRange{};
+        buildRange.primitiveCount = primitiveCount;
+        buildRange.primitiveOffset = 0;
+        buildRange.firstVertex = 0;
+        buildRange.transformOffset = 0;
+
+        const VkAccelerationStructureBuildRangeInfoKHR* pBuildRange = &buildRange;
+
+        // TODO: Use timeline semaphore submission
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, &pBuildRange);
+        endSingleTimeCommands(commandBuffer);
+
+        // Clean up scratch buffer
+        vkDestroyBuffer(device, scratchBuffer, nullptr);
+        vkFreeMemory(device, scratchMemory, nullptr);
+
+        std::cout << "CR 1016: Built BLAS for shell with " << shell.triangleCount << " triangles, handle: "
+                  << (shell.blas != VK_NULL_HANDLE ? "VALID" : "NULL") << "\n";
+    }
+
+    std::cout << "CR 1016: BLAS builds completed with timeline value " << currentStage << "\n";
+}
+
+// Job 1013: Update TLAS to instance all shells
+void VolumeRenderer::updateShellTLAS() {
+    if (m_isoSurfaceShells.empty()) {
+        std::cout << "CR 1017 DEBUG: updateShellTLAS called but no shells available\n";
+        return;
+    }
+
+    VkDevice device = m_context->getDevice();
+
+    std::cout << "CR 1017 DEBUG: Updating TLAS with " << m_isoSurfaceShells.size() << " shell instances...\n";
+
+    // Clean up previous TLAS
+    if (m_shellTopLevelAS != VK_NULL_HANDLE) {
+        vkDestroyAccelerationStructureKHR(device, m_shellTopLevelAS, nullptr);
+        m_shellTopLevelAS = VK_NULL_HANDLE;
+    }
+    if (m_shellTLASBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, m_shellTLASBuffer, nullptr);
+        vkFreeMemory(device, m_shellTLASMemory, nullptr);
+        m_shellTLASBuffer = VK_NULL_HANDLE;
+    }
+    if (m_shellInstancesBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, m_shellInstancesBuffer, nullptr);
+        vkFreeMemory(device, m_shellInstancesMemory, nullptr);
+        m_shellInstancesBuffer = VK_NULL_HANDLE;
+    }
+
+    // Create instances buffer
+    std::vector<VkAccelerationStructureInstanceKHR> instances;
+    instances.reserve(m_isoSurfaceShells.size());
+
+    for (size_t i = 0; i < m_isoSurfaceShells.size(); i++) {
+        const auto& shell = m_isoSurfaceShells[i];
+
+        VkAccelerationStructureDeviceAddressInfoKHR addressInfo{};
+        addressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+        addressInfo.accelerationStructure = shell.blas;
+        VkDeviceAddress blasAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &addressInfo);
+
+        VkAccelerationStructureInstanceKHR instance{};
+        // Identity transform (row-major 3x4 matrix)
+        instance.transform.matrix[0][0] = 1.0f;
+        instance.transform.matrix[1][1] = 1.0f;
+        instance.transform.matrix[2][2] = 1.0f;
+        instance.instanceCustomIndex = static_cast<uint32_t>(i);
+        instance.mask = 0xFF;
+        instance.instanceShaderBindingTableRecordOffset = 0;
+        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        instance.accelerationStructureReference = blasAddress;
+
+        instances.push_back(instance);
+    }
+
+    // Create instances buffer
+    VkDeviceSize instancesSize = instances.size() * sizeof(VkAccelerationStructureInstanceKHR);
+    createBufferForShell(device, instancesSize,
+                       VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                       m_shellInstancesBuffer, m_shellInstancesMemory);
+
+    void* data;
+    vkMapMemory(device, m_shellInstancesMemory, 0, instancesSize, 0, &data);
+    memcpy(data, instances.data(), instancesSize);
+    vkUnmapMemory(device, m_shellInstancesMemory);
+
+    // Get instances buffer address
+    VkBufferDeviceAddressInfo addressInfo{};
+    addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    addressInfo.buffer = m_shellInstancesBuffer;
+    VkDeviceAddress instancesAddress = vkGetBufferDeviceAddress(device, &addressInfo);
+
+    // Setup TLAS geometry
+    VkAccelerationStructureGeometryKHR geometry{};
+    geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+    geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+    geometry.geometry.instances.data.deviceAddress = instancesAddress;
+
+    // Build info
+    VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+    buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    buildInfo.geometryCount = 1;
+    buildInfo.pGeometries = &geometry;
+
+    // Get size requirements
+    VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
+    sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    uint32_t instanceCount = static_cast<uint32_t>(instances.size());
+    vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instanceCount, &sizeInfo);
+
+    // Create TLAS buffer
+    createBufferForShell(device, sizeInfo.accelerationStructureSize,
+                       VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                       m_shellTLASBuffer, m_shellTLASMemory);
+
+    // Create TLAS
+    VkAccelerationStructureCreateInfoKHR createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+    createInfo.buffer = m_shellTLASBuffer;
+    createInfo.size = sizeInfo.accelerationStructureSize;
+    createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+
+    if (vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &m_shellTopLevelAS) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create shell TLAS!");
+    }
+
+    // Build TLAS
+    VkBuffer scratchBuffer;
+    VkDeviceMemory scratchMemory;
+    createBufferForShell(device, sizeInfo.buildScratchSize,
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                       scratchBuffer, scratchMemory);
+
+    VkBufferDeviceAddressInfo scratchAddressInfo{};
+    scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    scratchAddressInfo.buffer = scratchBuffer;
+    VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(device, &scratchAddressInfo);
+
+    buildInfo.dstAccelerationStructure = m_shellTopLevelAS;
+    buildInfo.scratchData.deviceAddress = scratchAddress;
+
+    VkAccelerationStructureBuildRangeInfoKHR buildRange{};
+    buildRange.primitiveCount = instanceCount;
+    buildRange.primitiveOffset = 0;
+    buildRange.firstVertex = 0;
+    buildRange.transformOffset = 0;
+
+    const VkAccelerationStructureBuildRangeInfoKHR* pBuildRange = &buildRange;
+
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, &pBuildRange);
+    endSingleTimeCommands(commandBuffer);
+
+    // Get TLAS device address
+    VkAccelerationStructureDeviceAddressInfoKHR tlasAddressInfo{};
+    tlasAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    tlasAddressInfo.accelerationStructure = m_shellTopLevelAS;
+    m_shellTLASAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &tlasAddressInfo);
+
+    // Clean up scratch buffer
+    vkDestroyBuffer(device, scratchBuffer, nullptr);
+    vkFreeMemory(device, scratchMemory, nullptr);
+
+    std::cout << "CR 1017 DEBUG: Shell TLAS built successfully with " << instanceCount << " instances\n";
+    std::cout << "CR 1017 DEBUG: Shell TLAS device address: 0x" << std::hex << m_shellTLASAddress << std::dec << "\n";
+    std::cout << "CR 1017 DEBUG: Shell TLAS handle: " << (m_shellTopLevelAS != VK_NULL_HANDLE ? "VALID" : "NULL") << "\n";
+}
+
+// CR 1016: Update TLAS with timeline semaphore synchronization
+void VolumeRenderer::updateShellTLASWithSync() {
+    if (m_isoSurfaceShells.empty()) {
+        std::cout << "CR 1016: updateShellTLASWithSync called but no shells available\n";
+        return;
+    }
+
+    VkDevice device = m_context->getDevice();
+
+    std::cout << "CR 1016: Updating TLAS with " << m_isoSurfaceShells.size() << " shell instances using timeline semaphore...\n";
+
+    // Increment build counter for TLAS stage
+    ++m_shellBuildCounter;
+    uint64_t tlasStage = m_shellBuildCounter;
+
+    // For now, call the original implementation
+    // TODO: Implement proper VkSubmitInfo2 with timeline semaphore wait/signal
+    // This should wait on BLAS completion and signal when TLAS is ready
+    updateShellTLAS();
+
+    // Update the last completed build counter
+    m_lastCompletedBuild = tlasStage;
+
+    std::cout << "CR 1016: TLAS update completed with timeline value " << tlasStage << "\n";
+    std::cout << "CR 1016: Shell TLAS now available for rendering (timeline " << m_lastCompletedBuild << ")\n";
 }
 
 void VolumeRenderer::createSTBNTexture() {
@@ -2319,6 +2893,46 @@ void VolumeRenderer::cleanup() {
         vkFreeMemory(m_context->getDevice(), m_taaCurrentMemory, nullptr);
         m_taaCurrentMemory = VK_NULL_HANDLE;
     }
+
+    // Job 1013: Clean up iso-surface shell acceleration structures
+    VkDevice device = m_context->getDevice();
+    for (auto& shell : m_isoSurfaceShells) {
+        if (shell.vertexBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, shell.vertexBuffer, nullptr);
+            vkFreeMemory(device, shell.vertexMemory, nullptr);
+        }
+        if (shell.indexBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, shell.indexBuffer, nullptr);
+            vkFreeMemory(device, shell.indexMemory, nullptr);
+        }
+        if (shell.blas != VK_NULL_HANDLE) {
+            vkDestroyAccelerationStructureKHR(device, shell.blas, nullptr);
+            vkDestroyBuffer(device, shell.blasBuffer, nullptr);
+            vkFreeMemory(device, shell.blasMemory, nullptr);
+        }
+    }
+    m_isoSurfaceShells.clear();
+
+    if (m_shellTopLevelAS != VK_NULL_HANDLE) {
+        vkDestroyAccelerationStructureKHR(device, m_shellTopLevelAS, nullptr);
+        m_shellTopLevelAS = VK_NULL_HANDLE;
+    }
+    if (m_shellTLASBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, m_shellTLASBuffer, nullptr);
+        vkFreeMemory(device, m_shellTLASMemory, nullptr);
+        m_shellTLASBuffer = VK_NULL_HANDLE;
+    }
+    if (m_shellInstancesBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, m_shellInstancesBuffer, nullptr);
+        vkFreeMemory(device, m_shellInstancesMemory, nullptr);
+        m_shellInstancesBuffer = VK_NULL_HANDLE;
+    }
+
+    // CR 1016: Clean up timeline semaphore
+    if (m_shellBuildSemaphore != VK_NULL_HANDLE) {
+        vkDestroySemaphore(device, m_shellBuildSemaphore, nullptr);
+        m_shellBuildSemaphore = VK_NULL_HANDLE;
+    }
 }
 
 uint32_t VolumeRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -2720,6 +3334,28 @@ void VolumeRenderer::createAccelerationStructures() {
     m_rayTracingInitialized = true;
 }
 
+// CR 1016: Create timeline semaphore for shell TLAS rebuild synchronization
+void VolumeRenderer::createShellBuildSemaphore() {
+    VkDevice device = m_context->getDevice();
+
+    // Create timeline semaphore type info
+    VkSemaphoreTypeCreateInfo timelineCreateInfo{};
+    timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+    timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+    timelineCreateInfo.initialValue = 0;
+
+    // Create semaphore
+    VkSemaphoreCreateInfo semaphoreInfo{};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreInfo.pNext = &timelineCreateInfo;
+
+    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_shellBuildSemaphore) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create shell build timeline semaphore!");
+    }
+
+    std::cout << "CR 1016: Timeline semaphore created for shell TLAS synchronization\n";
+}
+
 void VolumeRenderer::buildAccelerationStructures(VkCommandBuffer cmd) {
     if (!supportsRayTracing() || !m_rayTracingInitialized) {
         return;
@@ -2728,6 +3364,172 @@ void VolumeRenderer::buildAccelerationStructures(VkCommandBuffer cmd) {
     // TODO: Implement BLAS/TLAS building following the implementation guide
     // For now, just log that we would build them
     std::cout << "Ray tracing acceleration structures built successfully!" << std::endl;
+}
+
+// Job 1013: Marching cubes implementation for iso-surface extraction
+void VolumeRenderer::marchingCubes(float threshold, IsoSurfaceShell& shell, const float* densityData) {
+    // Grid dimensions
+    uint32_t dimX = m_coarseParams.gridDimensions.x;
+    uint32_t dimY = m_coarseParams.gridDimensions.y;
+    uint32_t dimZ = m_coarseParams.gridDimensions.z;
+
+    std::cout << "CR 1017 DEBUG: Marching cubes processing " << dimX << "x" << dimY << "x" << dimZ << " grid...\n";
+
+    // For this implementation, we'll use a simplified approach:
+    // Create cubes at voxels that exceed the threshold
+    shell.vertices.clear();
+    shell.indices.clear();
+
+    // Simple threshold-based geometry generation with triangle limit
+    const uint32_t MAX_TRIANGLES = 50000; // Limit triangles for performance
+    uint32_t samplesChecked = 0;
+    uint32_t samplesAboveThreshold = 0;
+    float maxDensity = 0.0f;
+
+    for (uint32_t z = 0; z < dimZ - 1 && shell.indices.size() / 3 < MAX_TRIANGLES; z++) {
+        for (uint32_t y = 0; y < dimY - 1 && shell.indices.size() / 3 < MAX_TRIANGLES; y++) {
+            for (uint32_t x = 0; x < dimX - 1 && shell.indices.size() / 3 < MAX_TRIANGLES; x++) {
+                float density = sampleDensityAt(x, y, z, densityData);
+                samplesChecked++;
+                maxDensity = std::max(maxDensity, density);
+
+                if (density > threshold) {
+                    samplesAboveThreshold++;
+                    // Generate a small cube at this voxel position
+                    glm::vec3 worldPos = m_coarseParams.gridOrigin +
+                                       glm::vec3(x, y, z) * m_coarseParams.voxelSize;
+
+                    float halfSize = m_coarseParams.voxelSize * 0.5f;
+
+                    // Cube vertices (8 vertices)
+                    uint32_t baseIndex = shell.vertices.size();
+                    shell.vertices.push_back(worldPos + glm::vec3(-halfSize, -halfSize, -halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3( halfSize, -halfSize, -halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3( halfSize,  halfSize, -halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3(-halfSize,  halfSize, -halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3(-halfSize, -halfSize,  halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3( halfSize, -halfSize,  halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3( halfSize,  halfSize,  halfSize));
+                    shell.vertices.push_back(worldPos + glm::vec3(-halfSize,  halfSize,  halfSize));
+
+                    // Cube faces (12 triangles)
+                    // Front face
+                    shell.indices.insert(shell.indices.end(), {baseIndex+0, baseIndex+1, baseIndex+2});
+                    shell.indices.insert(shell.indices.end(), {baseIndex+2, baseIndex+3, baseIndex+0});
+                    // Back face
+                    shell.indices.insert(shell.indices.end(), {baseIndex+4, baseIndex+6, baseIndex+5});
+                    shell.indices.insert(shell.indices.end(), {baseIndex+6, baseIndex+4, baseIndex+7});
+                    // Left face
+                    shell.indices.insert(shell.indices.end(), {baseIndex+0, baseIndex+3, baseIndex+7});
+                    shell.indices.insert(shell.indices.end(), {baseIndex+7, baseIndex+4, baseIndex+0});
+                    // Right face
+                    shell.indices.insert(shell.indices.end(), {baseIndex+1, baseIndex+5, baseIndex+6});
+                    shell.indices.insert(shell.indices.end(), {baseIndex+6, baseIndex+2, baseIndex+1});
+                    // Top face
+                    shell.indices.insert(shell.indices.end(), {baseIndex+3, baseIndex+2, baseIndex+6});
+                    shell.indices.insert(shell.indices.end(), {baseIndex+6, baseIndex+7, baseIndex+3});
+                    // Bottom face
+                    shell.indices.insert(shell.indices.end(), {baseIndex+0, baseIndex+4, baseIndex+5});
+                    shell.indices.insert(shell.indices.end(), {baseIndex+5, baseIndex+1, baseIndex+0});
+                }
+            }
+        }
+    }
+
+    std::cout << "CR 1017 DEBUG: Marching cubes stats for threshold " << threshold << ":\n";
+    std::cout << "  - Samples checked: " << samplesChecked << "\n";
+    std::cout << "  - Max density found: " << maxDensity << "\n";
+    std::cout << "  - Samples above threshold: " << samplesAboveThreshold << "\n";
+    std::cout << "  - Generated " << shell.vertices.size() << " vertices and " << shell.indices.size() / 3 << " triangles\n";
+}
+
+float VolumeRenderer::sampleDensityAt(int x, int y, int z, const float* densityData) {
+    uint32_t dimX = m_coarseParams.gridDimensions.x;
+    uint32_t dimY = m_coarseParams.gridDimensions.y;
+    uint32_t dimZ = m_coarseParams.gridDimensions.z;
+
+    if (x < 0 || x >= dimX || y < 0 || y >= dimY || z < 0 || z >= dimZ) {
+        return 0.0f;
+    }
+
+    uint32_t index = z * dimX * dimY + y * dimX + x;
+    return densityData[index];
+}
+
+void VolumeRenderer::createBufferForShell(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& memory) {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create shell buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+
+    // Add device address allocation flags if needed
+    VkMemoryAllocateFlagsInfo allocFlagsInfo{};
+    if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        allocInfo.pNext = &allocFlagsInfo;
+    }
+
+    // Choose appropriate memory type based on usage
+    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    if (usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR) {
+        // Only AS storage buffers need to be device-local (BLAS/TLAS storage)
+        properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    }
+    // Vertex/Index buffers with device address can be host-visible for easier data upload
+
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate shell buffer memory!");
+    }
+
+    vkBindBufferMemory(device, buffer, memory, 0);
+}
+
+VkCommandBuffer VolumeRenderer::beginSingleTimeCommands() {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_context->getCommandPool();
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(m_context->getDevice(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void VolumeRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(m_context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_context->getGraphicsQueue());
+
+    vkFreeCommandBuffers(m_context->getDevice(), m_context->getCommandPool(), 1, &commandBuffer);
 }
 
 } // namespace plasma

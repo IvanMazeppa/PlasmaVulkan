@@ -1,0 +1,39 @@
+{
+    "id": "1018_rayquery_mask_overlay",
+    "title": "Add ray query instance mask and self-shadow hit overlay for debugging",
+    "purpose": "Disambiguate which TLAS is contributing to hits and visualize self-shadow queries in the mesh pass.",
+    "steps": [
+        {
+            "action": "instance_masks",
+            "detail": "Assign unique instance masks: external TLAS = 0x01, shell TLAS instances = 0x02. In ray queries, set cullMask accordingly to isolate tests (e.g., self-shadow queries use 0x02)."
+        },
+        {
+            "action": "overlay",
+            "detail": "In particle_mesh.frag, add debug mode 'rtSelfShadowOverlay' that colors fragments by hit distance bucket (e.g., green close, yellow mid, red far, purple no-hit)."
+        },
+        {
+            "action": "hud_toggle",
+            "detail": "Expose runtime toggles: rtSelfShadowOverlay, rtCullMaskSelfOnly, rtCullMaskExternalOnly. Log state changes."
+        },
+        {
+            "action": "perf_guard",
+            "detail": "Disable overlay in release; ensure one ray query per fragment with early alpha discard path."
+        }
+    ],
+    "acceptance": [
+        "Overlay displays hit/no-hit patterns when enabled",
+        "Self-only mask isolates shells; external-only mask isolates occluders",
+        "No frame-time spikes >10% when overlay disabled"
+    ],
+    "touchpoints": [
+        "shaders/particle_mesh.frag",
+        "src/core/Application.cpp",
+        "src/systems/MeshParticleRenderer.cpp",
+        "src/systems/VolumeRenderer.cpp"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('Ray query cullMask and SBT record mask semantics')",
+        "get_vulkan_entity('VkAccelerationStructureInstanceKHR')"
+    ],
+    "notes": "Ensure TLAS instance masks are set during TLAS build for shells. Bind-time cannot change instance masks; rebuild if needed."
+}

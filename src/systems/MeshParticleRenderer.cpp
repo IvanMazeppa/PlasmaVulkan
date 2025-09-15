@@ -1,4 +1,5 @@
 #include "MeshParticleRenderer.h"
+#include "VolumeRenderer.h"  // Job 1014: For shell TLAS access
 #include "../renderer/VulkanContext.h"
 #include <iostream>
 #include <fstream>
@@ -48,7 +49,12 @@ MeshParticleRenderer::MeshParticleRenderer(VulkanContext* context)
         loadShaders();
         createPipeline();
         createDescriptorPool();
-        allocateDescriptorSet();
+
+        // Job 1014: Only allocate descriptor sets if not using push descriptors
+        bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
+        if (!rtEnabled) {
+            allocateDescriptorSet();
+        }
 
         // Job 1002: Initialize acceleration structures for RT occluders
         if (m_context->supportsAccelerationStructure() && m_context->supportsRayQuery()) {
@@ -82,10 +88,12 @@ void MeshParticleRenderer::createDescriptorSetLayout() {
     particleBufferBinding.pImmutableSamplers = nullptr;
 
     // Job 1003: Binding 3 for RT acceleration structure (when RT enabled)
+    // Job 1014: Binding 4 for shell TLAS self-shadowing
     bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery();
     std::vector<VkDescriptorSetLayoutBinding> bindings = { particleBufferBinding };
 
     if (rtEnabled) {
+        // External occluders TLAS
         VkDescriptorSetLayoutBinding tlasBinding{};
         tlasBinding.binding = 3;
         tlasBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
@@ -93,11 +101,20 @@ void MeshParticleRenderer::createDescriptorSetLayout() {
         tlasBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
         tlasBinding.pImmutableSamplers = nullptr;
         bindings.push_back(tlasBinding);
+
+        // Job 1014: Shell TLAS for self-shadowing
+        VkDescriptorSetLayoutBinding shellTlasBinding{};
+        shellTlasBinding.binding = 4;
+        shellTlasBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        shellTlasBinding.descriptorCount = 1;
+        shellTlasBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        shellTlasBinding.pImmutableSamplers = nullptr;
+        bindings.push_back(shellTlasBinding);
     }
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.flags = 0; // Use regular descriptor sets - will push only TLAS via vkCmdPushDescriptorSetKHR
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR; // Job 1014: Enable push descriptors
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
     
@@ -158,10 +175,11 @@ void MeshParticleRenderer::createDescriptorPool() {
     poolSizes.push_back(storageBufferSize);
 
     // Acceleration structure (if RT enabled)
+    // Job 1014: Need 2 AS descriptors (external TLAS + shell TLAS)
     if (rtEnabled) {
         VkDescriptorPoolSize asSize{};
         asSize.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        asSize.descriptorCount = 1;
+        asSize.descriptorCount = 2;  // External TLAS + Shell TLAS
         poolSizes.push_back(asSize);
     }
 
@@ -376,7 +394,8 @@ void MeshParticleRenderer::createPipeline() {
 }
 
 void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj, const glm::vec3& cameraPos,
-                                  VkBuffer particleBuffer, uint32_t particleCount, float particleSize, float time) {
+                                  VkBuffer particleBuffer, uint32_t particleCount, float particleSize, float time,
+                                  VolumeRenderer* volumeRenderer) {
     if (!m_isSupported) {
         return; // Fallback to traditional rendering
     }
@@ -398,46 +417,75 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
     scissor.extent = extent;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     
+    // Job 1003: Check RT capabilities
+    // Job 1014: Push shell TLAS for self-shadowing
+    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery() && m_rtShadowsEnabled;
+
     // Bind mesh shader pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    
-    // TODO: For now, assume particle buffer doesn't change. In production,
-    // we'd want to update descriptor sets outside render loop or use multiple sets.
-    // Static particle buffer binding (updated once during initialization)
+
+    // Job 1014: Handle particle buffer binding based on descriptor type
     static VkBuffer lastParticleBuffer = VK_NULL_HANDLE;
     if (lastParticleBuffer != particleBuffer) {
-        VkDescriptorBufferInfo bufferInfo{};
+        if (!rtEnabled) {
+            // Traditional descriptor set update
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = particleBuffer;
+            bufferInfo.offset = 0;
+            bufferInfo.range = VK_WHOLE_SIZE;
+
+            VkWriteDescriptorSet descriptorWrite{};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrite.dstSet = m_descriptorSet;
+            descriptorWrite.dstBinding = 0;
+            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            descriptorWrite.descriptorCount = 1;
+            descriptorWrite.pBufferInfo = &bufferInfo;
+
+            vkUpdateDescriptorSets(m_context->getDevice(), 1, &descriptorWrite, 0, nullptr);
+        }
+        lastParticleBuffer = particleBuffer;
+    }
+
+    // Job 1014: Bind descriptor set only if not using push descriptors
+    if (!rtEnabled) {
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+    }
+
+    std::vector<VkWriteDescriptorSet> pushDescriptorWrites;
+    std::vector<VkWriteDescriptorSetAccelerationStructureKHR> asWrites;
+
+    // Job 1014: Push particle buffer descriptor when RT enabled
+    VkDescriptorBufferInfo bufferInfo{};
+    if (rtEnabled) {
         bufferInfo.buffer = particleBuffer;
         bufferInfo.offset = 0;
         bufferInfo.range = VK_WHOLE_SIZE;
-        
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = m_descriptorSet;
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
-        
-        vkUpdateDescriptorSets(m_context->getDevice(), 1, &descriptorWrite, 0, nullptr);
-        lastParticleBuffer = particleBuffer;
-    }
-    
-    // Bind descriptor set
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-    // Job 1003: Push TLAS descriptor if RT is available
-    bool rtEnabled = m_context->supportsAccelerationStructure() && m_context->supportsRayQuery() && m_rtShadowsEnabled;
+        pushDescriptorWrites.emplace_back();
+        auto& bufferDescriptorWrite = pushDescriptorWrites.back();
+        bufferDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        bufferDescriptorWrite.pNext = nullptr;
+        bufferDescriptorWrite.dstSet = VK_NULL_HANDLE; // Push descriptor
+        bufferDescriptorWrite.dstBinding = 0;
+        bufferDescriptorWrite.dstArrayElement = 0;
+        bufferDescriptorWrite.descriptorCount = 1;
+        bufferDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bufferDescriptorWrite.pBufferInfo = &bufferInfo;
+    }
+
     if (rtEnabled && m_topLevelAS != VK_NULL_HANDLE) {
-        // Push TLAS descriptor to binding 3
-        VkWriteDescriptorSetAccelerationStructureKHR asWrite{};
+        // External occluders TLAS (binding 3)
+        asWrites.emplace_back();
+        auto& asWrite = asWrites.back();
         asWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
         asWrite.pNext = nullptr;
         asWrite.accelerationStructureCount = 1;
         asWrite.pAccelerationStructures = &m_topLevelAS;
 
-        VkWriteDescriptorSet descriptorWrite{};
+        pushDescriptorWrites.emplace_back();
+        auto& descriptorWrite = pushDescriptorWrites.back();
         descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrite.pNext = &asWrite;
         descriptorWrite.dstSet = VK_NULL_HANDLE; // Push descriptor
@@ -445,13 +493,73 @@ void MeshParticleRenderer::render(VkCommandBuffer cmd, const glm::mat4& viewProj
         descriptorWrite.dstArrayElement = 0;
         descriptorWrite.descriptorCount = 1;
         descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    }
 
-        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &descriptorWrite);
+    // Job 1014: Shell TLAS for self-shadowing (binding 4)
+    VkAccelerationStructureKHR shellTLAS = VK_NULL_HANDLE;
+    if (rtEnabled && volumeRenderer) {
+        // CR 1016: Check if we need to wait for shell TLAS completion
+        VkSemaphore buildSemaphore = volumeRenderer->getShellBuildSemaphore();
+        uint64_t lastCompleted = volumeRenderer->getLastCompletedBuild();
+
+        static uint64_t lastWaitedValue = 0;
+        if (lastCompleted > lastWaitedValue && buildSemaphore != VK_NULL_HANDLE) {
+            std::cout << "CR 1016: Waiting for shell TLAS completion (timeline " << lastCompleted << ")...\n";
+
+            // Use Vulkan 1.3 timeline semaphore wait on host
+            VkSemaphoreWaitInfo waitInfo{};
+            waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+            waitInfo.semaphoreCount = 1;
+            waitInfo.pSemaphores = &buildSemaphore;
+            waitInfo.pValues = &lastCompleted;
+
+            VkResult result = vkWaitSemaphores(m_context->getDevice(), &waitInfo, UINT64_MAX);
+            if (result == VK_SUCCESS) {
+                lastWaitedValue = lastCompleted;
+                std::cout << "CR 1016: Shell TLAS ready for rendering (waited for timeline " << lastCompleted << ")\n";
+            }
+        }
+
+        shellTLAS = volumeRenderer->getShellTLAS();
+        // CR 1017: Debug shell TLAS availability
+        static uint32_t debugCounter = 0;
+        if ((debugCounter++ % 60) == 0) {
+            std::cout << "Shell TLAS: " << (shellTLAS != VK_NULL_HANDLE ? "AVAILABLE" : "NULL")
+                     << " (last timeline: " << lastCompleted << ")" << std::endl;
+        }
+        if (shellTLAS != VK_NULL_HANDLE) {
+            asWrites.emplace_back();
+            auto& shellAsWrite = asWrites.back();
+            shellAsWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            shellAsWrite.pNext = nullptr;
+            shellAsWrite.accelerationStructureCount = 1;
+            shellAsWrite.pAccelerationStructures = &shellTLAS;
+
+            pushDescriptorWrites.emplace_back();
+            auto& shellDescriptorWrite = pushDescriptorWrites.back();
+            shellDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            shellDescriptorWrite.pNext = &shellAsWrite;
+            shellDescriptorWrite.dstSet = VK_NULL_HANDLE; // Push descriptor
+            shellDescriptorWrite.dstBinding = 4;
+            shellDescriptorWrite.dstArrayElement = 0;
+            shellDescriptorWrite.descriptorCount = 1;
+            shellDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        }
+    }
+
+    // Push all descriptors at once (particle buffer + AS)
+    if (!pushDescriptorWrites.empty()) {
+        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0,
+                                  static_cast<uint32_t>(pushDescriptorWrites.size()), pushDescriptorWrites.data());
 
         // Throttled per-frame log
         static uint32_t frameCounter = 0;
-        if ((frameCounter++ % 60) == 0) {
-            std::cout << "Pushed TLAS at binding 3 (AS_KHR)" << std::endl;
+        if ((frameCounter++ % 180) == 0) {
+            std::cout << "Pushed " << pushDescriptorWrites.size() << " descriptors: ";
+            if (rtEnabled) std::cout << "particle_buffer ";
+            if (m_topLevelAS != VK_NULL_HANDLE) std::cout << "external_TLAS ";
+            if (shellTLAS != VK_NULL_HANDLE) std::cout << "shell_TLAS ";
+            std::cout << std::endl;
         }
     }
 
@@ -960,7 +1068,10 @@ void MeshParticleRenderer::createBufferForAS(VkDevice device, VkDeviceSize size,
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
-    bufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    // CR 1015: Add STORAGE_BUFFER_BIT for scratch buffers (required for vkCmdBuildAccelerationStructuresKHR)
+    bufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {

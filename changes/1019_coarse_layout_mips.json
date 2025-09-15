@@ -1,0 +1,41 @@
+{
+    "id": "1019_coarse_layout_mips",
+    "title": "Fix coarse grid layout transitions and mip generation hazards",
+    "purpose": "Resolve VUID 01197 and draw-time layout mismatches on coarse density image mips.",
+    "steps": [
+        {
+            "action": "single_time_init",
+            "detail": "On creation, clear all mips and transition to SHADER_READ_ONLY_OPTIMAL using a one-time command buffer. Record current layout per mip = SHADER_READ_ONLY_OPTIMAL."
+        },
+        {
+            "action": "frame_update",
+            "detail": "Per frame: Transition base mip 0 to GENERAL for compute splat; after compute, transition mip 0 to TRANSFER_SRC_OPTIMAL; generate mips via vkCmdBlitImage; transition all mips back to SHADER_READ_ONLY_OPTIMAL. Do not attempt transitions inside dynamic rendering."
+        },
+        {
+            "action": "tracking",
+            "detail": "Track current layout per mip in CPU-side state; use that state as oldLayout in barriers. Avoid assuming a previous layout of GENERAL for higher mips."
+        },
+        {
+            "action": "usage_flags",
+            "detail": "Ensure image usage includes TRANSFER_SRC_BIT and TRANSFER_DST_BIT for blits, and SAMPLED_BIT for reads."
+        },
+        {
+            "action": "logs",
+            "detail": "Log a compact state line per frame: 'Coarse mips: 0=SR O, 1=SRO, 2=SRO, ... → after update: 0=SRO, 1=SRO, ...'"
+        }
+    ],
+    "acceptance": [
+        "No VUID-VkImageMemoryBarrier2-oldLayout-01197",
+        "No vkCmdDraw None-09600 layout mismatches",
+        "Coarse grid sampled correctly by shells/diagnostics"
+    ],
+    "touchpoints": [
+        "src/systems/VolumeRenderer.cpp",
+        "src/systems/VolumeRenderer.h"
+    ],
+    "mcp_queries": [
+        "search_vulkan_spec('Synchronization2 image layout transitions with mip levels')",
+        "get_vulkan_entity('vkCmdBlitImage')"
+    ],
+    "notes": "If compute generates mips instead of blit, adjust accesses/stages to COMPUTE/SHADER_READ accordingly and still track per-mip layouts."
+}
