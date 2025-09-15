@@ -286,7 +286,7 @@ void Application::initVulkan() {
         // Continue without volumetric rendering for now
     }
 
-    // Create RT volume renderer
+    // Create RT volume renderer (TESTING - with GPU sync fix)
     try {
         m_rtVolumeRenderer = std::make_unique<RTVolumeRenderer>(m_vulkanContext.get());
         std::cout << "RT volume renderer created successfully!" << std::endl;
@@ -618,7 +618,7 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         glm::mat4 viewProj = proj * view;
         
         if (m_rtVolumeMode && m_rtVolumeRenderer) {
-            // RTV-2001: RT-centric volumetric rendering path
+            // RTV-2002: RT-centric volumetric rendering path with density grid
             static uint32_t rtvFrameCount = 0;
             if (rtvFrameCount % 120 == 0) { // Throttled logging
                 std::cout << "[RTV] RT Volume rendering active - frame " << rtvFrameCount << std::endl;
@@ -627,6 +627,14 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
             // End dynamic rendering for HDR target rendering
             vkCmdEndRendering(commandBuffer);
+
+            // RTV-2002: Update density grid from particle data
+            VkBuffer particleBuffer = m_particleSystem->getParticleBuffer();
+            uint32_t activeParticles = m_particleSystem->getActiveParticleCount();
+            if (particleBuffer != VK_NULL_HANDLE) {
+                m_rtVolumeRenderer->updateDensityGrid(commandBuffer, particleBuffer, activeParticles);
+                m_rtVolumeRenderer->generateMipChain(commandBuffer);
+            }
 
             // Render to HDR target (currently just clears to black)
             m_rtVolumeRenderer->renderToHDR(commandBuffer, viewProj, cameraPos);

@@ -58,6 +58,9 @@ Ray tracing acceleration structures initialized successfully
 Volume renderer created successfully!
 Volume renderer created successfully!
 [RTV] RTVolumeRenderer initializing...
+[RTV] Density grid: 224x224x224 (8 mip levels)
+[RTV] 3D density grid created: 224x224x224 (R16_SFLOAT, 8 mip levels)
+[RTV] Density splat compute pipeline created successfully
 [RTV] HDR target created: 1920x1080 (R16G16B16A16_SFLOAT)
 [RTV] Composite pass placeholder created
 [RTV] RTVolumeRenderer initialized successfully!
@@ -73,8 +76,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-10069 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0] SPIR-V (VK_SHADER_STAGE_MESH_BIT_EXT) has a push constant buffer Block with range [0, 128] which outside the VkPushConstantRange of [0, 96].
 The Vulkan spec states: If a push constant block is declared in a shader, the block must be contained inside the push constant range in layout that matches the stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-10069)
 Objects: 2
-    [0] VkShaderModule 0x530000000053
-    [1] VkPipelineLayout 0x520000000052
+    [0] VkShaderModule 0x5b000000005b
+    [1] VkPipelineLayout 0x5a000000005a
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0] SPIR-V (VK_SHADER_STAGE_MESH_BIT_EXT) has a push constant buffer Block with range [0, 128] which outside the VkPushConstantRange of [0, 96].
 The Vulkan spec states: If a push constant block is declared in a shader, the block must be contained inside the push constant range in layout that matches the stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-10069)
@@ -82,8 +85,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-10069 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) has a push constant buffer Block with range [0, 128] which outside the VkPushConstantRange of [0, 96].
 The Vulkan spec states: If a push constant block is declared in a shader, the block must be contained inside the push constant range in layout that matches the stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-10069)
 Objects: 2
-    [0] VkShaderModule 0x550000000055
-    [1] VkPipelineLayout 0x520000000052
+    [0] VkShaderModule 0x5d000000005d
+    [1] VkPipelineLayout 0x5a000000005a
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) has a push constant buffer Block with range [0, 128] which outside the VkPushConstantRange of [0, 96].
 The Vulkan spec states: If a push constant block is declared in a shader, the block must be contained inside the push constant range in layout that matches the stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-10069)
@@ -91,8 +94,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 4] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
 Objects: 2
-    [0] VkShaderModule 0x550000000055
-    [1] VkPipelineLayout 0x520000000052
+    [0] VkShaderModule 0x5d000000005d
+    [1] VkPipelineLayout 0x5a000000005a
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 4] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
@@ -100,8 +103,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
 Objects: 2
-    [0] VkShaderModule 0x550000000055
-    [1] VkPipelineLayout 0x520000000052
+    [0] VkShaderModule 0x5d000000005d
+    [1] VkPipelineLayout 0x5a000000005a
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
@@ -109,8 +112,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-10069 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) has a push constant buffer Block with range [0, 128] which outside the VkPushConstantRange of [0, 108].
 The Vulkan spec states: If a push constant block is declared in a shader, the block must be contained inside the push constant range in layout that matches the stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-10069)
 Objects: 2
-    [0] VkShaderModule 0x550000000055
-    [1] VkPipelineLayout 0x570000000057
+    [0] VkShaderModule 0x5d000000005d
+    [1] VkPipelineLayout 0x5f000000005f
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) has a push constant buffer Block with range [0, 128] which outside the VkPushConstantRange of [0, 108].
 The Vulkan spec states: If a push constant block is declared in a shader, the block must be contained inside the push constant range in layout that matches the stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-10069)
@@ -118,8 +121,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 4] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
 Objects: 2
-    [0] VkShaderModule 0x550000000055
-    [1] VkPipelineLayout 0x570000000057
+    [0] VkShaderModule 0x5d000000005d
+    [1] VkPipelineLayout 0x5f000000005f
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 4] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
@@ -127,8 +130,8 @@ Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID
 vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
 Objects: 2
-    [0] VkShaderModule 0x550000000055
-    [1] VkPipelineLayout 0x570000000057
+    [0] VkShaderModule 0x5d000000005d
+    [1] VkPipelineLayout 0x5f000000005f
 
 Validation layer: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] SPIR-V (VK_SHADER_STAGE_FRAGMENT_BIT) uses descriptor [Set 0, Binding 3] (type VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR) but was not declared in the pipeline layout.
 The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
@@ -141,264 +144,277 @@ Active particles: 1000000 / 2000000
 Application created, starting main loop...
 First render frame starting...
 [PARTICLE DEBUG] Dual galaxy mode: DISABLED, Gravity: 0.6, Active: 1000000
-[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
-[BLOOM] Active - Threshold: 0.8, Intensity: 1.5, Strength: 0.6
-Bloom mode: DISABLED
 [RTV] RT Volume rendering ENABLED - Next-gen volumetric pipeline!
 [RTV] RT Volume rendering active - frame 0
-[RTV] Composite pass (HDR->swapchain) - frame 0
-[RTV] RT Volume rendering active - frame 120
-[RTV] Composite pass (HDR->swapchain) - frame 120
-[RTV] RT Volume rendering active - frame 240
-[RTV] Composite pass (HDR->swapchain) - frame 240
-[RTV] RT Volume rendering active - frame 360
-[RTV] Composite pass (HDR->swapchain) - frame 360
-[RTV] RT Volume rendering active - frame 480
-[RTV] Composite pass (HDR->swapchain) - frame 480
-[RTV] RT Volume rendering active - frame 600
-[RTV] Composite pass (HDR->swapchain) - frame 600
-[RTV] RT Volume rendering active - frame 720
-[RTV] Composite pass (HDR->swapchain) - frame 720
-[RTV] RT Volume rendering active - frame 840
-[RTV] Composite pass (HDR->swapchain) - frame 840
-[RTV] RT Volume rendering active - frame 960
-[RTV] Composite pass (HDR->swapchain) - frame 960
-[RTV] RT Volume rendering active - frame 1080
-[RTV] Composite pass (HDR->swapchain) - frame 1080
-[RTV] RT Volume rendering active - frame 1200
-[RTV] Composite pass (HDR->swapchain) - frame 1200
-[RTV] RT Volume rendering active - frame 1320
-[RTV] Composite pass (HDR->swapchain) - frame 1320
+Validation Error: [ VUID-vkCmdDispatch-None-08600 ] | MessageID = 0x3450abd3
+vkCmdDispatch(): The VkPipeline 0x540000000054 (created with VkPipelineLayout 0x530000000053) statically uses descriptor set 0, but set 0 is not compatible with the pipeline layout bound with vkCmdBindDescriptorSets (VkPipelineLayout 0x180000000018)
+Pipeline layout pipeline bound with last call to vkCmdBindDescriptorSets has following push constant ranges:
+VkPushConstantRange[0]: range [0, 108) for VK_SHADER_STAGE_COMPUTE_BIT
+But pipeline layout of last bound pipeline or last bound shaders has following push constant ranges:
+VkPushConstantRange[0]: range [0, 48) for VK_SHADER_STAGE_COMPUTE_BIT
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+Objects: 2
+    [0] VkPipeline 0x540000000054
+    [1] VkPipelineLayout 0x180000000018
 
-=== PlasmaVulkan Status Update ===
-Performance: 172 FPS
-Physics Parameters:
-  Gravity: 0.6
-  Turbulence: 0
-  Damping: 0.999
-  Particles: 1000000 / 2000000
-Simulation Modes:
-  SPH Fluid: DISABLED
-  Volumetric: DISABLED
-Advanced Physics:
-  Time Scale: 1
-  Repulsive Gravity: DISABLED
-  Energy Injection: 0
-  Angular Momentum Boost: 1
-  Gravity Center: (0, 0, 0)
-Shape Constraints:
-  Shape: NONE (Open space)
-  Wireframe: DISABLED
-Camera: Distance=20 Theta=0 Phi=0
-=================================
-[RTV] RT Volume rendering active - frame 1440
-[RTV] Composite pass (HDR->swapchain) - frame 1440
-[RTV] RT Volume rendering active - frame 1560
-[RTV] Composite pass (HDR->swapchain) - frame 1560
-[RTV] RT Volume rendering active - frame 1680
-[RTV] Composite pass (HDR->swapchain) - frame 1680
-[RTV] RT Volume rendering active - frame 1800
-[RTV] Composite pass (HDR->swapchain) - frame 1800
-[RTV] RT Volume rendering active - frame 1920
-[RTV] Composite pass (HDR->swapchain) - frame 1920
-[RTV] RT Volume rendering active - frame 2040
-[RTV] Composite pass (HDR->swapchain) - frame 2040
-[RTV] RT Volume rendering active - frame 2160
-[RTV] Composite pass (HDR->swapchain) - frame 2160
-[RTV] RT Volume rendering active - frame 2280
-[RTV] Composite pass (HDR->swapchain) - frame 2280
-[RTV] RT Volume rendering active - frame 2400
-[RTV] Composite pass (HDR->swapchain) - frame 2400
-[RTV] RT Volume rendering active - frame 2520
-[RTV] Composite pass (HDR->swapchain) - frame 2520
-[RTV] RT Volume rendering active - frame 2640
-[RTV] Composite pass (HDR->swapchain) - frame 2640
-[RTV] RT Volume rendering active - frame 2760
-[RTV] Composite pass (HDR->swapchain) - frame 2760
-[RTV] RT Volume rendering active - frame 2880
-[RTV] Composite pass (HDR->swapchain) - frame 2880
-[RTV] RT Volume rendering active - frame 3000
-[RTV] Composite pass (HDR->swapchain) - frame 3000
-[RTV] RT Volume rendering active - frame 3120
-[RTV] Composite pass (HDR->swapchain) - frame 3120
-[RTV] RT Volume rendering active - frame 3240
-[RTV] Composite pass (HDR->swapchain) - frame 3240
-[RTV] RT Volume rendering active - frame 3360
-[RTV] Composite pass (HDR->swapchain) - frame 3360
-[RTV] RT Volume rendering active - frame 3480
-[RTV] Composite pass (HDR->swapchain) - frame 3480
-[RTV] RT Volume rendering active - frame 3600
-[RTV] Composite pass (HDR->swapchain) - frame 3600
-[RTV] RT Volume rendering active - frame 3720
-[RTV] Composite pass (HDR->swapchain) - frame 3720
-[RTV] RT Volume rendering active - frame 3840
-[RTV] Composite pass (HDR->swapchain) - frame 3840
-[RTV] RT Volume rendering active - frame 3960
-[RTV] Composite pass (HDR->swapchain) - frame 3960
-[RTV] RT Volume rendering active - frame 4080
-[RTV] Composite pass (HDR->swapchain) - frame 4080
-[RTV] RT Volume rendering active - frame 4200
-[RTV] Composite pass (HDR->swapchain) - frame 4200
-[RTV] RT Volume rendering active - frame 4320
-[RTV] Composite pass (HDR->swapchain) - frame 4320
-[RTV] RT Volume rendering active - frame 4440
-[RTV] Composite pass (HDR->swapchain) - frame 4440
-[RTV] RT Volume rendering active - frame 4560
-[RTV] Composite pass (HDR->swapchain) - frame 4560
-[RTV] RT Volume rendering active - frame 4680
-[RTV] Composite pass (HDR->swapchain) - frame 4680
-[RTV] RT Volume rendering active - frame 4800
-[RTV] Composite pass (HDR->swapchain) - frame 4800
-[RTV] RT Volume rendering active - frame 4920
-[RTV] Composite pass (HDR->swapchain) - frame 4920
-[RTV] RT Volume rendering active - frame 5040
-[RTV] Composite pass (HDR->swapchain) - frame 5040
-[RTV] RT Volume rendering active - frame 5160
-[RTV] Composite pass (HDR->swapchain) - frame 5160
-[RTV] RT Volume rendering active - frame 5280
-[RTV] Composite pass (HDR->swapchain) - frame 5280
-[RTV] RT Volume rendering active - frame 5400
-[RTV] Composite pass (HDR->swapchain) - frame 5400
-[RTV] RT Volume rendering active - frame 5520
-[RTV] Composite pass (HDR->swapchain) - frame 5520
-[RTV] RT Volume rendering active - frame 5640
-[RTV] Composite pass (HDR->swapchain) - frame 5640
-[RTV] RT Volume rendering active - frame 5760
-[RTV] Composite pass (HDR->swapchain) - frame 5760
-[RTV] RT Volume rendering active - frame 5880
-[RTV] Composite pass (HDR->swapchain) - frame 5880
-[RTV] RT Volume rendering active - frame 6000
-[RTV] Composite pass (HDR->swapchain) - frame 6000
-[RTV] RT Volume rendering active - frame 6120
-[RTV] Composite pass (HDR->swapchain) - frame 6120
-[RTV] RT Volume rendering active - frame 6240
-[RTV] Composite pass (HDR->swapchain) - frame 6240
-[RTV] RT Volume rendering active - frame 6360
-[RTV] Composite pass (HDR->swapchain) - frame 6360
-[RTV] RT Volume rendering active - frame 6480
-[RTV] Composite pass (HDR->swapchain) - frame 6480
-[RTV] RT Volume rendering active - frame 6600
-[RTV] Composite pass (HDR->swapchain) - frame 6600
-[RTV] RT Volume rendering active - frame 6720
-[RTV] Composite pass (HDR->swapchain) - frame 6720
-[RTV] RT Volume rendering active - frame 6840
-[RTV] Composite pass (HDR->swapchain) - frame 6840
-[RTV] RT Volume rendering active - frame 6960
-[RTV] Composite pass (HDR->swapchain) - frame 6960
-[RTV] RT Volume rendering active - frame 7080
-[RTV] Composite pass (HDR->swapchain) - frame 7080
-[RTV] RT Volume rendering active - frame 7200
-[RTV] Composite pass (HDR->swapchain) - frame 7200
-[RTV] RT Volume rendering active - frame 7320
-[RTV] Composite pass (HDR->swapchain) - frame 7320
-[RTV] RT Volume rendering active - frame 7440
-[RTV] Composite pass (HDR->swapchain) - frame 7440
-[RTV] RT Volume rendering active - frame 7560
-[RTV] Composite pass (HDR->swapchain) - frame 7560
-[RTV] RT Volume rendering active - frame 7680
-[RTV] Composite pass (HDR->swapchain) - frame 7680
-[RTV] RT Volume rendering active - frame 7800
-[RTV] Composite pass (HDR->swapchain) - frame 7800
-[RTV] RT Volume rendering active - frame 7920
-[RTV] Composite pass (HDR->swapchain) - frame 7920
-[RTV] RT Volume rendering active - frame 8040
-[RTV] Composite pass (HDR->swapchain) - frame 8040
-[RTV] RT Volume rendering active - frame 8160
-[RTV] Composite pass (HDR->swapchain) - frame 8160
-[RTV] RT Volume rendering active - frame 8280
-[RTV] Composite pass (HDR->swapchain) - frame 8280
-[RTV] RT Volume rendering active - frame 8400
-[RTV] Composite pass (HDR->swapchain) - frame 8400
-[RTV] RT Volume rendering active - frame 8520
-[RTV] Composite pass (HDR->swapchain) - frame 8520
-[RTV] RT Volume rendering active - frame 8640
-[RTV] Composite pass (HDR->swapchain) - frame 8640
-[RTV] RT Volume rendering active - frame 8760
-[RTV] Composite pass (HDR->swapchain) - frame 8760
-[RTV] RT Volume rendering active - frame 8880
-[RTV] Composite pass (HDR->swapchain) - frame 8880
-[RTV] RT Volume rendering active - frame 9000
-[RTV] Composite pass (HDR->swapchain) - frame 9000
-Application finished normally.
+Validation layer: vkCmdDispatch(): The VkPipeline 0x540000000054 (created with VkPipelineLayout 0x530000000053) statically uses descriptor set 0, but set 0 is not compatible with the pipeline layout bound with vkCmdBindDescriptorSets (VkPipelineLayout 0x180000000018)
+Pipeline layout pipeline bound with last call to vkCmdBindDescriptorSets has following push constant ranges:
+VkPushConstantRange[0]: range [0, 108) for VK_SHADER_STAGE_COMPUTE_BIT
+But pipeline layout of last bound pipeline or last bound shaders has following push constant ranges:
+VkPushConstantRange[0]: range [0, 48) for VK_SHADER_STAGE_COMPUTE_BIT
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+[RTV] Density grid updated - 1000000 particles, 15625 workgroups
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=0, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=0, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=1, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=1, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=1, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=1, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=2, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=2, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=2, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=2, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=3, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=3, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=3, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=3, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=4, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=4, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=4, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=4, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Validation Error: [ VUID-VkImageMemoryBarrier2-oldLayout-01197 ] | MessageID = 0x2c8c6e7d
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=5, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkImage 0x4d000000004d
+
+Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0].image (VkImage 0x4d000000004d) cannot transition the layout of aspect=1, level=5, layer=0 from VK_IMAGE_LAYOUT_GENERAL when the previous known layout is VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+The Vulkan spec states: If srcQueueFamilyIndex and dstQueueFamilyIndex define a queue family ownership transfer or oldLayout and newLayout define an image layout transition, oldLayout must be VK_IMAGE_LAYOUT_UNDEFINED or the current layout of the image subresources affected by the barrier (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-VkImageMemoryBarrier2-oldLayout-01197)
+[RTV] Mip chain generated (8 levels)
+[RTV] Composite pass (HDR->swapchain) - frame 0
+Validation Error: [ VUID-vkCmdDispatch-None-08600 ] | MessageID = 0x3450abd3
+vkCmdDispatch(): The VkPipeline 0x540000000054 statically uses descriptor set 0, but because a descriptor was never bound, the pipeline layouts are not compatible.
+If using a descriptor, make sure to call one of vkCmdBindDescriptorSets, vkCmdPushDescriptorSet, vkCmdSetDescriptorBufferOffset, etc for VK_PIPELINE_BIND_POINT_COMPUTE.
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662fa80
+    [1] VkPipeline 0x540000000054
+
+Validation layer: vkCmdDispatch(): The VkPipeline 0x540000000054 statically uses descriptor set 0, but because a descriptor was never bound, the pipeline layouts are not compatible.
+If using a descriptor, make sure to call one of vkCmdBindDescriptorSets, vkCmdPushDescriptorSet, vkCmdSetDescriptorBufferOffset, etc for VK_PIPELINE_BIND_POINT_COMPUTE.
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+Validation Error: [ VUID-vkCmdDispatch-None-08600 ] | MessageID = 0x3450abd3
+vkCmdDispatch(): The VkPipeline 0x540000000054 statically uses descriptor set 0, but because a descriptor was never bound, the pipeline layouts are not compatible.
+If using a descriptor, make sure to call one of vkCmdBindDescriptorSets, vkCmdPushDescriptorSet, vkCmdSetDescriptorBufferOffset, etc for VK_PIPELINE_BIND_POINT_COMPUTE.
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd66335d0
+    [1] VkPipeline 0x540000000054
+Validation layer: vkCmdDispatch(): The VkPipeline 0x540000000054 statically uses descriptor set 0, but because a descriptor was never bound, the pipeline layouts are not compatible.
+If using a descriptor, make sure to call one of vkCmdBindDescriptorSets, vkCmdPushDescriptorSet, vkCmdSetDescriptorBufferOffset, etc for VK_PIPELINE_BIND_POINT_COMPUTE.
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+
+Validation Error: [ VUID-vkAcquireNextImageKHR-semaphore-01779 ] | MessageID = 0x5717e75b
+vkAcquireNextImageKHR(): Semaphore must not have any pending operations.
+The Vulkan spec states: If semaphore is not VK_NULL_HANDLE, it must not have any uncompleted signal or wait operations pending (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/VK_KHR_surface/wsi.html#VUID-vkAcquireNextImageKHR-semaphore-01779)
+Objects: 1
+    [0] VkSemaphore 0xb000000000b
+
+Validation layer: vkAcquireNextImageKHR(): Semaphore must not have any pending operations.
+The Vulkan spec states: If semaphore is not VK_NULL_HANDLE, it must not have any uncompleted signal or wait operations pending (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/VK_KHR_surface/wsi.html#VUID-vkAcquireNextImageKHR-semaphore-01779)
+Validation Error: [ VUID-vkResetFences-pFences-01123 ] | MessageID = 0x68a5074e
+vkResetFences(): pFences[0] (VkFence 0xd000000000d) is in use.
+The Vulkan spec states: Each element of pFences must not be currently associated with any queue command that has not yet completed execution on that queue (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkResetFences-pFences-01123)
+Objects: 1
+    [0] VkFence 0xd000000000d
+
+Validation layer: vkResetFences(): pFences[0] (VkFence 0xd000000000d) is in use.
+The Vulkan spec states: Each element of pFences must not be currently associated with any queue command that has not yet completed execution on that queue (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkResetFences-pFences-01123)
+Validation Error: [ VUID-vkResetCommandBuffer-commandBuffer-00045 ] | MessageID = 0x1e7883ea
+vkResetCommandBuffer(): (VkCommandBuffer 0x1fcd662bf30) is in use.
+The Vulkan spec states: commandBuffer must not be in the pending state (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkResetCommandBuffer-commandBuffer-00045)
+Objects: 2
+    [0] VkCommandBuffer 0x1fcd662bf30
+    [1] VkCommandPool 0xa000000000a
+
+Validation layer: vkResetCommandBuffer(): (VkCommandBuffer 0x1fcd662bf30) is in use.
+The Vulkan spec states: commandBuffer must not be in the pending state (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkResetCommandBuffer-commandBuffer-00045)
+Validation Error: [ VUID-vkBeginCommandBuffer-commandBuffer-00049 ] | MessageID = 0x84029a9f
+vkBeginCommandBuffer(): on active VkCommandBuffer 0x1fcd662bf30 before it has completed. You must check command buffer fence before this call.
+The Vulkan spec states: commandBuffer must not be in the recording or pending state (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkBeginCommandBuffer-commandBuffer-00049)
+Objects: 1
+    [0] VkCommandBuffer 0x1fcd662bf30
+
+Validation layer: vkBeginCommandBuffer(): on active VkCommandBuffer 0x1fcd662bf30 before it has completed. You must check command buffer fence before this call.
+The Vulkan spec states: commandBuffer must not be in the recording or pending state (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkBeginCommandBuffer-commandBuffer-00049)
+Validation Error: [ VUID-vkCmdDispatch-None-08600 ] | MessageID = 0x3450abd3
+vkCmdDispatch(): The VkPipeline 0x540000000054 (created with VkPipelineLayout 0x530000000053) statically uses descriptor set 0, but set 0 is not compatible with the pipeline layout bound with vkCmdBindDescriptorSets (VkPipelineLayout 0x180000000018)
+Pipeline layout pipeline bound with last call to vkCmdBindDescriptorSets has following push constant ranges:
+VkPushConstantRange[0]: range [0, 108) for VK_SHADER_STAGE_COMPUTE_BIT
+But pipeline layout of last bound pipeline or last bound shaders has following push constant ranges:
+VkPushConstantRange[0]: range [0, 48) for VK_SHADER_STAGE_COMPUTE_BIT
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+Objects: 2
+    [0] VkPipeline 0x540000000054
+    [1] VkPipelineLayout 0x180000000018
+
+Validation layer: vkCmdDispatch(): The VkPipeline 0x540000000054 (created with VkPipelineLayout 0x530000000053) statically uses descriptor set 0, but set 0 is not compatible with the pipeline layout bound with vkCmdBindDescriptorSets (VkPipelineLayout 0x180000000018)
+Pipeline layout pipeline bound with last call to vkCmdBindDescriptorSets has following push constant ranges:
+VkPushConstantRange[0]: range [0, 108) for VK_SHADER_STAGE_COMPUTE_BIT
+But pipeline layout of last bound pipeline or last bound shaders has following push constant ranges:
+VkPushConstantRange[0]: range [0, 48) for VK_SHADER_STAGE_COMPUTE_BIT
+The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline or the VkDescriptorSetLayout array used to create the current VkShaderEXT , as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/dispatch.html#VUID-vkCmdDispatch-None-08600)
+Validation Error: [ VUID-vkQueueSubmit2-commandBuffer-03875 ] | MessageID = 0xc1c74a9c
+vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer VkCommandBuffer 0x1fcd662bf30 is already in use and is not marked for simultaneous use.
+The Vulkan spec states: If a command recorded into the commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits was not recorded with the VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT, it must not be in the pending state (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03875)
+
+Validation layer: vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer VkCommandBuffer 0x1fcd662bf30 is already in use and is not marked for simultaneous use.
+The Vulkan spec states: If a command recorded into the commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits was not recorded with the VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT, it must not be in the pending state (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03875)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkBuffer 0x140000000014 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkBuffer 0x140000000014 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkBuffer 0x140000000014 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkBuffer 0x140000000014
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkBuffer 0x140000000014 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x2b000000002b has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x2b000000002b has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x2b000000002b
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x2b000000002b has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x2b000000002b has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x3b000000003b has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x550000000055 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x550000000055
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x550000000055 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x3b000000003b has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x3b000000003b
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x3b000000003b has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x3b000000003b has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x370000000037 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x630000000063 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Objects: 1
+    [0] VkImage 0x630000000063
+
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x630000000063 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x370000000037 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x370000000037
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x370000000037 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x370000000037 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x5b000000005b has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-Objects: 1
-    [0] VkImage 0x5b000000005b
-
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x5b000000005b has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x310000000031 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x310000000031 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x310000000031
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x310000000031 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x310000000031 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x270000000027 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x270000000027 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x270000000027
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x270000000027 has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x270000000027 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x4d000000004d has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x4d000000004d has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkImage 0x4d000000004d
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkImage 0x4d000000004d has not been destroyed.
+Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkImage 0x4d000000004d has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkDeviceMemory 0x150000000015 has not been destroyed.
+(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkDeviceMemory 0x150000000015 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 Objects: 1
     [0] VkDeviceMemory 0x150000000015
 
-Validation layer: vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkDeviceMemory 0x150000000015 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-Validation Error: [ VUID-vkDestroyDevice-device-05137 ] | MessageID = 0x4872eaa0
-(Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkDeviceMemory 0x280000000028 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-Objects: 1
-    [0] VkDeviceMemory 0x280000000028
-
 Validation layer: (Warning - This VUID has now been reported 10 times, which is the duplicated_message_limit value, this will be the last time reporting it).
-vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcc8361c70, VkDeviceMemory 0x280000000028 has not been destroyed.
+vkDestroyDevice(): Object Tracking - For VkDevice 0x1fcd6638320, VkDeviceMemory 0x150000000015 has not been destroyed.
 The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)

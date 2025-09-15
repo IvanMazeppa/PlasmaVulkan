@@ -17,6 +17,7 @@ set(SHADER_SOURCES
     sph_simple.comp
     density_splat.comp
     density_splat_scatter.comp
+    density_splat_rt.comp
     volume.vert
     volume.frag
     # TAA (Temporal Anti-Aliasing) shaders for noise reduction
